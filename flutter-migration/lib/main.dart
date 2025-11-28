@@ -4,11 +4,10 @@ import 'core/supabase_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
-  // TODO: Replace with your actual Supabase credentials
+  // Initialize Supabase with actual credentials
   await SupabaseConfig.initialize(
-    url: 'YOUR_SUPABASE_URL', // e.g., https://xxxxx.supabase.co
-    anonKey: 'YOUR_SUPABASE_ANON_KEY',
+    url: 'https://gxllowlurizrkvpdircw.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs',
   );
 
   runApp(const PocketBizzApp());
@@ -68,4 +67,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
