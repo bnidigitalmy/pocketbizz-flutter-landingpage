@@ -8,3 +8,16 @@ encore.gen.go
 encore.gen.cue
 /.encore
 /encore.gen
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+.metadata
+*.iml
+.idea/
