@@ -9,6 +9,7 @@ import 'features/dashboard/presentation/home_page.dart';
 import 'features/bookings/presentation/bookings_page.dart';
 import 'features/bookings/presentation/create_booking_page.dart';
 import 'features/products/presentation/product_list_page.dart';
+import 'features/products/presentation/add_product_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ class PocketBizzApp extends StatelessWidget {
         '/bookings': (context) => const BookingsPage(),
         '/bookings/create': (context) => const CreateBookingPage(),
         '/products': (context) => const ProductListPage(),
+        '/products/add': (context) => const AddProductPage(),
       },
     );
   }

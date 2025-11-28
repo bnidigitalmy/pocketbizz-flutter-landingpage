@@ -112,13 +112,11 @@ class _ProductListPageState extends State<ProductListPage> {
                     ),
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Navigate to add product page
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Add Product - Coming soon!'),
-            ),
-          );
+        onPressed: () async {
+          final result = await Navigator.of(context).pushNamed('/products/add');
+          if (result == true && mounted) {
+            _loadProducts();
+          }
         },
         child: const Icon(Icons.add),
       ),
