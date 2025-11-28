@@ -17,7 +17,7 @@ class ProductsRepositorySupabase {
           'name': product.name,
           'sku': product.sku,
           'category': product.category,
-          'sale_price': product.price,
+          'sale_price': product.salePrice,
           'cost_price': product.costPrice ?? 0,
           'description': product.description,
           'unit': product.unit ?? 'pcs',
@@ -45,8 +45,9 @@ class ProductsRepositorySupabase {
     String? searchQuery,
     int limit = 100,
   }) async {
-    var query = supabase.from('products').select().limit(limit);
+    var query = supabase.from('products').select();
 
+    // Apply filters if provided
     if (category != null && category.isNotEmpty) {
       query = query.eq('category', category);
     }
@@ -55,7 +56,8 @@ class ProductsRepositorySupabase {
       query = query.ilike('name', '%$searchQuery%');
     }
 
-    final data = await query.order('name');
+    // Execute query with order and limit
+    final data = await query.order('name').limit(limit);
     return (data as List).map((json) => Product.fromJson(json)).toList();
   }
 

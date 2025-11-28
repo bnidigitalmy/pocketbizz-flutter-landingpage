@@ -123,9 +123,9 @@ class BookingsRepositorySupabase {
   Future<String> _generateBookingNumber() async {
     final count = await supabase
         .from('bookings')
-        .select('id', const FetchOptions(count: CountOption.exact));
+        .count();
 
-    final nextNumber = (count.count ?? 0) + 1;
+    final nextNumber = count + 1;
     return 'B${nextNumber.toString().padLeft(4, '0')}';
   }
 
@@ -224,15 +224,18 @@ class BookingsRepositorySupabase {
   }) async {
     var query = supabase
         .from('bookings')
-        .select('*, booking_items(*)')
-        .order('created_at', ascending: false)
-        .limit(limit);
+        .select('*, booking_items(*)');
 
+    // Apply status filter if provided
     if (status != null && status.isNotEmpty) {
       query = query.eq('status', status);
     }
 
-    final data = await query;
+    // Execute query with order and limit
+    final data = await query
+        .order('created_at', ascending: false)
+        .limit(limit);
+
     return (data as List).map((json) => Booking.fromJson(json)).toList();
   }
 

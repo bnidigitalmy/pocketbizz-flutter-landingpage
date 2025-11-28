@@ -113,7 +113,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Price: RM${product.price.toStringAsFixed(2)}'),
+              Text('Price: RM${product.salePrice.toStringAsFixed(2)}'),
               const SizedBox(height: 16),
               TextField(
                 controller: qtyController,
@@ -138,7 +138,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                     'product_id': product.id,
                     'product_name': product.name,
                     'quantity': qty,
-                    'unit_price': product.price,
+                    'unit_price': product.salePrice,
                   });
                 });
                 Navigator.pop(context);
@@ -382,7 +382,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                           return ListTile(
                             title: Text(product.name),
                             subtitle: Text(
-                              'RM${product.price.toStringAsFixed(2)} | ${product.category}',
+                              'RM${product.salePrice.toStringAsFixed(2)} | ${product.category ?? "No Category"}',
                             ),
                             trailing: const Icon(Icons.add_circle),
                             onTap: () {
