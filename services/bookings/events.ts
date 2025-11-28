@@ -1,4 +1,4 @@
-import { topic } from "encore.dev/pubsub";
+import { Topic } from "encore.dev/pubsub";
 
 export interface BookingCreatedEvent {
   bookingId: string;
@@ -12,8 +12,11 @@ export interface BookingStatusUpdatedEvent {
   status: string;
 }
 
-export const OnBookingCreated = topic<BookingCreatedEvent>("booking-created");
-export const OnBookingStatusUpdated = topic<BookingStatusUpdatedEvent>(
-  "booking-status-updated"
+export const OnBookingCreated = new Topic<BookingCreatedEvent>("booking-created", {
+  deliveryGuarantee: "at-least-once",
+});
+export const OnBookingStatusUpdated = new Topic<BookingStatusUpdatedEvent>(
+  "booking-status-updated",
+  { deliveryGuarantee: "at-least-once" }
 );
 

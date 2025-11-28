@@ -1,4 +1,4 @@
-import { topic } from "encore.dev/pubsub";
+import { Topic } from "encore.dev/pubsub";
 
 export interface POCreatedEvent {
   po_id: string;
@@ -15,7 +15,13 @@ export interface GRNCreatedEvent {
   business_owner_id: string;
 }
 
-export const OnPOCreated = topic<POCreatedEvent>("OnPOCreated");
-export const OnPOApproved = topic<POApprovedEvent>("OnPOApproved");
-export const OnGRNCreated = topic<GRNCreatedEvent>("OnGRNCreated");
+export const OnPOCreated = new Topic<POCreatedEvent>("OnPOCreated", {
+  deliveryGuarantee: "at-least-once",
+});
+export const OnPOApproved = new Topic<POApprovedEvent>("OnPOApproved", {
+  deliveryGuarantee: "at-least-once",
+});
+export const OnGRNCreated = new Topic<GRNCreatedEvent>("OnGRNCreated", {
+  deliveryGuarantee: "at-least-once",
+});
 

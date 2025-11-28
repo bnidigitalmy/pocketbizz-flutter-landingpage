@@ -1,4 +1,4 @@
-import { topic } from "encore.dev/pubsub";
+import { Topic } from "encore.dev/pubsub";
 
 export interface DriveFileSyncedEvent {
   logId: string;
@@ -6,5 +6,7 @@ export interface DriveFileSyncedEvent {
   fileType: string;
 }
 
-export const OnDriveFileSynced = topic<DriveFileSyncedEvent>("drive-file-synced");
+export const OnDriveFileSynced = new Topic<DriveFileSyncedEvent>("drive-file-synced", {
+  deliveryGuarantee: "at-least-once",
+});
 
