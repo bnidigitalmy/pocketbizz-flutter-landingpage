@@ -42,22 +42,22 @@ class DashboardRepository {
         QuickAction(
           label: 'New Sale',
           route: '/sales/create',
-          icon: const ActionIcon(Icons.point_of_sale_rounded.codePoint),
+          icon: ActionIcon(Icons.point_of_sale_rounded.codePoint),
         ),
         QuickAction(
           label: 'Add Product',
           route: '/products/add',
-          icon: const ActionIcon(Icons.add_box_rounded.codePoint),
+          icon: ActionIcon(Icons.add_box_rounded.codePoint),
         ),
         QuickAction(
           label: 'Add Expense',
           route: '/expenses/add',
-          icon: const ActionIcon(Icons.receipt_long_rounded.codePoint),
+          icon: ActionIcon(Icons.receipt_long_rounded.codePoint),
         ),
         QuickAction(
           label: 'Add Stock',
           route: '/inventory/add',
-          icon: const ActionIcon(Icons.inventory_2_rounded.codePoint),
+          icon: ActionIcon(Icons.inventory_2_rounded.codePoint),
         ),
       ];
 }
