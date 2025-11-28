@@ -35,12 +35,12 @@ export const createOrder = api<CreateOrderRequest, OrderResponse>(
   }
 );
 
-export const listOrders = api<void, OrderListResponse>(
+export const listOrders = api(
   {
     method: "GET",
     path: "/myshop/orders",
   },
-  async () => {
+  async (): Promise<OrderListResponse> => {
     // TODO(p1): fetch orders with pagination and filtering
     return { orders: [] };
   }

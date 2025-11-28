@@ -115,12 +115,12 @@ export const uploadReceipt = api<UploadOCRRequest, UploadOCRResponse>(
   }
 );
 
-export const listExpenses = api<void, ExpenseListResponse>(
+export const listExpenses = api(
   {
     method: "GET",
     path: "/expenses/list",
   },
-  async () => {
+  async (): Promise<ExpenseListResponse> => {
     const rows = await supabaseSelect<ExpenseRow>(EXPENSES_TABLE, (query) =>
       query.order("expense_date", { ascending: false }).limit(100)
     );
@@ -130,12 +130,12 @@ export const listExpenses = api<void, ExpenseListResponse>(
   }
 );
 
-export const ocrCleanup = api<void, { removed: number }>(
+export const ocrCleanup = api(
   {
     method: "POST",
     path: "/ocr/cleanup",
   },
-  async () => {
+  async (): Promise<{ removed: number }> => {
     // TODO(p2): remove expired OCR artifacts from storage
     return { removed: 0 };
   }

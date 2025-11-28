@@ -30,12 +30,12 @@ export const updateVendor = api<UpsertVendorRequest, VendorResponse>(
   }
 );
 
-export const listVendors = api<void, VendorListResponse>(
+export const listVendors = api(
   {
     method: "GET",
     path: "/vendors/list",
   },
-  async () => {
+  async (): Promise<VendorListResponse> => {
     // TODO(p1): fetch and filter vendor list from Supabase
     return { vendors: [] };
   }

@@ -8,12 +8,12 @@ import {
   ReportGenerationResponse,
 } from "./types";
 
-export const analyticsOverview = api<void, AnalyticsOverviewResponse>(
+export const analyticsOverview = api(
   {
     method: "GET",
     path: "/analytics/overview",
   },
-  async () => {
+  async (): Promise<AnalyticsOverviewResponse> => {
     // TODO(p2): aggregate Supabase metrics for dashboard cards
     return {
       summary: {
@@ -26,12 +26,12 @@ export const analyticsOverview = api<void, AnalyticsOverviewResponse>(
   }
 );
 
-export const generateMonthlyReport = api<void, ReportGenerationResponse>(
+export const generateMonthlyReport = api(
   {
     method: "POST",
     path: "/analytics/generate-report",
   },
-  async () => {
+  async (): Promise<ReportGenerationResponse> => {
     // TODO(p2): collect KPIs and upload compiled PDF/CSV artifact
     return {
       reportId: crypto.randomUUID(),

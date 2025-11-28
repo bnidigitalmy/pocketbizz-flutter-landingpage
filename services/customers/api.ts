@@ -20,12 +20,12 @@ export const createCustomer = api<UpsertCustomerRequest, CustomerResponse>(
   }
 );
 
-export const listCustomers = api<void, CustomerListResponse>(
+export const listCustomers = api(
   {
     method: "GET",
     path: "/customers/list",
   },
-  async () => {
+  async (): Promise<CustomerListResponse> => {
     // TODO(p1): query customers scoped to current workspace/account
     return { customers: [] };
   }
