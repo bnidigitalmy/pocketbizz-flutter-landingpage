@@ -242,7 +242,11 @@ export const assignProduct = api<AssignProductRequest, SupplierProductsResponse>
   }
 );
 
-export const supplierProducts = api<{ authorization: Header<"Authorization">; id: string }, SupplierProductsResponse>(
+interface SupplierProductsRequest extends AuthorizedOnly {
+  id: string;
+}
+
+export const supplierProducts = api<SupplierProductsRequest, SupplierProductsResponse>(
   { method: "GET", path: "/suppliers/:id/products" },
   async ({ authorization, id }) => {
     const { client, ownerId } = resolveAuthContext(authorization);
