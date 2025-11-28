@@ -45,19 +45,27 @@ class _TestPageState extends State<TestPage> {
   Future<void> _testConnection() async {
     setState(() {
       _loading = true;
-      _status = 'Testing connection...';
+      _status = 'Signing in & testing connection...';
     });
 
     try {
-      // Test 1: List products
+      // Sign in first (required for RLS)
+      await supabase.auth.signInWithPassword(
+        email: 'admin@pocketbizz.my',
+        password: 'Bani@#243643',
+      );
+
+      // Test: List products
       final products = await supabase
           .from('products')
           .select()
           .limit(10);
 
+      final userId = supabase.auth.currentUser?.id ?? 'Not authenticated';
+      
       setState(() {
         _products = List<Map<String, dynamic>>.from(products);
-        _status = 'Success! Found ${products.length} products';
+        _status = 'Success! Signed in as admin@pocketbizz.my (ID: $userId). Found ${products.length} products';
         _loading = false;
       });
     } catch (e) {
@@ -71,28 +79,27 @@ class _TestPageState extends State<TestPage> {
   Future<void> _createTestProduct() async {
     setState(() {
       _loading = true;
-      _status = 'Creating test user & product...';
+      _status = 'Signing in & creating product...';
     });
 
     try {
-      // First, sign up a test user (required for RLS)
-      try {
-        await supabase.auth.signUp(
-          email: 'test@pocketbizz.com',
-          password: 'test123456',
-        );
-      } catch (e) {
-        // User might already exist, try signing in
-        await supabase.auth.signInWithPassword(
-          email: 'test@pocketbizz.com',
-          password: 'test123456',
-        );
+      // Sign in with admin user
+      await supabase.auth.signInWithPassword(
+        email: 'admin@pocketbizz.my',
+        password: 'Bani@#243643',
+      );
+
+      // Get authenticated user ID
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
       }
 
       // Now create product (with correct column names!)
       final newProduct = await supabase
           .from('products')
           .insert({
+            'business_owner_id': userId,  // Required!
             'name': 'Test Product ${DateTime.now().millisecond}',
             'sku': 'TEST-${DateTime.now().millisecond}',
             'category': 'Test',
