@@ -164,13 +164,16 @@ class _ProductListPageState extends State<ProductListPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await Navigator.push(
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const AddProductWithRecipePage(),
             ),
           );
-          _loadProducts();
+          // Refresh list if product was created successfully
+          if (result == true && mounted) {
+            _loadProducts();
+          }
         },
         icon: const Icon(Icons.add),
         label: const Text('Tambah Produk'),

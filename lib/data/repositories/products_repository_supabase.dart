@@ -16,12 +16,17 @@ class ProductsRepositorySupabase {
           'business_owner_id': userId,
           'name': product.name,
           'sku': product.sku,
+          'category_id': product.categoryId,
           'category': product.category,
           'sale_price': product.salePrice,
-          'cost_price': product.costPrice ?? 0,
+          'cost_price': product.costPrice,
           'description': product.description,
-          'unit': product.unit ?? 'pcs',
+          'unit': product.unit,
           'image_url': product.imageUrl,
+          'units_per_batch': product.unitsPerBatch,
+          'labour_cost': product.labourCost,
+          'other_costs': product.otherCosts,
+          'packaging_cost': product.packagingCost,
         })
         .select()
         .single();
