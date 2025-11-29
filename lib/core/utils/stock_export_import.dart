@@ -15,13 +15,13 @@ class StockExportImport {
 
     // Header row
     sheet.appendRow([
-      const TextCellValue('Item Name'),
-      const TextCellValue('Unit'),
-      const TextCellValue('Package Size'),
-      const TextCellValue('Purchase Price (RM)'),
-      const TextCellValue('Current Quantity'),
-      const TextCellValue('Low Stock Threshold'),
-      const TextCellValue('Notes'),
+      TextCellValue('Item Name'),
+      TextCellValue('Unit'),
+      TextCellValue('Package Size'),
+      TextCellValue('Purchase Price (RM)'),
+      TextCellValue('Current Quantity'),
+      TextCellValue('Low Stock Threshold'),
+      TextCellValue('Notes'),
     ]);
 
     // Data rows
@@ -100,34 +100,34 @@ class StockExportImport {
 
     // Header row
     sheet.appendRow([
-      const TextCellValue('Item Name'),
-      const TextCellValue('Unit'),
-      const TextCellValue('Package Size'),
-      const TextCellValue('Purchase Price (RM)'),
-      const TextCellValue('Current Quantity'),
-      const TextCellValue('Low Stock Threshold'),
-      const TextCellValue('Notes'),
+      TextCellValue('Item Name'),
+      TextCellValue('Unit'),
+      TextCellValue('Package Size'),
+      TextCellValue('Purchase Price (RM)'),
+      TextCellValue('Current Quantity'),
+      TextCellValue('Low Stock Threshold'),
+      TextCellValue('Notes'),
     ]);
 
     // Sample data rows
     sheet.appendRow([
-      const TextCellValue('Tepung Gandum'),
-      const TextCellValue('kg'),
-      const DoubleCellValue(1.0),
-      const DoubleCellValue(5.50),
-      const DoubleCellValue(10.0),
-      const DoubleCellValue(5.0),
-      const TextCellValue('Sample item'),
+      TextCellValue('Tepung Gandum'),
+      TextCellValue('kg'),
+      DoubleCellValue(1.0),
+      DoubleCellValue(5.50),
+      DoubleCellValue(10.0),
+      DoubleCellValue(5.0),
+      TextCellValue('Sample item'),
     ]);
 
     sheet.appendRow([
-      const TextCellValue('Gula Pasir'),
-      const TextCellValue('kg'),
-      const DoubleCellValue(1.0),
-      const DoubleCellValue(3.20),
-      const DoubleCellValue(8.0),
-      const DoubleCellValue(3.0),
-      const TextCellValue(''),
+      TextCellValue('Gula Pasir'),
+      TextCellValue('kg'),
+      DoubleCellValue(1.0),
+      DoubleCellValue(3.20),
+      DoubleCellValue(8.0),
+      DoubleCellValue(3.0),
+      TextCellValue(''),
     ]);
 
     // Save file

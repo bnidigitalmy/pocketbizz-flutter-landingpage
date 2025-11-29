@@ -4,8 +4,14 @@ import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../core/utils/unit_conversion.dart';
+import '../../../core/utils/stock_export_import.dart';
 import 'add_edit_stock_item_page.dart';
 import 'stock_detail_page.dart';
+import 'stock_history_page.dart';
+import 'widgets/replenish_stock_dialog.dart';
+import 'widgets/smart_filters_widget.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// Stock Management Page - List all stock items
 class StockPage extends StatefulWidget {
@@ -22,6 +28,14 @@ class _StockPageState extends State<StockPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   bool _showOnlyLowStock = false;
+  bool _isExporting = false;
+  
+  // Smart Filters state
+  final Map<String, bool> _quickFilters = {
+    'lowStock': false,
+    'outOfStock': false,
+    'inStock': false,
+  };
 
   @override
   void initState() {
@@ -58,74 +72,247 @@ class _StockPageState extends State<StockPage> {
         final matchesSearch = _searchQuery.isEmpty ||
             item.name.toLowerCase().contains(_searchQuery.toLowerCase());
 
-        // Low stock filter
-        final matchesLowStock = !_showOnlyLowStock || item.isLowStock;
+        // Quick filters
+        if (_quickFilters['lowStock'] == true && !item.isLowStock) return false;
+        if (_quickFilters['outOfStock'] == true && item.currentQuantity > 0) return false;
+        if (_quickFilters['inStock'] == true && item.currentQuantity <= 0) return false;
 
-        return matchesSearch && matchesLowStock;
+        return matchesSearch;
       }).toList();
     });
   }
 
+  void _toggleQuickFilter(String key) {
+    setState(() {
+      _quickFilters[key] = !(_quickFilters[key] ?? false);
+    });
+    _applyFilters();
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _quickFilters.updateAll((key, value) => false);
+      _searchQuery = '';
+    });
+    _applyFilters();
+  }
+
+  Future<void> _handleExportExcel() async {
+    setState(() => _isExporting = true);
+    
+    try {
+      final filePath = await StockExportImport.exportToExcel(_stockItems);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Exported to: $filePath'),
+            backgroundColor: AppColors.success,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _handleExportCSV() async {
+    setState(() => _isExporting = true);
+    
+    try {
+      final filePath = await StockExportImport.exportToCSV(_stockItems);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Exported to: $filePath'),
+            backgroundColor: AppColors.success,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _handleImport() async {
+    try {
+      final filePath = await StockExportImport.pickFile();
+      if (filePath == null) return;
+
+      // Parse file
+      List<Map<String, dynamic>> data;
+      if (filePath.endsWith('.csv')) {
+        data = await StockExportImport.parseCSVFile(filePath);
+      } else {
+        data = await StockExportImport.parseExcelFile(filePath);
+      }
+
+      // Validate
+      final validation = StockExportImport.validateImportData(data);
+      
+      if (!validation['valid']) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Validation Errors'),
+              content: SingleChildScrollView(
+                child: Text(validation['errors'].join('\n')),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // Import to database
+      // TODO: Implement bulk import API
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Import API not implemented yet'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showReplenishDialog(StockItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => ReplenishStockDialog(
+        stockItem: item,
+        onSuccess: _loadStockItems,
+      ),
+    );
+  }
+
+  void _navigateToHistory(StockItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StockHistoryPage(stockItemId: item.id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lowStockCount = _stockItems.where((item) => item.isLowStock).length;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Stock Management'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Stok Gudang'),
+            Text(
+              '${_filteredItems.length} item',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // Export Excel
           IconButton(
-            icon: Icon(
-              _showOnlyLowStock ? Icons.filter_alt : Icons.filter_alt_outlined,
-            ),
-            onPressed: () {
-              setState(() => _showOnlyLowStock = !_showOnlyLowStock);
-              _applyFilters();
-            },
-            tooltip: 'Show only low stock',
+            icon: const Icon(Icons.table_chart),
+            onPressed: _isExporting ? null : _handleExportExcel,
+            tooltip: 'Export Excel',
+          ),
+          // Export CSV
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: _isExporting ? null : _handleExportCSV,
+            tooltip: 'Export CSV',
+          ),
+          // Import
+          IconButton(
+            icon: const Icon(Icons.upload),
+            onPressed: _handleImport,
+            tooltip: 'Import',
           ),
         ],
       ),
       body: Column(
         children: [
-          // Search Bar
+          // Low Stock Alert
+          if (lowStockCount > 0)
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: AppColors.warning.withOpacity(0.1),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber, color: AppColors.warning),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '⚠️ $lowStockCount item stok rendah!',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          // Smart Filters
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              onChanged: (value) {
+            color: Colors.white,
+            child: SmartFiltersWidget(
+              quickFilters: _quickFilters,
+              onQuickFilterToggle: _toggleQuickFilter,
+              searchQuery: _searchQuery,
+              onSearchChanged: (value) {
                 setState(() => _searchQuery = value);
                 _applyFilters();
               },
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Search stock items...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                prefixIcon: const Icon(Icons.search, color: Colors.white),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.2),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
+              onClearAll: _clearAllFilters,
             ),
           ),
+          
+          const Divider(height: 1),
 
           // Stock Stats
           _buildStockStats(),
@@ -320,19 +507,40 @@ class _StockPageState extends State<StockPage> {
                     ),
                   ),
 
-                  // Edit button
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    onPressed: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              AddEditStockItemPage(stockItem: item),
-                        ),
-                      );
-                      if (result == true) _loadStockItems();
-                    },
+                  // Action Buttons
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // History
+                      IconButton(
+                        icon: const Icon(Icons.history, size: 20),
+                        onPressed: () => _navigateToHistory(item),
+                        tooltip: 'Sejarah',
+                        color: Colors.blue,
+                      ),
+                      // Replenish
+                      IconButton(
+                        icon: const Icon(Icons.add_circle, size: 20),
+                        onPressed: () => _showReplenishDialog(item),
+                        tooltip: 'Tambah Stok',
+                        color: AppColors.success,
+                      ),
+                      // Edit
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  AddEditStockItemPage(stockItem: item),
+                            ),
+                          );
+                          if (result == true) _loadStockItems();
+                        },
+                        tooltip: 'Edit',
+                      ),
+                    ],
                   ),
                 ],
               ),

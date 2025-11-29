@@ -246,7 +246,7 @@ class _StockHistoryPageState extends State<StockHistoryPage> {
 
   Widget _buildMovementCard(StockMovement movement) {
     final isIncrease = movement.quantityChange > 0;
-    final config = _getMovementConfig(movement.movementType);
+    final config = _getMovementConfig(movement.movementType.toString().split('.').last);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

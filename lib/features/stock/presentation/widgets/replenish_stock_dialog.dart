@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/stock_item.dart';
+import '../../../../data/models/stock_movement.dart';
 import '../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../core/supabase/supabase_client.dart';
 
@@ -60,10 +61,12 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
       
       // Record stock movement
       await repo.recordStockMovement(
-        stockItemId: widget.stockItem.id,
-        movementType: 'replenish',
-        quantityChange: additionalQty,
-        reason: 'Replenish stock - Added $additionalQty ${widget.stockItem.unit}',
+        StockMovementInput(
+          stockItemId: widget.stockItem.id,
+          movementType: StockMovementType.replenish,
+          quantityChange: additionalQty,
+          reason: 'Replenish stock - Added $additionalQty ${widget.stockItem.unit}',
+        ),
       );
 
       // Update stock item with new quantity and optionally new price/package size
