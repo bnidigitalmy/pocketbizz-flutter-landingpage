@@ -188,14 +188,19 @@ class RecipesRepositorySupabase {
   }) async {
     final userId = supabase.auth.currentUser!.id;
 
-    // Get stock item cost
+    // Get stock item cost (calculate from purchase_price and package_size)
     final stockResponse = await supabase
         .from('stock_items')
-        .select('cost_per_unit')
+        .select('purchase_price, package_size')
         .eq('id', stockItemId)
         .single();
 
-    final costPerUnit = (stockResponse['cost_per_unit'] as num).toDouble();
+    final purchasePrice = (stockResponse['purchase_price'] as num).toDouble();
+    final packageSize = (stockResponse['package_size'] as num).toDouble();
+    
+    // Calculate cost per unit: purchase_price / package_size
+    // Example: RM21.90 / 500g = RM0.0438 per gram
+    final costPerUnit = packageSize > 0 ? purchasePrice / packageSize : 0.0;
     final totalCost = quantityNeeded * costPerUnit;
 
     final response = await supabase
