@@ -36,6 +36,9 @@ dependencies:
   # Excel & CSV
   excel: ^4.0.3
   csv: ^6.0.0
+  
+  # URL Launcher (for WhatsApp share)
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:
