@@ -530,7 +530,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
           if (_expiryDate != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Tarikh luput: ${DateFormat('dd MMMM yyyy', 'ms_MY').format(_expiryDate!)}',
+              'Tarikh luput: ${DateFormat('dd MMMM yyyy').format(_expiryDate!)}',
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,

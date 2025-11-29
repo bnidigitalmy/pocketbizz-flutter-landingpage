@@ -249,11 +249,11 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                             backgroundColor: AppColors.primary.withOpacity(0.1),
                           ),
                           if (batch.expiryDate != null)
-                            Chip(
-                              label: Text(
-                                DateFormat('dd MMM yyyy', 'ms_MY')
-                                    .format(batch.expiryDate!),
-                              ),
+                              Chip(
+                                label: Text(
+                                  DateFormat('dd MMM yyyy')
+                                      .format(batch.expiryDate!),
+                                ),
                               backgroundColor: expiryStatus == 'expired'
                                   ? Colors.red.withOpacity(0.1)
                                   : expiryStatus == 'expiring'
