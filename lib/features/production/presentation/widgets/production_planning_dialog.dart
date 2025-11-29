@@ -68,6 +68,8 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
     setState(() => _isLoading = true);
 
     try {
+      if (_selectedProduct == null) return;
+      
       final plan = await widget.productionRepo.previewProductionPlan(
         productId: _selectedProduct!.id,
         quantity: _quantity,
@@ -91,6 +93,8 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
   Future<void> _handleAddToShoppingList() async {
     if (_productionPlan == null) return;
 
+    if (_productionPlan == null) return;
+    
     final insufficientItems = _productionPlan!.materialsNeeded
         .where((m) => !m.isSufficient)
         .toList();
@@ -102,7 +106,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
         return {
           'stockItemId': item.stockItemId,
           'shortageQty': item.shortage,
-          'notes': 'Untuk produksi ${_productionPlan!.product.name}',
+          'notes': 'Untuk produksi ${_productionPlan?.product.name ?? 'Unknown'}',
         };
       }).toList();
 
@@ -144,10 +148,15 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
 
     setState(() => _isLoading = true);
 
+    if (_selectedProduct == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
       final input = ProductionBatchInput(
         productId: _selectedProduct!.id,
-        quantity: _quantity * (_selectedProduct!.unitsPerBatch),
+        quantity: _quantity * _selectedProduct!.unitsPerBatch,
         batchDate: _batchDate,
         expiryDate: _expiryDate,
         notes: _notes.trim().isEmpty ? null : _notes.trim(),
@@ -312,7 +321,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
   }
 
   Widget _buildPreviewStep() {
-    if (_productionPlan == null) return const SizedBox();
+    if (_productionPlan == null) {
+      return const Center(child: Text('Error: Production plan not available'));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +447,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
   }
 
   Widget _buildConfirmStep() {
-    if (_productionPlan == null) return const SizedBox();
+    if (_productionPlan == null || _selectedProduct == null) {
+      return const Center(child: Text('Error: Production plan or product not available'));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,7 +543,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
           if (_expiryDate != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Tarikh luput: ${DateFormat('dd MMMM yyyy').format(_expiryDate!)}',
+              'Tarikh luput: ${_expiryDate != null ? DateFormat('dd MMMM yyyy').format(_expiryDate!) : 'N/A'}',
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,

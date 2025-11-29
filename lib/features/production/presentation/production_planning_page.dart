@@ -252,7 +252,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                               Chip(
                                 label: Text(
                                   DateFormat('dd MMM yyyy')
-                                      .format(batch.expiryDate!),
+                                      .format(batch.expiryDate ?? DateTime.now()),
                                 ),
                               backgroundColor: expiryStatus == 'expired'
                                   ? Colors.red.withOpacity(0.1)
