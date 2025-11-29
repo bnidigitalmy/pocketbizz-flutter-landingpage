@@ -4,6 +4,7 @@ import '../../bookings/presentation/bookings_page.dart';
 import '../../products/presentation/product_list_page.dart';
 import '../../sales/presentation/sales_page.dart';
 import '../../vendors/presentation/vendors_page.dart';
+import '../../production/presentation/production_planning_page.dart';
 import 'dashboard_page_simple.dart';
 
 class HomePage extends StatefulWidget {
@@ -127,6 +128,33 @@ class _HomePageState extends State<HomePage> {
                   context,
                   MaterialPageRoute(builder: (context) => const VendorsPage()),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.factory_rounded),
+              title: const Text('Production'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProductionPlanningPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Stock Management'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/stock');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_cart),
+              title: const Text('Shopping List'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/shopping-list');
               },
             ),
             const Divider(),

@@ -313,10 +313,10 @@ class _DashboardPageSimpleState extends State<DashboardPageSimple> {
                         onTap: () => Navigator.of(context).pushNamed('/stock'),
                       ),
                       QuickActionCard(
-                        label: 'Record Production',
+                        label: 'Plan Production',
                         icon: Icons.factory_rounded,
                         color: Colors.purple,
-                        onTap: () => Navigator.of(context).pushNamed('/production/record'),
+                        onTap: () => Navigator.of(context).pushNamed('/production'),
                       ),
                       QuickActionCard(
                         label: 'Add Product',
