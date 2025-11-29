@@ -23,6 +23,8 @@ DECLARE
     v_recipe_item RECORD;
     v_quantity_to_deduct NUMERIC;
     v_recipe_id UUID;
+    v_stock_cost_per_unit NUMERIC;
+    v_recipe_item_id UUID;
 BEGIN
     -- Get product info
     SELECT business_owner_id, name, cost_per_unit
@@ -103,19 +105,39 @@ BEGIN
             p_created_by := auth.uid()
         );
         
+        -- Get stock item cost per unit
+        SELECT 
+            COALESCE(purchase_price / NULLIF(package_size, 0), 0)
+        INTO v_stock_cost_per_unit
+        FROM stock_items
+        WHERE id = v_recipe_item.stock_item_id;
+        
+        -- Get recipe item ID
+        SELECT id INTO v_recipe_item_id
+        FROM recipe_items
+        WHERE recipe_id = v_recipe_id
+          AND stock_item_id = v_recipe_item.stock_item_id
+        LIMIT 1;
+        
         -- Record ingredient usage for audit
         INSERT INTO production_ingredient_usage (
+            business_owner_id,
             production_batch_id,
             stock_item_id,
+            recipe_item_id,
             quantity_used,
-            usage_unit,
-            created_at
+            unit,
+            cost_per_unit,
+            total_cost
         ) VALUES (
+            v_business_owner_id,
             v_batch_id,
             v_recipe_item.stock_item_id,
+            v_recipe_item_id,
             v_quantity_to_deduct,
             v_recipe_item.usage_unit,
-            NOW()
+            COALESCE(v_stock_cost_per_unit, 0),
+            v_quantity_to_deduct * COALESCE(v_stock_cost_per_unit, 0)
         );
     END LOOP;
     
