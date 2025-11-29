@@ -15,6 +15,7 @@ import 'features/sales/presentation/create_sale_page.dart';
 import 'features/stock/presentation/stock_page.dart';
 import 'features/categories/presentation/categories_page.dart';
 import 'features/production/presentation/record_production_page.dart';
+import 'features/shopping/presentation/shopping_list_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,7 @@ class PocketBizzApp extends StatelessWidget {
         '/stock': (context) => const StockPage(),
         '/categories': (context) => const CategoriesPage(),
         '/production/record': (context) => const RecordProductionPage(),
+        '/shopping-list': (context) => const ShoppingListPage(),
       },
     );
   }

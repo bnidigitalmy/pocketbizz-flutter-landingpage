@@ -10,6 +10,7 @@ import 'stock_detail_page.dart';
 import 'stock_history_page.dart';
 import 'widgets/replenish_stock_dialog.dart';
 import 'widgets/smart_filters_widget.dart';
+import 'widgets/shopping_list_dialog.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -36,6 +37,10 @@ class _StockPageState extends State<StockPage> {
     'outOfStock': false,
     'inStock': false,
   };
+
+  // Selection mode state
+  bool _isSelectionMode = false;
+  final Set<String> _selectedItemIds = {};
 
   @override
   void initState() {
@@ -231,6 +236,74 @@ class _StockPageState extends State<StockPage> {
     );
   }
 
+  // Selection mode methods
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedItemIds.clear();
+      }
+    });
+  }
+
+  void _toggleItemSelection(String itemId) {
+    setState(() {
+      if (_selectedItemIds.contains(itemId)) {
+        _selectedItemIds.remove(itemId);
+      } else {
+        _selectedItemIds.add(itemId);
+      }
+    });
+  }
+
+  void _selectAllLowStock() {
+    setState(() {
+      _selectedItemIds.clear();
+      _selectedItemIds.addAll(
+        _filteredItems.where((item) => item.isLowStock).map((item) => item.id),
+      );
+    });
+  }
+
+  void _selectAllFiltered() {
+    setState(() {
+      _selectedItemIds.clear();
+      _selectedItemIds.addAll(_filteredItems.map((item) => item.id));
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedItemIds.clear();
+    });
+  }
+
+  void _showShoppingListDialog() {
+    if (_selectedItemIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sila pilih item terlebih dahulu')),
+      );
+      return;
+    }
+
+    final selectedItems = _stockItems
+        .where((item) => _selectedItemIds.contains(item.id))
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => ShoppingListDialog(
+        selectedItems: selectedItems,
+        onSuccess: () {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedItemIds.clear();
+          });
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final lowStockCount = _stockItems.where((item) => item.isLowStock).length;
@@ -241,9 +314,11 @@ class _StockPageState extends State<StockPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Stok Gudang'),
+            Text(_isSelectionMode ? 'Pilih Item' : 'Stok Gudang'),
             Text(
-              '${_filteredItems.length} item',
+              _isSelectionMode
+                  ? '${_selectedItemIds.length} dipilih'
+                  : '${_filteredItems.length} item',
               style: const TextStyle(fontSize: 12),
             ),
           ],
@@ -251,26 +326,82 @@ class _StockPageState extends State<StockPage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          // Export Excel
-          IconButton(
-            icon: const Icon(Icons.table_chart),
-            onPressed: _isExporting ? null : _handleExportExcel,
-            tooltip: 'Export Excel',
-          ),
-          // Export CSV
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _isExporting ? null : _handleExportCSV,
-            tooltip: 'Export CSV',
-          ),
-          // Import
-          IconButton(
-            icon: const Icon(Icons.upload),
-            onPressed: _handleImport,
-            tooltip: 'Import',
-          ),
-        ],
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
+              )
+            : null,
+        actions: _isSelectionMode
+            ? [
+                // Select All Low Stock
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) {
+                    if (value == 'all') _selectAllFiltered();
+                    if (value == 'low') _selectAllLowStock();
+                    if (value == 'clear') _clearSelection();
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'all',
+                      child: Row(
+                        children: [
+                          Icon(Icons.select_all, size: 20),
+                          SizedBox(width: 8),
+                          Text('Pilih Semua'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'low',
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber, size: 20, color: AppColors.warning),
+                          SizedBox(width: 8),
+                          Text('Pilih Stok Rendah'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'clear',
+                      child: Row(
+                        children: [
+                          Icon(Icons.clear, size: 20),
+                          SizedBox(width: 8),
+                          Text('Kosongkan'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                // Selection Mode Toggle
+                IconButton(
+                  icon: const Icon(Icons.check_box_outlined),
+                  onPressed: _toggleSelectionMode,
+                  tooltip: 'Mode Pilihan',
+                ),
+                // Export Excel
+                IconButton(
+                  icon: const Icon(Icons.table_chart),
+                  onPressed: _isExporting ? null : _handleExportExcel,
+                  tooltip: 'Export Excel',
+                ),
+                // Export CSV
+                IconButton(
+                  icon: const Icon(Icons.download),
+                  onPressed: _isExporting ? null : _handleExportCSV,
+                  tooltip: 'Export CSV',
+                ),
+                // Import
+                IconButton(
+                  icon: const Icon(Icons.upload),
+                  onPressed: _handleImport,
+                  tooltip: 'Import',
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -336,20 +467,27 @@ class _StockPageState extends State<StockPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddEditStockItemPage(),
+      floatingActionButton: _isSelectionMode && _selectedItemIds.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _showShoppingListDialog,
+              icon: const Icon(Icons.shopping_cart),
+              label: Text('Tambah ${_selectedItemIds.length} ke Senarai'),
+              backgroundColor: AppColors.success,
+            )
+          : FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEditStockItemPage(),
+                  ),
+                );
+                if (result == true) _loadStockItems();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Item'),
+              backgroundColor: AppColors.primary,
             ),
-          );
-          if (result == true) _loadStockItems();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Stock Item'),
-        backgroundColor: AppColors.primary,
-      ),
     );
   }
 
@@ -442,21 +580,29 @@ class _StockPageState extends State<StockPage> {
   Widget _buildStockItemCard(StockItem item) {
     final isLowStock = item.isLowStock;
     final isOutOfStock = item.currentQuantity <= 0;
+    final isSelected = _selectedItemIds.contains(item.id);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
+        side: _isSelectionMode && isSelected
+            ? BorderSide(color: AppColors.primary, width: 2)
+            : BorderSide.none,
       ),
       child: InkWell(
         onTap: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => StockDetailPage(stockItem: item),
-            ),
-          );
-          if (result == true) _loadStockItems();
+          if (_isSelectionMode) {
+            _toggleItemSelection(item.id);
+          } else {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => StockDetailPage(stockItem: item),
+              ),
+            );
+            if (result == true) _loadStockItems();
+          }
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -466,6 +612,17 @@ class _StockPageState extends State<StockPage> {
             children: [
               Row(
                 children: [
+                  // Checkbox (selection mode)
+                  if (_isSelectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Checkbox(
+                        value: isSelected,
+                        onChanged: (_) => _toggleItemSelection(item.id),
+                        activeColor: AppColors.primary,
+                      ),
+                    ),
+
                   // Status indicator
                   Container(
                     width: 8,
@@ -507,41 +664,42 @@ class _StockPageState extends State<StockPage> {
                     ),
                   ),
 
-                  // Action Buttons
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // History
-                      IconButton(
-                        icon: const Icon(Icons.history, size: 20),
-                        onPressed: () => _navigateToHistory(item),
-                        tooltip: 'Sejarah',
-                        color: Colors.blue,
-                      ),
-                      // Replenish
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, size: 20),
-                        onPressed: () => _showReplenishDialog(item),
-                        tooltip: 'Tambah Stok',
-                        color: AppColors.success,
-                      ),
-                      // Edit
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        onPressed: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AddEditStockItemPage(stockItem: item),
-                            ),
-                          );
-                          if (result == true) _loadStockItems();
-                        },
-                        tooltip: 'Edit',
-                      ),
-                    ],
-                  ),
+                  // Action Buttons (hidden in selection mode)
+                  if (!_isSelectionMode)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // History
+                        IconButton(
+                          icon: const Icon(Icons.history, size: 20),
+                          onPressed: () => _navigateToHistory(item),
+                          tooltip: 'Sejarah',
+                          color: Colors.blue,
+                        ),
+                        // Replenish
+                        IconButton(
+                          icon: const Icon(Icons.add_circle, size: 20),
+                          onPressed: () => _showReplenishDialog(item),
+                          tooltip: 'Tambah Stok',
+                          color: AppColors.success,
+                        ),
+                        // Edit
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    AddEditStockItemPage(stockItem: item),
+                              ),
+                            );
+                            if (result == true) _loadStockItems();
+                          },
+                          tooltip: 'Edit',
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
