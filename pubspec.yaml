@@ -28,6 +28,14 @@ dependencies:
   
   # Image handling
   image_picker: ^1.0.7
+  
+  # File handling
+  file_picker: ^8.0.0+1
+  path_provider: ^2.1.2
+  
+  # Excel & CSV
+  excel: ^4.0.3
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
