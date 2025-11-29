@@ -3,6 +3,7 @@ import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/api/models/product_models.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'edit_product_page.dart';
+import 'add_product_with_recipe_page.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -161,14 +162,18 @@ class _ProductListPageState extends State<ProductListPage> {
                       },
                     ),
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).pushNamed('/products/add');
-          if (result == true && mounted) {
-            _loadProducts();
-          }
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddProductWithRecipePage(),
+            ),
+          );
+          _loadProducts();
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Produk'),
       ),
     );
   }

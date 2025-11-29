@@ -45,6 +45,14 @@ class ProductsRepositorySupabase {
       'description': json['description'],
       'category': json['category'],
       'imageUrl': json['image_url'],
+      // New costing fields
+      'unitsPerBatch': json['units_per_batch'],
+      'labourCost': json['labour_cost'],
+      'otherCosts': json['other_costs'],
+      'packagingCost': json['packaging_cost'],
+      'materialsCost': json['materials_cost'],
+      'totalCostPerBatch': json['total_cost_per_batch'],
+      'costPerUnit': json['cost_per_unit'],
     });
   }
 
