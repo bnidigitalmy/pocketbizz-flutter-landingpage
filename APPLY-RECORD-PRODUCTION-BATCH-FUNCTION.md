@@ -1,10 +1,15 @@
 # Apply record_production_batch Function Migration
 
 ## Problem
-Error 404: `record_production_batch` RPC function not found in database.
+Error 400/404: `record_production_batch` RPC function not found or has issues.
+
+**Error yang muncul:**
+```
+POST /rest/v1/rpc/record_production_batch 400 (Bad Request)
+```
 
 ## Solution
-Run the migration to create the function.
+Run the migration to create the function in Supabase database.
 
 ## Steps
 

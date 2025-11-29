@@ -108,14 +108,39 @@ class ProductionRepository {
   /// Record production batch (uses DB function - auto-deducts stock!)
   Future<String> recordProductionBatch(ProductionBatchInput input) async {
     try {
+      // Build params, only include non-null optional fields
+      final params = <String, dynamic>{
+        'p_product_id': input.productId,
+        'p_quantity': input.quantity,
+        'p_batch_date': input.batchDate.toIso8601String().split('T')[0],
+      };
+      
+      // Add optional fields only if they have values
+      if (input.expiryDate != null) {
+        params['p_expiry_date'] = input.expiryDate!.toIso8601String().split('T')[0];
+      }
+      if (input.notes != null && input.notes!.isNotEmpty) {
+        params['p_notes'] = input.notes;
+      }
+      if (input.batchNumber != null && input.batchNumber!.isNotEmpty) {
+        params['p_batch_number'] = input.batchNumber;
+      }
+
       final response = await _supabase.rpc(
         'record_production_batch',
-        params: input.toJson(),
+        params: params,
       );
 
       // Response is the batch ID
       return response as String;
     } catch (e) {
+      // Provide more detailed error message
+      final errorMsg = e.toString();
+      if (errorMsg.contains('does not exist') || errorMsg.contains('404')) {
+        throw Exception(
+          'Function record_production_batch not found. Please apply migration: db/migrations/create_record_production_batch_function.sql'
+        );
+      }
       throw Exception('Failed to record production batch: $e');
     }
   }
