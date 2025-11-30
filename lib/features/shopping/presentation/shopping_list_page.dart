@@ -186,7 +186,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       if (qty == null || qty <= 0) return;
       
       // Use updateCartItem instead of remove/add
-      await _cartRepo.updateCartItem(
+      final updatedItem = await _cartRepo.updateCartItem(
         id: itemId,
         shortageQty: qty,
       );
@@ -195,21 +195,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       setState(() {
         final index = _cartItems.indexWhere((i) => i.id == itemId);
         if (index != -1) {
-          _cartItems[index] = ShoppingCartItem(
-            id: _cartItems[index].id,
-            businessOwnerId: _cartItems[index].businessOwnerId,
-            stockItemId: _cartItems[index].stockItemId,
-            stockItemName: _cartItems[index].stockItemName,
-            stockItemUnit: _cartItems[index].stockItemUnit,
-            shortageQty: qty,
-            notes: _cartItems[index].notes,
-            priority: _cartItems[index].priority,
-            status: _cartItems[index].status,
-            createdAt: _cartItems[index].createdAt,
-            updatedAt: DateTime.now(),
-            stockItemPurchasePrice: _cartItems[index].stockItemPurchasePrice,
-            stockItemPackageSize: _cartItems[index].stockItemPackageSize,
-          );
+          _cartItems[index] = updatedItem;
+          // Update controller
+          _qtyControllers[itemId]?.text = qty.toStringAsFixed(1);
         }
       });
     } catch (e) {
