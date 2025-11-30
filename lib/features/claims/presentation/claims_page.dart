@@ -981,29 +981,32 @@ class _ClaimsPageState extends State<ClaimsPage> {
                     ],
                   ),
                 ),
-                Column(
-                  children: [
-                    _buildPaymentStatusBadge(delivery.paymentStatus ?? 'pending'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: delivery.paymentStatus ?? 'pending',
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                SizedBox(
+                  width: 150,
+                  child: Column(
+                    children: [
+                      _buildPaymentStatusBadge(delivery.paymentStatus ?? 'pending'),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: delivery.paymentStatus ?? 'pending',
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'pending', child: Text('Belum Bayar')),
+                          DropdownMenuItem(value: 'partial', child: Text('Bayar Separa')),
+                          DropdownMenuItem(value: 'settled', child: Text('Selesai')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            _handleUpdatePaymentStatus(delivery.id, value);
+                          }
+                        },
                       ),
-                      items: const [
-                        DropdownMenuItem(value: 'pending', child: Text('Belum Bayar')),
-                        DropdownMenuItem(value: 'partial', child: Text('Bayar Separa')),
-                        DropdownMenuItem(value: 'settled', child: Text('Selesai')),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          _handleUpdatePaymentStatus(delivery.id, value);
-                        }
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

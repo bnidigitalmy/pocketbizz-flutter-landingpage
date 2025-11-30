@@ -17,6 +17,7 @@ encore.gen.cue
 .pub-cache/
 .pub/
 build/
+!build/web/
 pubspec.lock
 .metadata
 *.iml
