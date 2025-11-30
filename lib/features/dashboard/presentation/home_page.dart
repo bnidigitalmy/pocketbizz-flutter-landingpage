@@ -5,8 +5,7 @@ import '../../products/presentation/product_list_page.dart';
 import '../../sales/presentation/sales_page.dart';
 import '../../vendors/presentation/vendors_page.dart';
 import '../../production/presentation/production_planning_page.dart';
-import '../../deliveries/presentation/deliveries_page.dart';
-import 'dashboard_page_simple.dart';
+import 'dashboard_page_optimized.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,7 +18,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    const DashboardPageSimple(),
+    const DashboardPageOptimized(),
     const BookingsPage(),
     const ProductListPage(),
     const SalesPage(),
