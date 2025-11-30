@@ -4,6 +4,7 @@ import '../../../data/models/product.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'edit_product_page.dart';
 import 'add_product_with_recipe_page.dart';
+import 'product_detail_page_standalone.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -224,49 +225,16 @@ class _ProductListPageState extends State<ProductListPage> {
   }
 
   void _showProductDetails(Product product) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        expand: false,
-        builder: (context, scrollController) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                product.name,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              _buildDetailRow('SKU', product.sku),
-              if (product.category != null)
-                _buildDetailRow('Category', product.category!),
-              _buildDetailRow('Unit', product.unit),
-              _buildDetailRow(
-                'Sale Price',
-                'RM${product.salePrice.toStringAsFixed(2)}',
-              ),
-              _buildDetailRow(
-                'Cost Price',
-                'RM${product.costPrice.toStringAsFixed(2)}',
-              ),
-              if (product.description != null)
-                _buildDetailRow('Description', product.description!),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductDetailPageStandalone(product: product),
       ),
-    );
+    ).then((result) {
+      if (result == true) {
+        _loadProducts(); // Refresh if product was edited
+      }
+    });
   }
 
   Widget _buildDetailRow(String label, String value) {

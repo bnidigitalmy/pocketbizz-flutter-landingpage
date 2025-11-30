@@ -13,8 +13,8 @@ import 'features/bookings/presentation/bookings_page_optimized.dart';
 import 'features/bookings/presentation/create_booking_page_enhanced.dart';
 import 'features/products/presentation/product_list_page.dart';
 import 'features/products/presentation/add_product_page.dart';
-import 'features/sales/presentation/sales_page.dart';
-import 'features/sales/presentation/create_sale_page.dart';
+import 'features/sales/presentation/sales_page_enhanced.dart';
+import 'features/sales/presentation/create_sale_page_enhanced.dart';
 import 'features/stock/presentation/stock_page.dart';
 import 'features/categories/presentation/categories_page.dart';
 import 'features/production/presentation/record_production_page.dart';
@@ -71,8 +71,8 @@ class PocketBizzApp extends StatelessWidget {
         '/bookings/create': (context) => const CreateBookingPageEnhanced(),
         '/products': (context) => const ProductListPage(),
         '/products/add': (context) => const AddProductPage(),
-        '/sales': (context) => const SalesPage(),
-        '/sales/create': (context) => const CreateSalePage(),
+        '/sales': (context) => const SalesPageEnhanced(),
+        '/sales/create': (context) => const CreateSalePageEnhanced(),
         '/stock': (context) => const StockPage(),
         '/categories': (context) => const CategoriesPage(),
         '/production/record': (context) => const RecordProductionPage(),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../bookings/presentation/bookings_page_optimized.dart';
 import '../../products/presentation/product_list_page.dart';
-import '../../sales/presentation/sales_page.dart';
+import '../../sales/presentation/sales_page_enhanced.dart';
 import '../../vendors/presentation/vendors_page.dart';
 import '../../production/presentation/production_planning_page.dart';
 import '../../finished_products/presentation/finished_products_page.dart';
@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
     const DashboardPageOptimized(),
     const BookingsPageOptimized(),
     const ProductListPage(),
-    const SalesPage(),
+    const SalesPageEnhanced(),
   ];
 
   @override
