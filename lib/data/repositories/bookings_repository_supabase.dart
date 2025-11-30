@@ -192,6 +192,7 @@ class BookingsRepositorySupabase {
 
     // Insert booking items
     final bookingItems = items.map((item) => {
+      'business_owner_id': userId, // Required for RLS policy
       'booking_id': booking['id'],
       'product_id': item['product_id'],
       'product_name': item['product_name'],

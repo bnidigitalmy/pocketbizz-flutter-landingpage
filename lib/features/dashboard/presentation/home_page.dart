@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../bookings/presentation/bookings_page.dart';
+import '../../bookings/presentation/bookings_page_optimized.dart';
 import '../../products/presentation/product_list_page.dart';
 import '../../sales/presentation/sales_page.dart';
 import '../../vendors/presentation/vendors_page.dart';
@@ -19,7 +19,7 @@ class _HomePageState extends State<HomePage> {
 
   final List<Widget> _pages = [
     const DashboardPageOptimized(),
-    const BookingsPage(),
+    const BookingsPageOptimized(),
     const ProductListPage(),
     const SalesPage(),
   ];
@@ -187,7 +187,7 @@ class _HomePageState extends State<HomePage> {
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navigate to settings
+                Navigator.pushNamed(context, '/settings');
               },
             ),
             ListTile(

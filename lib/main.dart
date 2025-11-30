@@ -9,8 +9,8 @@ import 'features/auth/presentation/login_page.dart';
 import 'features/auth/presentation/forgot_password_page.dart';
 import 'features/auth/presentation/reset_password_page.dart';
 import 'features/dashboard/presentation/home_page.dart';
-import 'features/bookings/presentation/bookings_page.dart';
-import 'features/bookings/presentation/create_booking_page.dart';
+import 'features/bookings/presentation/bookings_page_optimized.dart';
+import 'features/bookings/presentation/create_booking_page_enhanced.dart';
 import 'features/products/presentation/product_list_page.dart';
 import 'features/products/presentation/add_product_page.dart';
 import 'features/sales/presentation/sales_page.dart';
@@ -23,6 +23,7 @@ import 'features/shopping/presentation/shopping_list_page.dart';
 import 'features/purchase_orders/presentation/purchase_orders_page.dart';
 import 'features/deliveries/presentation/deliveries_page.dart';
 import 'features/claims/presentation/claims_page.dart';
+import 'features/settings/presentation/settings_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,8 +65,8 @@ class PocketBizzApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordPage(),
         '/reset-password': (context) => const ResetPasswordPage(),
         '/home': (context) => const HomePage(),
-        '/bookings': (context) => const BookingsPage(),
-        '/bookings/create': (context) => const CreateBookingPage(),
+        '/bookings': (context) => const BookingsPageOptimized(),
+        '/bookings/create': (context) => const CreateBookingPageEnhanced(),
         '/products': (context) => const ProductListPage(),
         '/products/add': (context) => const AddProductPage(),
         '/sales': (context) => const SalesPage(),
@@ -78,6 +79,7 @@ class PocketBizzApp extends StatelessWidget {
         '/purchase-orders': (context) => const PurchaseOrdersPage(),
         '/deliveries': (context) => const DeliveriesPage(),
         '/claims': (context) => const ClaimsPage(),
+        '/settings': (context) => const SettingsPage(),
       },
     );
   }
