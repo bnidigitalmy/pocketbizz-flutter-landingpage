@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html show window;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/shopping_cart_item.dart';
 import '../../../data/models/stock_item.dart';
+import '../../../data/models/vendor.dart';
 import '../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
+import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 
 /// Upgraded Shopping List Page
@@ -22,10 +26,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   final _cartRepo = ShoppingCartRepository();
   final _stockRepo = StockRepository(supabase);
   final _poRepo = PurchaseOrderRepository(supabase);
+  final _vendorRepo = VendorsRepositorySupabase();
   
   List<ShoppingCartItem> _cartItems = [];
   List<StockItem> _allStockItems = [];
   List<StockItem> _lowStockItems = [];
+  List<Vendor> _suppliers = [];
   bool _isLoading = true;
   
   // Editable quantities
@@ -57,6 +63,27 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   void initState() {
     super.initState();
     _loadData();
+    _checkAutoPO();
+  }
+
+  void _checkAutoPO() {
+    // Check for autoPO URL parameter (web only)
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          final uri = Uri.parse(html.window.location.href);
+          if (uri.queryParameters['autoPO'] == 'true' && _cartItems.isNotEmpty) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                _showSupplierDialog();
+              }
+            });
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      });
+    }
   }
 
   @override
@@ -89,12 +116,14 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         _cartRepo.getAllCartItems(),
         _stockRepo.getAllStockItems(),
         _stockRepo.getLowStockItems(),
+        _vendorRepo.getAllVendors(activeOnly: true),
       ]);
       
       setState(() {
         _cartItems = (results[0] as List).cast<ShoppingCartItem>();
         _allStockItems = (results[1] as List).cast<StockItem>();
         _lowStockItems = (results[2] as List).cast<StockItem>();
+        _suppliers = (results[3] as List).cast<Vendor>();
         _isLoading = false;
       });
       
@@ -156,20 +185,33 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       final qty = double.tryParse(newQty);
       if (qty == null || qty <= 0) return;
       
-      final item = _cartItems.firstWhere((i) => i.id == itemId);
-      
-      // Remove old item
-      await _cartRepo.removeFromCart(itemId);
-      
-      // Add updated item
-      await _cartRepo.addToCart(
-        stockItemId: item.stockItemId,
+      // Use updateCartItem instead of remove/add
+      await _cartRepo.updateCartItem(
+        id: itemId,
         shortageQty: qty,
-        notes: item.notes,
-        priority: item.priority,
       );
       
-      _loadData();
+      // Update local state without full reload
+      setState(() {
+        final index = _cartItems.indexWhere((i) => i.id == itemId);
+        if (index != -1) {
+          _cartItems[index] = ShoppingCartItem(
+            id: _cartItems[index].id,
+            businessOwnerId: _cartItems[index].businessOwnerId,
+            stockItemId: _cartItems[index].stockItemId,
+            stockItemName: _cartItems[index].stockItemName,
+            stockItemUnit: _cartItems[index].stockItemUnit,
+            shortageQty: qty,
+            notes: _cartItems[index].notes,
+            priority: _cartItems[index].priority,
+            status: _cartItems[index].status,
+            createdAt: _cartItems[index].createdAt,
+            updatedAt: DateTime.now(),
+            stockItemPurchasePrice: _cartItems[index].stockItemPurchasePrice,
+            stockItemPackageSize: _cartItems[index].stockItemPackageSize,
+          );
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -320,12 +362,24 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     String supplierAddress = '';
     
     if (_selectedSupplierId != null) {
-      // TODO: Get supplier from repository
-      // For now, use custom values
-      supplierName = _customSupplierNameController.text.trim();
-      supplierPhone = _customSupplierPhoneController.text.trim();
-      supplierEmail = _customSupplierEmailController.text.trim();
-      supplierAddress = _customSupplierAddressController.text.trim();
+      // Get supplier from list
+      final supplier = _suppliers.firstWhere(
+        (s) => s.id == _selectedSupplierId,
+        orElse: () => Vendor(
+          id: '',
+          businessOwnerId: '',
+          name: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      
+      if (supplier.id.isNotEmpty) {
+        supplierName = supplier.name;
+        supplierPhone = supplier.phone ?? '';
+        supplierEmail = supplier.email ?? '';
+        supplierAddress = supplier.address ?? '';
+      }
     } else if (_customSupplierNameController.text.trim().isNotEmpty) {
       supplierName = _customSupplierNameController.text.trim();
       supplierPhone = _customSupplierPhoneController.text.trim();
@@ -461,12 +515,25 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   }
 
   void _printList() {
-    // TODO: Implement print functionality
-    // For web, use window.print()
-    // For mobile, use printing package
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Print functionality coming soon')),
-    );
+    if (_cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cart kosong'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    if (kIsWeb) {
+      // For web, trigger browser print
+      html.window.print();
+    } else {
+      // For mobile, show message (can integrate printing package later)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Print functionality untuk mobile coming soon')),
+      );
+    }
   }
 
   @override
@@ -492,6 +559,11 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.description),
+            onPressed: () => Navigator.pushNamed(context, '/purchase-orders'),
+            tooltip: 'Sejarah PO',
+          ),
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _shareWhatsApp,
@@ -1062,45 +1134,89 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   void _showSupplierDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
           title: const Text('Pilih Supplier'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // TODO: Add supplier dropdown
-                TextField(
-                  controller: _customSupplierNameController,
+                // Supplier Dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedSupplierId,
                   decoration: const InputDecoration(
-                    labelText: 'Nama Supplier *',
+                    labelText: 'Supplier Sedia Ada',
                     border: OutlineInputBorder(),
                   ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('+ Supplier Baru (Manual)'),
+                    ),
+                    ..._suppliers.map((supplier) {
+                      return DropdownMenuItem<String>(
+                        value: supplier.id,
+                        child: Text(supplier.name),
+                      );
+                    }),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      _selectedSupplierId = value;
+                      if (value != null) {
+                        final supplier = _suppliers.firstWhere(
+                          (s) => s.id == value,
+                        );
+                        _customSupplierNameController.text = supplier.name;
+                        _customSupplierPhoneController.text = supplier.phone ?? '';
+                        _customSupplierEmailController.text = supplier.email ?? '';
+                        _customSupplierAddressController.text = supplier.address ?? '';
+                      } else {
+                        _customSupplierNameController.clear();
+                        _customSupplierPhoneController.clear();
+                        _customSupplierEmailController.clear();
+                        _customSupplierAddressController.clear();
+                      }
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _customSupplierPhoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Telefon Supplier (Opsional)',
-                    border: OutlineInputBorder(),
+                
+                // Custom Supplier Fields (shown when no supplier selected or always)
+                if (_selectedSupplierId == null) ...[
+                  TextField(
+                    controller: _customSupplierNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Supplier *',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _customSupplierEmailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Supplier (Opsional)',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _customSupplierPhoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Telefon Supplier (Opsional)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _customSupplierAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Alamat Supplier (Opsional)',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _customSupplierEmailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email Supplier (Opsional)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                  maxLines: 2,
-                ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _customSupplierAddressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Alamat Supplier (Opsional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextField(
                   controller: _deliveryAddressController,
@@ -1128,16 +1244,17 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               child: const Text('Batal'),
             ),
             ElevatedButton(
-              onPressed: _customSupplierNameController.text.trim().isEmpty
-                  ? null
-                  : () {
+              onPressed: (_selectedSupplierId != null || _customSupplierNameController.text.trim().isNotEmpty)
+                  ? () {
                       Navigator.pop(context);
                       _openPreviewDialog();
-                    },
+                    }
+                  : null,
               child: const Text('Semak & Sahkan PO'),
             ),
           ],
         ),
+      ),
     );
   }
 
