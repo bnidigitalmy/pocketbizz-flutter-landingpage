@@ -5,6 +5,7 @@ import '../../products/presentation/product_list_page.dart';
 import '../../sales/presentation/sales_page.dart';
 import '../../vendors/presentation/vendors_page.dart';
 import '../../production/presentation/production_planning_page.dart';
+import '../../deliveries/presentation/deliveries_page.dart';
 import 'dashboard_page_simple.dart';
 
 class HomePage extends StatefulWidget {
@@ -163,6 +164,22 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/purchase-orders');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.local_shipping),
+              title: const Text('Deliveries'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/deliveries');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.payment),
+              title: const Text('Claims'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/claims');
               },
             ),
             const Divider(),

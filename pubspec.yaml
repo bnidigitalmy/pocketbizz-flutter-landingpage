@@ -39,6 +39,10 @@ dependencies:
   
   # URL Launcher (for WhatsApp share)
   url_launcher: ^6.2.5
+  
+  # PDF Generation
+  pdf: ^3.11.1
+  printing: ^5.13.3
 
 dev_dependencies:
   flutter_test:
