@@ -248,7 +248,7 @@ class ClaimsRepositorySupabase {
         settledAmount: settledAmount,
         partialAmount: partialAmount,
         deliveries: processedDeliveries
-            .map((d) => DeliveryWithClaimData.fromJson(d))
+            .map((d) => DeliveryWithClaimData.fromJson(d as Map<String, dynamic>))
             .toList(),
       );
     } catch (e) {

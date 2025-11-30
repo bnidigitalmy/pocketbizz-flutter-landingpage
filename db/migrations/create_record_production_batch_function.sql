@@ -80,13 +80,15 @@ BEGIN
     ) RETURNING id INTO v_batch_id;
     
     -- Deduct stock from recipe items (using new structure with recipes table)
+    -- FIRST PASS: Check if all ingredients have sufficient stock
     FOR v_recipe_item IN
         SELECT 
             ri.stock_item_id, 
             ri.quantity_needed,
             ri.usage_unit,
             si.unit as stock_unit,
-            si.current_quantity
+            si.current_quantity,
+            si.name as stock_item_name
         FROM recipe_items ri
         JOIN stock_items si ON si.id = ri.stock_item_id
         WHERE ri.recipe_id = v_recipe_id
@@ -94,7 +96,32 @@ BEGIN
         -- Calculate quantity to deduct (convert units if needed)
         v_quantity_to_deduct := v_recipe_item.quantity_needed * p_quantity;
         
-        -- Record stock movement (auto-deduct)
+        -- Check if stock is sufficient BEFORE deducting
+        IF v_recipe_item.current_quantity < v_quantity_to_deduct THEN
+            RAISE EXCEPTION 'Insufficient stock for %: Available: %, Required: %', 
+                v_recipe_item.stock_item_name,
+                v_recipe_item.current_quantity,
+                v_quantity_to_deduct;
+        END IF;
+    END LOOP;
+    
+    -- SECOND PASS: If all checks passed, proceed with deduction
+    FOR v_recipe_item IN
+        SELECT 
+            ri.stock_item_id, 
+            ri.quantity_needed,
+            ri.usage_unit,
+            si.unit as stock_unit,
+            si.current_quantity,
+            si.name as stock_item_name
+        FROM recipe_items ri
+        JOIN stock_items si ON si.id = ri.stock_item_id
+        WHERE ri.recipe_id = v_recipe_id
+    LOOP
+        -- Calculate quantity to deduct (convert units if needed)
+        v_quantity_to_deduct := v_recipe_item.quantity_needed * p_quantity;
+        
+        -- Record stock movement (auto-deduct) - stock already validated above
         PERFORM record_stock_movement(
             p_stock_item_id := v_recipe_item.stock_item_id,
             p_movement_type := 'production_use',

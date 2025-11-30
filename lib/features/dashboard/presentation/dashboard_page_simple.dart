@@ -25,6 +25,17 @@ class _DashboardPageSimpleState extends State<DashboardPageSimple> {
     _loadStats();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when page becomes visible (e.g., returning from PO page after receiving)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadStats();
+      }
+    });
+  }
+
   Future<void> _loadStats() async {
     setState(() => _loading = true);
     

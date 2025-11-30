@@ -286,6 +286,10 @@ class PurchaseOrderRepository {
             ? (stockItem['package_size'] as num?)?.toDouble() ?? 1.0
             : 1.0;
 
+        // Get item name from stock_items join (stock_item_name doesn't exist in cart table)
+        final itemName = stockItem?['name'] as String? ??
+            'Unknown Item';
+
         // Calculate cost (packages needed * price per package)
         final packagesNeeded = (qty / packageSize).ceil();
         final itemCost = packagesNeeded * purchasePrice;
@@ -293,9 +297,9 @@ class PurchaseOrderRepository {
 
         poItems.add({
           'stock_item_id': cartItem['stock_item_id'],
-          'item_name': cartItem['stock_item_name'] ?? 'Unknown',
+          'item_name': itemName,
           'quantity': qty,
-          'unit': cartItem['unit'] ?? 'pcs',
+          'unit': cartItem['unit'] ?? stockItem?['unit'] ?? 'pcs',
           'estimated_price': purchasePrice,
           'notes': cartItem['notes'],
         });

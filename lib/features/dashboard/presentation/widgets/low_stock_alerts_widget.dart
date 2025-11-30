@@ -1,5 +1,6 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../data/models/stock_item.dart';
@@ -8,6 +9,7 @@ import '../../../stock/presentation/stock_detail_page.dart';
 
 /// Low Stock Alerts Widget for Dashboard
 /// Shows stock items that are below their threshold
+/// With real-time updates via Supabase subscriptions and periodic refresh
 class LowStockAlertsWidget extends StatefulWidget {
   const LowStockAlertsWidget({super.key});
 
@@ -19,26 +21,108 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
   late final StockRepository _stockRepository;
   List<StockItem> _lowStockItems = [];
   bool _isLoading = true;
+  
+  // Real-time subscription
+  StreamSubscription? _stockSubscription;
 
   @override
   void initState() {
     super.initState();
     _stockRepository = StockRepository(supabase);
     _loadLowStockItems();
+    _setupRealtimeSubscription();
+    // Removed periodic refresh - hanya guna real-time subscription
   }
 
+  @override
+  void dispose() {
+    _stockSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  // Setup real-time subscription for stock_items table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to stock_items changes for current user only
+      _stockSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Stock items updated - refresh low stock list with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+    } catch (e) {
+      // If real-time fails, periodic refresh will handle it
+      debugPrint('Error setting up real-time subscription: $e');
+    }
+  }
+
+  // Debounce refresh to avoid excessive updates
+  Timer? _debounceTimer;
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadLowStockItems();
+      }
+    });
+  }
+
+  // Removed periodic refresh - hanya guna real-time subscription untuk avoid blinking
+
+  // Track last refresh time to avoid excessive refreshes
+  DateTime? _lastRefresh;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when page becomes visible (e.g., returning from PO page after receiving)
+    // But only if it's been more than 1 second since last refresh
+    final now = DateTime.now();
+    if (_lastRefresh == null || now.difference(_lastRefresh!).inSeconds >= 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadLowStockItems();
+          _lastRefresh = now;
+        }
+      });
+    }
+  }
+
+  // Track if data is currently loading to prevent multiple simultaneous loads
+  bool _isLoadingData = false;
+
   Future<void> _loadLowStockItems() async {
+    // Prevent multiple simultaneous loads
+    if (_isLoadingData) return;
+    
+    _isLoadingData = true;
     try {
       final items = await _stockRepository.getLowStockItems();
       if (mounted) {
         setState(() {
           _lowStockItems = items.take(5).toList(); // Show top 5
           _isLoading = false;
+          _isLoadingData = false;
         });
+      } else {
+        _isLoadingData = false;
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isLoadingData = false;
+        });
+      } else {
+        _isLoadingData = false;
       }
     }
   }

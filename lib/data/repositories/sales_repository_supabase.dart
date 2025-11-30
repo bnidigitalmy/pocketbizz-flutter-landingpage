@@ -1,4 +1,5 @@
 import '../../core/supabase/supabase_client.dart';
+import 'production_repository_supabase.dart';
 
 /// Sale model
 class Sale {
@@ -97,6 +98,29 @@ class SalesRepositorySupabase {
     double? discountAmount,
     String? notes,
   }) async {
+    // Get current user ID
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Check stock availability for all items BEFORE creating sale
+    final productionRepo = ProductionRepository(supabase);
+    for (final item in items) {
+      final productId = item['product_id'] as String;
+      final quantityNeeded = (item['quantity'] as num).toDouble();
+      final productName = item['product_name'] as String? ?? 'Unknown';
+      
+      // Get total available stock for this product
+      final availableStock = await productionRepo.getTotalRemainingForProduct(productId);
+      
+      if (availableStock < quantityNeeded) {
+        throw Exception(
+          'Insufficient stock for "$productName": Available: $availableStock, Required: $quantityNeeded'
+        );
+      }
+    }
+
     // Calculate totals
     final totalAmount = items.fold<double>(
       0,
@@ -104,12 +128,6 @@ class SalesRepositorySupabase {
     );
 
     final finalAmount = totalAmount - (discountAmount ?? 0);
-
-    // Get current user ID
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) {
-      throw Exception('User not authenticated');
-    }
 
     // Insert sale
     final sale = await supabase.from('sales').insert({
@@ -133,6 +151,15 @@ class SalesRepositorySupabase {
     }).toList();
 
     await supabase.from('sale_items').insert(saleItems);
+
+    // Deduct stock from production batches (FIFO)
+    for (final item in items) {
+      final productId = item['product_id'] as String;
+      final quantityToDeduct = (item['quantity'] as num).toDouble();
+      
+      // Use FIFO to deduct from oldest batches first
+      await productionRepo.deductFIFO(productId, quantityToDeduct);
+    }
 
     // Return sale with items
     return getSale(sale['id']);

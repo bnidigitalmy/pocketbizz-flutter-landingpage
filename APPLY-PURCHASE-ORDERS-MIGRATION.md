@@ -51,3 +51,4 @@ If you have existing data in these tables, you should:
 - Make sure you've applied the stock management migrations first
 - The `record_stock_movement` function should exist from previous migrations
 
+

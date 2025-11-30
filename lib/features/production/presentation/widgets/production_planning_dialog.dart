@@ -92,55 +92,132 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
 
   Future<void> _handleAddToShoppingList() async {
     if (_productionPlan == null) return;
-
-    if (_productionPlan == null) return;
     
     final insufficientItems = _productionPlan!.materialsNeeded
         .where((m) => !m.isSufficient)
         .toList();
 
-    if (insufficientItems.isEmpty) return;
+    if (insufficientItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tiada bahan yang perlu ditambah'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
-      final items = insufficientItems.map((item) {
-        return {
-          'stockItemId': item.stockItemId,
-          'shortageQty': item.shortage,
-          'notes': 'Untuk produksi ${_productionPlan?.product.name ?? 'Unknown'}',
-        };
-      }).toList();
+      // Add items one by one to ensure they're added properly
+      int successCount = 0;
+      int failCount = 0;
+      
+      for (var item in insufficientItems) {
+        try {
+          await widget.cartRepo.addToCart(
+            stockItemId: item.stockItemId,
+            shortageQty: item.shortage,
+            notes: 'Untuk produksi ${_productionPlan?.product.name ?? 'Unknown'}',
+            priority: 'high', // Set priority to high for production items
+          );
+          successCount++;
+        } catch (e) {
+          failCount++;
+          debugPrint('Error adding ${item.stockItemName}: $e');
+        }
+      }
 
-      await widget.cartRepo.bulkAddToCart(items);
+      setState(() => _isLoading = false);
 
+      if (mounted) {
+        if (successCount > 0) {
+          // Show success dialog with option to navigate
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: AppColors.success, size: 32),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('Bahan Ditambah!'),
+                  ),
+                ],
+              ),
+              content: Text(
+                failCount > 0
+                    ? '$successCount bahan berjaya ditambah ke senarai belian.\n$failCount bahan gagal ditambah.'
+                    : '✅ $successCount bahan berjaya ditambah ke senarai belian.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Kekal di Sini'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context); // Close success dialog
+                    Navigator.pop(context); // Close production dialog
+                    // Navigate to shopping list - it will auto-refresh on initState
+                    await Navigator.pushNamed(context, '/shopping-list');
+                    // Refresh production page when returning
+                    widget.onSuccess();
+                  },
+                  icon: const Icon(Icons.shopping_cart),
+                  label: const Text('Lihat Senarai Belian'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Gagal menambah bahan: $failCount item gagal'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ ${items.length} bahan ditambah ke senarai belian'),
-            backgroundColor: AppColors.success,
-            action: SnackBarAction(
-              label: 'Lihat Senarai',
-              textColor: Colors.white,
-              onPressed: () {
-                Navigator.pushNamed(context, '/shopping-list');
-              },
-            ),
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
         );
       }
     }
   }
 
   Future<void> _handleConfirm() async {
-    if (_productionPlan == null || !_productionPlan!.allStockSufficient) {
+    // Enforce stock check - prevent production if stock is insufficient
+    if (_productionPlan == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Stok tidak mencukupi. Sila beli bahan terlebih dahulu.'),
+          content: Text('Sila preview produksi terlebih dahulu.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_productionPlan!.allStockSufficient) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '❌ Stok tidak mencukupi untuk produksi ini.\n'
+            'Sila beli bahan terlebih dahulu sebelum meneruskan produksi.',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
       return;
@@ -676,124 +753,201 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
   }
 
   Widget _buildFooterActions() {
-    return Row(
-      children: [
-        if (_step == 'preview' || _step == 'confirm')
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _isLoading
-                  ? null
-                  : () {
-                      setState(() {
-                        if (_step == 'confirm') {
-                          _step = 'preview';
-                        } else {
-                          _step = 'select';
-                        }
-                      });
-                    },
-              child: const Text('Kembali'),
-            ),
-          ),
-        if (_step == 'preview' || _step == 'confirm')
-          const SizedBox(width: 12),
-        if (_step == 'select')
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-          ),
-        if (_step == 'select')
-          const SizedBox(width: 12),
-        if (_step == 'select')
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isLoading || _selectedProduct == null
-                  ? null
-                  : _handlePreview,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+    // Responsive button layout
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 500;
+        
+        if (_step == 'select') {
+          return Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Row(
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _isLoading || _selectedProduct == null
+                      ? null
+                      : _handlePreview,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Preview Bahan'),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward, size: 18),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          );
+        }
+        
+        if (_step == 'preview') {
+          if (isWide) {
+            // Wide layout: buttons in a row
+            return Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            setState(() => _step = 'select');
+                          },
+                    child: const Text('Kembali'),
+                  ),
+                ),
+                if (!_productionPlan!.allStockSufficient) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _handleAddToShoppingList,
+                      icon: const Icon(Icons.shopping_cart),
+                      label: const Text('Tambah ke Senarai'),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _productionPlan!.allStockSufficient
+                        ? () => setState(() => _step = 'confirm')
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Preview Bahan'),
+                        Text('Teruskan'),
                         SizedBox(width: 8),
                         Icon(Icons.arrow_forward, size: 18),
                       ],
                     ),
-            ),
-          ),
-        if (_step == 'preview') ...[
-          if (!_productionPlan!.allStockSufficient)
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _handleAddToShoppingList,
-                icon: const Icon(Icons.shopping_cart),
-                label: const Text('Tambah ke Senarai'),
-              ),
-            ),
-          if (!_productionPlan!.allStockSufficient)
-            const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _productionPlan!.allStockSufficient
-                  ? () => setState(() => _step = 'confirm')
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Teruskan'),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 18),
-                ],
-              ),
-            ),
-          ),
-        ],
-        if (_step == 'confirm')
-          Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _handleConfirm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          } else {
+            // Narrow layout: buttons stacked
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() => _step = 'select');
+                              },
+                        child: const Text('Kembali'),
                       ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check, size: 20),
-                        SizedBox(width: 8),
-                        Text('Sahkan Produksi'),
-                      ],
                     ),
-            ),
-          ),
-      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _productionPlan!.allStockSufficient
+                            ? () => setState(() => _step = 'confirm')
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Teruskan'),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward, size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!_productionPlan!.allStockSufficient) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _handleAddToShoppingList,
+                      icon: const Icon(Icons.shopping_cart),
+                      label: const Text('Tambah ke Senarai'),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          }
+        }
+        
+        if (_step == 'confirm') {
+          return Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          setState(() => _step = 'preview');
+                        },
+                  child: const Text('Kembali'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleConfirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check, size: 20),
+                            SizedBox(width: 8),
+                            Text('Sahkan Produksi'),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          );
+        }
+        
+        return const SizedBox.shrink();
+      },
     );
   }
 }

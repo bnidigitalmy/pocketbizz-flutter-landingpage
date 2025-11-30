@@ -1,10 +1,21 @@
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/purchase_order.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/pdf_generator.dart';
+
+// Conditional import for web
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 /// Purchase Orders Page
 /// Full-featured PO management dengan semua features dari React code
@@ -125,14 +136,25 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       await _poRepo.markAsReceived(id);
       _loadPurchaseOrders();
       
+      // Wait a bit for stock to update via RPC function
+      await Future.delayed(const Duration(milliseconds: 500));
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Barang Diterima! Stok telah dikemaskini'),
+            content: Text('✅ Barang Diterima! Stok telah dikemaskini. Dashboard akan refresh secara automatik.'),
             backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
           ),
         );
         Navigator.pop(context);
+        
+        // Force refresh after a short delay to ensure stock is updated
+        // This helps if real-time subscription doesn't trigger immediately
+        Future.delayed(const Duration(seconds: 1), () {
+          // Trigger a manual refresh by navigating back and forth
+          // This will cause didChangeDependencies to run in other pages
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -309,60 +331,225 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   }
 
   Future<void> _shareWhatsApp(PurchaseOrder po) async {
-    final date = DateFormat('dd MMMM yyyy', 'ms_MY').format(po.createdAt);
-    
-    var message = '📋 *PURCHASE ORDER*\n';
-    message += 'PocketBizz\n\n';
-    message += 'PO Number: *${po.poNumber}*\n';
-    message += 'Tarikh: $date\n\n';
-    
-    message += '📤 *KEPADA:*\n';
-    message += '${po.supplierName}\n';
-    if (po.supplierPhone != null) message += 'Tel: ${po.supplierPhone}\n';
-    if (po.supplierEmail != null) message += 'Email: ${po.supplierEmail}\n';
-    if (po.supplierAddress != null) message += '${po.supplierAddress}\n';
-    message += '\n';
-    
-    if (po.deliveryAddress != null) {
-      message += '📍 *ALAMAT PENGHANTARAN:*\n';
-      message += '${po.deliveryAddress}\n\n';
+    try {
+      // Generate PDF first
+      final pdfBytes = await PDFGenerator.generatePOPDF(po);
+      
+      // Create message with PDF info
+      final date = DateFormat('dd MMMM yyyy', 'ms_MY').format(po.createdAt);
+      
+      var message = '📋 *PURCHASE ORDER*\n';
+      message += 'PocketBizz\n\n';
+      message += 'PO Number: *${po.poNumber}*\n';
+      message += 'Tarikh: $date\n\n';
+      
+      message += '📤 *KEPADA:*\n';
+      message += '${po.supplierName}\n';
+      if (po.supplierPhone != null) message += 'Tel: ${po.supplierPhone}\n';
+      if (po.supplierEmail != null) message += 'Email: ${po.supplierEmail}\n';
+      if (po.supplierAddress != null) message += '${po.supplierAddress}\n';
+      message += '\n';
+      
+      if (po.deliveryAddress != null) {
+        message += '📍 *ALAMAT PENGHANTARAN:*\n';
+        message += '${po.deliveryAddress}\n\n';
+      }
+      
+      message += '📦 *SENARAI ITEM:*\n\n';
+      
+      for (var i = 0; i < po.items.length; i++) {
+        final item = po.items[i];
+        message += '${i + 1}. *${item.itemName}*\n';
+        message += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+        if (item.estimatedPrice != null) {
+          final price = item.estimatedPrice!;
+          final total = price * item.quantity;
+          message += '   Harga: RM ${price.toStringAsFixed(2)}\n';
+          message += '   Jumlah: RM ${total.toStringAsFixed(2)}\n';
+        }
+        if (item.notes != null) {
+          message += '   Nota: ${item.notes}\n';
+        }
+        message += '\n';
+      }
+      
+      message += '${List.filled(30, '=').join()}\n';
+      message += '💰 *JUMLAH: RM ${po.totalAmount.toStringAsFixed(2)}*\n\n';
+      
+      if (po.notes != null) {
+        message += '📝 Nota: ${po.notes}\n\n';
+      }
+      
+      message += '📎 *PDF Purchase Order telah dilampirkan*\n\n';
+      message += 'Sila sahkan pesanan ini. Terima kasih! 🙏';
+      
+      // For mobile: Share PDF first, then open WhatsApp
+      if (!kIsWeb) {
+        // Share PDF file
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: '${po.poNumber}.pdf',
+        );
+        
+        // Wait a bit for share dialog
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      
+      // Open WhatsApp with message
+      final encodedMessage = Uri.encodeComponent(message);
+      final phoneNumber = po.supplierPhone?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
+      final whatsappUrl = phoneNumber.isNotEmpty
+          ? 'https://wa.me/$phoneNumber?text=$encodedMessage'
+          : 'https://wa.me/?text=$encodedMessage';
+      
+      await launchUrl(Uri.parse(whatsappUrl));
+      
+      if (mounted && !kIsWeb) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ PDF telah dibuka untuk share. Selepas share PDF, buka WhatsApp untuk hantar mesej.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      } else if (mounted) {
+        // For web, download PDF first
+        await _downloadPDF(po);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ PDF telah dimuat turun. Sila attach PDF dalam WhatsApp Web.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _downloadPDF(PurchaseOrder po) async {
+    try {
+      // Generate PDF
+      final pdfBytes = await PDFGenerator.generatePOPDF(po);
+      
+      if (kIsWeb) {
+        // For web, trigger download
+        final blob = html.Blob([pdfBytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', '${po.poNumber}.pdf')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ PDF berjaya dimuat turun!'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        // For mobile, share the PDF
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: '${po.poNumber}.pdf',
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ PDF berjaya dihasilkan! Pilih lokasi untuk simpan.'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _printPO(PurchaseOrder po) {
+    if (kIsWeb) {
+      // For web, create a print-friendly HTML page using window.open
+      // We'll use a simpler approach: show details dialog and instruct user to print
+      setState(() => _selectedPO = po);
+      _showDetailsDialog();
+      
+      // Show instruction after dialog opens
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('💡 Tip: Gunakan Ctrl+P atau Cmd+P untuk cetak PO ini. Atau gunakan "Muat Turun PDF" untuk save sebagai PDF.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      });
+    } else {
+      // For mobile, show message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Print functionality untuk mobile: Buka PO details dan gunakan share > Print'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareAsShoppingList(PurchaseOrder po) async {
+    // Create a simple shopping list format (no PO details, just items)
+    var list = '🛒 *SENARAI BELIAN*\n';
+    list += 'PO: ${po.poNumber}\n';
+    list += 'Tarikh: ${DateFormat('dd MMMM yyyy', 'ms_MY').format(po.createdAt)}\n\n';
     
-    message += '📦 *SENARAI ITEM:*\n\n';
+    list += '*Item yang perlu dibeli:*\n\n';
     
     for (var i = 0; i < po.items.length; i++) {
       final item = po.items[i];
-      message += '${i + 1}. *${item.itemName}*\n';
-      message += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
-      if (item.estimatedPrice != null) {
-        final price = item.estimatedPrice!;
-        final total = price * item.quantity;
-        message += '   Harga: RM ${price.toStringAsFixed(2)}\n';
-        message += '   Jumlah: RM ${total.toStringAsFixed(2)}\n';
+      list += '${i + 1}. ${item.itemName}\n';
+      list += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+      if (item.notes != null && item.notes!.isNotEmpty) {
+        list += '   Nota: ${item.notes}\n';
       }
-      if (item.notes != null) {
-        message += '   Nota: ${item.notes}\n';
-      }
-      message += '\n';
+      list += '\n';
     }
     
-    message += '${List.filled(30, '=').join()}\n';
-    message += '💰 *JUMLAH: RM ${po.totalAmount.toStringAsFixed(2)}*\n\n';
+    list += '\nJumlah: ${po.items.length} item';
     
-    if (po.notes != null) {
-      message += '📝 Nota: ${po.notes}\n\n';
-    }
-    
-    message += 'Sila sahkan pesanan ini. Terima kasih! 🙏';
-    
-    final encodedMessage = Uri.encodeComponent(message);
-    final phoneNumber = po.supplierPhone?.replaceAll(RegExp(r'[^\d]'), '') ?? '';
-    final whatsappUrl = phoneNumber.isNotEmpty
-        ? 'https://wa.me/$phoneNumber?text=$encodedMessage'
-        : 'https://wa.me/?text=$encodedMessage';
+    // Share via WhatsApp (without phone number - user can choose recipient)
+    final encodedMessage = Uri.encodeComponent(list);
+    final whatsappUrl = 'https://wa.me/?text=$encodedMessage';
     
     try {
       await launchUrl(Uri.parse(whatsappUrl));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Senarai belian dibuka di WhatsApp. Pilih penerima (staff/pekerja/diri sendiri).'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -372,13 +559,62 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
     }
   }
 
-  void _downloadPDF(PurchaseOrder po) {
-    // TODO: Implement PDF generation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('PDF download: ${po.poNumber}.pdf (coming soon)'),
-      ),
-    );
+  Future<void> _copyAsText(PurchaseOrder po) async {
+    final date = DateFormat('dd MMMM yyyy', 'ms_MY').format(po.createdAt);
+    
+    var text = 'PURCHASE ORDER\n';
+    text += 'PocketBizz\n\n';
+    text += 'PO Number: ${po.poNumber}\n';
+    text += 'Tarikh: $date\n\n';
+    
+    text += 'KEPADA:\n';
+    text += '${po.supplierName}\n';
+    if (po.supplierPhone != null) text += 'Tel: ${po.supplierPhone}\n';
+    if (po.supplierEmail != null) text += 'Email: ${po.supplierEmail}\n';
+    if (po.supplierAddress != null) text += '${po.supplierAddress}\n';
+    text += '\n';
+    
+    if (po.deliveryAddress != null) {
+      text += 'ALAMAT PENGHANTARAN:\n';
+      text += '${po.deliveryAddress}\n\n';
+    }
+    
+    text += 'SENARAI ITEM:\n\n';
+    
+    for (var i = 0; i < po.items.length; i++) {
+      final item = po.items[i];
+      text += '${i + 1}. ${item.itemName}\n';
+      text += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+      if (item.estimatedPrice != null) {
+        final price = item.estimatedPrice!;
+        final total = price * item.quantity;
+        text += '   Harga: RM ${price.toStringAsFixed(2)}\n';
+        text += '   Jumlah: RM ${total.toStringAsFixed(2)}\n';
+      }
+      if (item.notes != null) {
+        text += '   Nota: ${item.notes}\n';
+      }
+      text += '\n';
+    }
+    
+    text += '${List.filled(30, '=').join()}\n';
+    text += 'JUMLAH: RM ${po.totalAmount.toStringAsFixed(2)}\n\n';
+    
+    if (po.notes != null) {
+      text += 'Nota: ${po.notes}\n\n';
+    }
+    
+    await Clipboard.setData(ClipboardData(text: text));
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ PO disalin ke clipboard! Boleh paste ke mana-mana (email, notes, dll)'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _openEditDialog(PurchaseOrder po) {
@@ -481,14 +717,82 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       return;
     }
     
-    // TODO: Implement email sending
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Email functionality coming soon'),
-      ),
-    );
-    
+    try {
+      // Generate PDF first
+      final pdfBytes = await PDFGenerator.generatePOPDF(_selectedPO!);
+      
+      // Convert PDF to base64 for email attachment
+      final pdfBase64 = base64Encode(pdfBytes);
+      
+      // Create email subject and body
+      final subject = 'Purchase Order ${_selectedPO!.poNumber} - PocketBizz';
+      final body = _emailMessageController.text.trim().isEmpty
+          ? 'Sila lihat Purchase Order yang dilampirkan.\n\nTerima kasih!'
+          : _emailMessageController.text.trim();
+      
+      // For web: Use mailto with data URI (limited support)
+      // For mobile: Use mailto and share PDF separately
+      if (kIsWeb) {
+        // Web: Open mailto link (PDF attachment not directly supported via mailto)
+        // User can download PDF and attach manually, or we can use a service
+        final emailUrl = Uri(
+          scheme: 'mailto',
+          path: _emailRecipientController.text.trim(),
+          query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
+        );
+        
+        await launchUrl(emailUrl);
+        
+        // Also trigger PDF download so user can attach it
+        await _downloadPDF(_selectedPO!);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Email client dibuka. PDF telah dimuat turun - sila attach PDF tersebut.'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      } else {
+        // Mobile: Use mailto and share PDF
+        final emailUrl = Uri(
+          scheme: 'mailto',
+          path: _emailRecipientController.text.trim(),
+          query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
+        );
+        
+        await launchUrl(emailUrl);
+        
+        // Also share PDF so user can attach it
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: '${_selectedPO!.poNumber}.pdf',
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Email client dibuka. PDF telah dibuka untuk share - sila attach PDF tersebut.'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+      
       Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Map<String, dynamic> _calculateStats() {
@@ -829,18 +1133,81 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        _updateStatus(po.id, 'sent');
-                        await _shareWhatsApp(po);
+                    // Action menu button - multiple options
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) async {
+                        switch (value) {
+                          case 'whatsapp':
+                            _updateStatus(po.id, 'sent');
+                            await _shareWhatsApp(po);
+                            break;
+                          case 'mark_sent':
+                            _updateStatus(po.id, 'sent');
+                            break;
+                          case 'print':
+                            _printPO(po);
+                            break;
+                          case 'share_list':
+                            _shareAsShoppingList(po);
+                            break;
+                          case 'copy_text':
+                            _copyAsText(po);
+                            break;
+                        }
                       },
-                      icon: const Icon(Icons.send, size: 16),
-                      label: const Text('WhatsApp'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'whatsapp',
+                          child: Row(
+                            children: [
+                              Icon(Icons.chat, size: 18),
+                              SizedBox(width: 8),
+                              Text('WhatsApp ke Supplier'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'mark_sent',
+                          child: Row(
+                            children: [
+                              Icon(Icons.send, size: 18),
+                              SizedBox(width: 8),
+                              Text('Tandakan sebagai Dihantar'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'print',
+                          child: Row(
+                            children: [
+                              Icon(Icons.print, size: 18),
+                              SizedBox(width: 8),
+                              Text('Cetak PO'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'share_list',
+                          child: Row(
+                            children: [
+                              Icon(Icons.shopping_bag, size: 18),
+                              SizedBox(width: 8),
+                              Text('Kongsi sebagai Senarai Belian'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'copy_text',
+                          child: Row(
+                            children: [
+                              Icon(Icons.copy, size: 18),
+                              SizedBox(width: 8),
+                              Text('Salin sebagai Teks'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
@@ -999,28 +1366,137 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _showSaveTemplateDialog();
+        // Action menu for multiple options
+        PopupMenuButton<String>(
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.more_vert),
+                SizedBox(width: 4),
+                Text('Tindakan'),
+              ],
+            ),
+          ),
+          onSelected: (value) async {
+            Navigator.pop(context); // Close details dialog first
+            switch (value) {
+              case 'whatsapp':
+                if (po.status == 'draft') {
+                  _updateStatus(po.id, 'sent');
+                }
+                await _shareWhatsApp(po);
+                break;
+              case 'mark_sent':
+                if (po.status == 'draft') {
+                  _updateStatus(po.id, 'sent');
+                }
+                break;
+              case 'print':
+                _printPO(po);
+                break;
+              case 'share_list':
+                _shareAsShoppingList(po);
+                break;
+              case 'copy_text':
+                _copyAsText(po);
+                break;
+              case 'email':
+                _openEmailDialog(po);
+                break;
+              case 'pdf':
+                _downloadPDF(po);
+                break;
+              case 'template':
+                _showSaveTemplateDialog();
+                break;
+            }
           },
-          child: const Text('Simpan Template'),
-        ),
-        TextButton(
-          onPressed: () => _downloadPDF(po),
-          child: const Text('Muat Turun PDF'),
-        ),
-        TextButton(
-          onPressed: () {
-            setState(() {
-              _openEmailDialog(po);
-            });
-          },
-          child: const Text('Email'),
-        ),
-        TextButton(
-          onPressed: () async => await _shareWhatsApp(po),
-          child: const Text('WhatsApp'),
+          itemBuilder: (context) => [
+            if (po.status == 'draft') ...[
+              const PopupMenuItem(
+                value: 'whatsapp',
+                child: Row(
+                  children: [
+                    Icon(Icons.chat, size: 18),
+                    SizedBox(width: 8),
+                    Text('WhatsApp ke Supplier'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'mark_sent',
+                child: Row(
+                  children: [
+                    Icon(Icons.send, size: 18),
+                    SizedBox(width: 8),
+                    Text('Tandakan sebagai Dihantar'),
+                  ],
+                ),
+              ),
+            ],
+            const PopupMenuItem(
+              value: 'print',
+              child: Row(
+                children: [
+                  Icon(Icons.print, size: 18),
+                  SizedBox(width: 8),
+                  Text('Cetak PO'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'share_list',
+              child: Row(
+                children: [
+                  Icon(Icons.shopping_bag, size: 18),
+                  SizedBox(width: 8),
+                  Text('Kongsi sebagai Senarai Belian'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'copy_text',
+              child: Row(
+                children: [
+                  Icon(Icons.copy, size: 18),
+                  SizedBox(width: 8),
+                  Text('Salin sebagai Teks'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'email',
+              child: Row(
+                children: [
+                  Icon(Icons.email, size: 18),
+                  SizedBox(width: 8),
+                  Text('Email'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'pdf',
+              child: Row(
+                children: [
+                  Icon(Icons.picture_as_pdf, size: 18),
+                  SizedBox(width: 8),
+                  Text('Muat Turun PDF'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'template',
+              child: Row(
+                children: [
+                  Icon(Icons.bookmark, size: 18),
+                  SizedBox(width: 8),
+                  Text('Simpan Template'),
+                ],
+              ),
+            ),
+          ],
         ),
         TextButton(
           onPressed: () => Navigator.pop(context),

@@ -48,15 +48,19 @@ class StockItem {
       businessOwnerId: json['business_owner_id'] as String,
       name: json['name'] as String,
       unit: json['unit'] as String,
-      packageSize: (json['package_size'] as num).toDouble(),
-      purchasePrice: (json['purchase_price'] as num).toDouble(),
-      currentQuantity: (json['current_quantity'] as num).toDouble(),
-      lowStockThreshold: (json['low_stock_threshold'] as num).toDouble(),
+      packageSize: (json['package_size'] as num?)?.toDouble() ?? 1.0,
+      purchasePrice: (json['purchase_price'] as num?)?.toDouble() ?? 0.0,
+      currentQuantity: (json['current_quantity'] as num?)?.toDouble() ?? 0.0,
+      lowStockThreshold: (json['low_stock_threshold'] as num?)?.toDouble() ?? 5.0,
       notes: json['notes'] as String?,
-      version: json['version'] as int,
-      isArchived: json['is_archived'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      version: (json['version'] as num?)?.toInt() ?? 0,
+      isArchived: json['is_archived'] as bool? ?? false,
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
     );
   }
 

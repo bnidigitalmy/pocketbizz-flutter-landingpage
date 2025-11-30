@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/stock_item.dart';
 import '../models/stock_movement.dart';
@@ -35,15 +36,38 @@ class StockRepository {
   /// Get low stock items (quantity <= threshold)
   Future<List<StockItem>> getLowStockItems() async {
     try {
-      // Use the view we created in migration
-      final response = await _supabase
-          .from('low_stock_items')
-          .select()
-          .order('stock_level_percentage', ascending: true);
+      // Use the view we created in migration, or fallback to manual calculation
+      try {
+        final response = await _supabase
+            .from('low_stock_items')
+            .select()
+            .order('stock_level_percentage', ascending: true);
 
-      return (response as List).map((json) => StockItem.fromJson(json)).toList();
+        if (response != null && response is List) {
+          return (response as List)
+              .map((json) {
+                try {
+                  return StockItem.fromJson(json);
+                } catch (e) {
+                  debugPrint('Error parsing stock item: $e, json: $json');
+                  return null;
+                }
+              })
+              .whereType<StockItem>()
+              .toList();
+        }
+      } catch (viewError) {
+        // If view doesn't exist, fallback to manual calculation
+        debugPrint('low_stock_items view not available, using manual calculation: $viewError');
+      }
+
+      // Fallback: Get all items and filter manually
+      final allItems = await getAllStockItems();
+      return allItems.where((item) => item.isLowStock).toList();
     } catch (e) {
-      throw Exception('Failed to fetch low stock items: $e');
+      debugPrint('Error in getLowStockItems: $e');
+      // Return empty list instead of throwing to prevent UI crash
+      return [];
     }
   }
 

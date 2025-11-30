@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
+import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/product.dart';
+import '../../../core/supabase/supabase_client.dart';
 
 class CreateSalePage extends StatefulWidget {
   const CreateSalePage({super.key});
@@ -14,6 +16,7 @@ class _CreateSalePageState extends State<CreateSalePage> {
   final _formKey = GlobalKey<FormState>();
   final _salesRepo = SalesRepositorySupabase();
   final _productsRepo = ProductsRepositorySupabase();
+  final _productionRepo = ProductionRepository(supabase);
 
   // Controllers
   final _customerNameController = TextEditingController();
@@ -23,6 +26,7 @@ class _CreateSalePageState extends State<CreateSalePage> {
   bool _loading = false;
   final List<Map<String, dynamic>> _selectedItems = [];
   List<Product> _availableProducts = [];
+  final Map<String, double> _productStockCache = {}; // Cache for stock availability
 
   @override
   void initState() {
@@ -40,6 +44,18 @@ class _CreateSalePageState extends State<CreateSalePage> {
   Future<void> _loadProducts() async {
     try {
       final products = await _productsRepo.listProducts();
+      
+      // Load stock availability for all products
+      for (final product in products) {
+        try {
+          final availableStock = await _productionRepo.getTotalRemainingForProduct(product.id);
+          _productStockCache[product.id] = availableStock;
+        } catch (e) {
+          // If error, set to 0 (no stock available)
+          _productStockCache[product.id] = 0.0;
+        }
+      }
+      
       setState(() => _availableProducts = products);
     } catch (e) {
       if (mounted) {
@@ -55,9 +71,32 @@ class _CreateSalePageState extends State<CreateSalePage> {
 
     if (_selectedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one item')),
+        const SnackBar(content: Text('Sila tambah sekurang-kurangnya satu item')),
       );
       return;
+    }
+
+    // Validate stock availability before creating sale
+    for (final item in _selectedItems) {
+      final productId = item['product_id'] as String;
+      final qty = (item['quantity'] as num).toDouble();
+      final productName = item['product_name'] as String;
+      final availableStock = _productStockCache[productId] ?? 0.0;
+      
+      if (qty > availableStock) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Stok tidak mencukupi untuk "$productName": '
+              'Tersedia: ${availableStock.toStringAsFixed(1)}, '
+              'Diperlukan: ${qty.toStringAsFixed(1)}'
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _loading = true);
@@ -97,48 +136,126 @@ class _CreateSalePageState extends State<CreateSalePage> {
   }
 
   void _addProduct(Product product) {
+    final availableStock = _productStockCache[product.id] ?? 0.0;
+    
     showDialog(
       context: context,
       builder: (context) {
         final qtyController = TextEditingController(text: '1');
-        return AlertDialog(
-          title: Text('Add ${product.name}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Price: RM${product.salePrice.toStringAsFixed(2)}'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
-                ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Add ${product.name}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Price: RM${product.salePrice.toStringAsFixed(2)}'),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: availableStock > 0 
+                          ? Colors.green[50] 
+                          : Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: availableStock > 0 
+                            ? Colors.green[300]! 
+                            : Colors.red[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          availableStock > 0 ? Icons.check_circle : Icons.warning,
+                          color: availableStock > 0 ? Colors.green : Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Stok Tersedia: ${availableStock.toStringAsFixed(1)} unit',
+                            style: TextStyle(
+                              color: availableStock > 0 ? Colors.green[700] : Colors.red[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Quantity',
+                      border: const OutlineInputBorder(),
+                      helperText: availableStock > 0 
+                          ? 'Maksimum: ${availableStock.toStringAsFixed(1)} unit'
+                          : 'Tiada stok tersedia',
+                      errorText: () {
+                        final qty = double.tryParse(qtyController.text) ?? 0;
+                        if (qty > availableStock) {
+                          return 'Kuantiti melebihi stok tersedia';
+                        }
+                        return null;
+                      }(),
+                    ),
+                    onChanged: (value) => setDialogState(() {}),
+                  ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final qty = double.tryParse(qtyController.text) ?? 1;
-                setState(() {
-                  _selectedItems.add({
-                    'product_id': product.id,
-                    'product_name': product.name,
-                    'quantity': qty,
-                    'unit_price': product.salePrice,
-                  });
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Add'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final qty = double.tryParse(qtyController.text) ?? 0;
+                    
+                    if (qty <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Kuantiti mesti lebih daripada 0'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    if (qty > availableStock) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Kuantiti melebihi stok tersedia (${availableStock.toStringAsFixed(1)} unit)'
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    setState(() {
+                      _selectedItems.add({
+                        'product_id': product.id,
+                        'product_name': product.name,
+                        'quantity': qty,
+                        'unit_price': product.salePrice,
+                      });
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: availableStock > 0 ? null : Colors.grey,
+                  ),
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -245,32 +362,60 @@ class _CreateSalePageState extends State<CreateSalePage> {
                 ),
               )
             else
-              ..._selectedItems.map((item) => Card(
-                    child: ListTile(
-                      title: Text(item['product_name']),
-                      subtitle: Text(
-                        'Qty: ${item['quantity']} × RM${item['unit_price'].toStringAsFixed(2)}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+              ..._selectedItems.map((item) {
+                final productId = item['product_id'] as String;
+                final qty = (item['quantity'] as num).toDouble();
+                final availableStock = _productStockCache[productId] ?? 0.0;
+                final isStockSufficient = qty <= availableStock;
+                
+                return Card(
+                  color: isStockSufficient ? null : Colors.red[50],
+                  child: ListTile(
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(item['product_name'])),
+                        if (!isStockSufficient)
+                          const Icon(Icons.warning, color: Colors.red, size: 20),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Qty: ${item['quantity']} × RM${item['unit_price'].toStringAsFixed(2)}',
+                        ),
+                        if (!isStockSufficient)
                           Text(
-                            'RM${(item['quantity'] * item['unit_price']).toStringAsFixed(2)}',
+                            '⚠️ Stok tidak mencukupi (Tersedia: ${availableStock.toStringAsFixed(1)})',
                             style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle, color: Colors.red),
-                            onPressed: () {
-                              setState(() => _selectedItems.remove(item));
-                            },
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  )),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'RM${(item['quantity'] * item['unit_price']).toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle, color: Colors.red),
+                          onPressed: () {
+                            setState(() => _selectedItems.remove(item));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
 
             const SizedBox(height: 16),
 

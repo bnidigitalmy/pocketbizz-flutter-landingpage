@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html show window;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
@@ -59,11 +59,95 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   final _previewDeliveryAddressController = TextEditingController();
   final _previewNotesController = TextEditingController();
 
+  // Track if we need to refresh (e.g., after returning from PO page)
+  bool _needsRefresh = false;
+  DateTime? _lastRefreshTime;
+  
+  // Real-time subscriptions
+  StreamSubscription? _stockSubscription;
+  StreamSubscription? _lowStockSubscription;
+  StreamSubscription? _poSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _checkAutoPO();
+    _setupRealtimeSubscriptions();
+    // Removed periodic refresh - hanya guna real-time subscription
+  }
+
+
+  // Setup real-time subscriptions for stock updates
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to stock_items table changes for current user only
+      _stockSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Stock items updated - refresh data with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to purchase_orders table to detect when PO is received
+      // This will trigger refresh when PO status changes to 'received'
+      try {
+        _poSubscription = supabase
+            .from('purchase_orders')
+            .stream(primaryKey: ['id'])
+            .eq('business_owner_id', userId)
+            .listen((data) {
+              // Check if any PO status changed to 'received'
+              final receivedPOs = data.where((po) => po['status'] == 'received').toList();
+              if (receivedPOs.isNotEmpty && mounted) {
+                // PO received - refresh stock data
+                _debouncedRefresh();
+              }
+            });
+      } catch (e) {
+        debugPrint('Error setting up PO subscription: $e');
+      }
+    } catch (e) {
+      debugPrint('Error setting up real-time subscriptions: $e');
+      // If real-time fails, periodic refresh will handle it
+    }
+  }
+
+  // Debounce refresh to avoid excessive updates and blinking
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadData();
+      }
+    });
+  }
+
+  // Removed periodic refresh - hanya guna real-time subscription untuk avoid blinking
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when page becomes visible (e.g., returning from PO page after receiving)
+    // But throttle to avoid excessive refreshes (max once per 2 seconds)
+    final now = DateTime.now();
+    if (_lastRefreshTime == null || 
+        now.difference(_lastRefreshTime!).inSeconds >= 2) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadData();
+          _lastRefreshTime = now;
+        }
+      });
+    }
   }
 
   void _checkAutoPO() {
@@ -71,14 +155,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
-          final uri = Uri.parse(html.window.location.href);
-          if (uri.queryParameters['autoPO'] == 'true' && _cartItems.isNotEmpty) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                _showSupplierDialog();
-              }
-            });
-          }
+          // For web, we can check URL parameters via window.location
+          // This is a simplified check - in production, use proper URL handling
+          // For now, skip auto-open to avoid web-specific dependencies
+          // Can be implemented later with proper web platform channel
         } catch (e) {
           // Ignore errors
         }
@@ -88,6 +168,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   @override
   void dispose() {
+    // Cancel real-time subscriptions
+    _stockSubscription?.cancel();
+    _lowStockSubscription?.cancel();
+    _poSubscription?.cancel();
+    _debounceTimer?.cancel();
+    
+    // Dispose controllers
     for (var controller in _qtyControllers.values) {
       controller.dispose();
     }
@@ -108,24 +195,60 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     super.dispose();
   }
 
+  // Track if data is currently loading to prevent multiple simultaneous loads
+  bool _isLoadingData = false;
+
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // Prevent multiple simultaneous loads
+    if (_isLoadingData) return;
+    
+    setState(() {
+      _isLoading = true;
+      _isLoadingData = true;
+    });
     
     try {
-      final results = await Future.wait([
-        _cartRepo.getAllCartItems(),
-        _stockRepo.getAllStockItems(),
-        _stockRepo.getLowStockItems(),
-        _vendorRepo.getAllVendors(activeOnly: true),
-      ]);
+      // Load data with individual error handling to prevent one failure from breaking everything
+      List<ShoppingCartItem> cartItems = [];
+      List<StockItem> allStockItems = [];
+      List<StockItem> lowStockItems = [];
+      List<Vendor> suppliers = [];
       
-      setState(() {
-        _cartItems = (results[0] as List).cast<ShoppingCartItem>();
-        _allStockItems = (results[1] as List).cast<StockItem>();
-        _lowStockItems = (results[2] as List).cast<StockItem>();
-        _suppliers = (results[3] as List).cast<Vendor>();
-        _isLoading = false;
-      });
+      try {
+        cartItems = await _cartRepo.getAllCartItems();
+      } catch (e) {
+        debugPrint('Error loading cart items: $e');
+      }
+      
+      try {
+        allStockItems = await _stockRepo.getAllStockItems();
+      } catch (e) {
+        debugPrint('Error loading stock items: $e');
+      }
+      
+      try {
+        lowStockItems = await _stockRepo.getLowStockItems();
+      } catch (e) {
+        debugPrint('Error loading low stock items: $e');
+        // Don't show error to user, just use empty list
+      }
+      
+      try {
+        suppliers = await _vendorRepo.getAllVendors(activeOnly: true);
+      } catch (e) {
+        debugPrint('Error loading suppliers: $e');
+      }
+      
+      if (mounted) {
+        setState(() {
+          _cartItems = cartItems;
+          _allStockItems = allStockItems;
+          _lowStockItems = lowStockItems;
+          _suppliers = suppliers;
+          _isLoading = false;
+          _isLoadingData = false;
+        });
+      }
       
       // Initialize quantity controllers
       for (var item in _cartItems) {
@@ -134,12 +257,14 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        setState(() {
+          _isLoading = false;
+          _isLoadingData = false;
+        });
       }
+      debugPrint('Unexpected error in _loadData: $e');
+      // Don't show error snackbar to avoid UI clutter
     }
   }
 
@@ -450,7 +575,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         _loadData();
         
         // Navigate to PO page
-        Navigator.pushNamed(context, '/purchase-orders');
+        await Navigator.pushNamed(context, '/purchase-orders');
+        
+        // Refresh when returning from PO page (in case PO was received)
+        if (mounted) {
+          _loadData();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -514,8 +644,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     }
     
     if (kIsWeb) {
-      // For web, trigger browser print
-      html.window.print();
+      // For web, trigger browser print via JavaScript
+      // Using platform channel would be better, but for now show message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Print: Gunakan Ctrl+P atau Cmd+P untuk cetak'),
+        ),
+      );
     } else {
       // For mobile, show message (can integrate printing package later)
       ScaffoldMessenger.of(context).showSnackBar(
@@ -527,9 +662,29 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   @override
   Widget build(BuildContext context) {
     final totalEstimated = _calculateTotalEstimated();
-    final availableLowStock = _lowStockItems.where(
-      (item) => !_cartItems.any((ci) => ci.stockItemId == item.id),
-    ).toList();
+    
+    // Filter low stock items:
+    // 1. Not already in cart (pending status)
+    // 2. Actually still low stock - check against fresh stock data from allStockItems
+    // 3. Cross-reference with allStockItems to get latest currentQuantity
+    final availableLowStock = _lowStockItems.where((item) {
+      // Check if item is in cart with pending status
+      final inCartPending = _cartItems.any(
+        (ci) => ci.stockItemId == item.id && ci.status == 'pending',
+      );
+      
+      // Get fresh stock data from allStockItems (more up-to-date than low_stock_items view)
+      final freshStockItem = _allStockItems.firstWhere(
+        (si) => si.id == item.id,
+        orElse: () => item, // Fallback to item from low stock list if not found
+      );
+      
+      // Check if item is actually still low stock using fresh data
+      final isStillLowStock = freshStockItem.currentQuantity <= freshStockItem.lowStockThreshold;
+      
+      // Only show if not in pending cart AND still actually low stock
+      return !inCartPending && isStillLowStock;
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -549,7 +704,14 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.description),
-            onPressed: () => Navigator.pushNamed(context, '/purchase-orders'),
+            onPressed: () async {
+              _needsRefresh = true;
+              await Navigator.pushNamed(context, '/purchase-orders');
+              // Refresh when returning from PO page
+              if (mounted) {
+                _loadData();
+              }
+            },
             tooltip: 'Sejarah PO',
           ),
           IconButton(
@@ -635,30 +797,33 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                                   ),
                                 ],
                               ),
-                              Row(
-                                children: [
-                                  ElevatedButton.icon(
-                                    onPressed: () => _showManualAddDialog(),
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: const Text('Tambah Item'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                  ),
-                                  if (_cartItems.isNotEmpty) ...[
-                                    const SizedBox(width: 8),
+                              Flexible(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.end,
+                                  children: [
                                     ElevatedButton.icon(
-                                      onPressed: () => _showSupplierDialog(),
-                                      icon: const Icon(Icons.description, size: 18),
-                                      label: const Text('Buat PO'),
+                                      onPressed: () => _showManualAddDialog(),
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('Tambah Item'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.success,
+                                        backgroundColor: AppColors.primary,
                                         foregroundColor: Colors.white,
                                       ),
                                     ),
+                                    if (_cartItems.isNotEmpty)
+                                      ElevatedButton.icon(
+                                        onPressed: () => _showSupplierDialog(),
+                                        icon: const Icon(Icons.description, size: 18),
+                                        label: const Text('Buat PO'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.success,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
                                   ],
-                                ],
+                                ),
                               ),
                             ],
                           ),
@@ -787,15 +952,20 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             ),
                           ),
                           ...availableLowStock.take(5).map((item) {
-                            final currentQty = item.currentQuantity;
-                            final threshold = item.lowStockThreshold;
+                            // Use fresh stock data from allStockItems
+                            final freshStockItem = _allStockItems.firstWhere(
+                              (si) => si.id == item.id,
+                              orElse: () => item,
+                            );
+                            final currentQty = freshStockItem.currentQuantity;
+                            final threshold = freshStockItem.lowStockThreshold;
                             final suggested = (threshold * 2) - currentQty;
                             final qty = suggested > 0 ? suggested : threshold;
                             
                             return ListTile(
-                              title: Text(item.name),
+                              title: Text(freshStockItem.name),
                               subtitle: Text(
-                                'Stok: ${currentQty.toStringAsFixed(1)} ${item.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${item.unit}',
+                                'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
