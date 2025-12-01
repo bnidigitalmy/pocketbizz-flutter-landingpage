@@ -2,9 +2,47 @@
   "buildCommand": "echo 'Using pre-built files'",
   "outputDirectory": "build/web",
   "installCommand": "echo 'Skip install'",
+  "headers": [
+    {
+      "source": "/(.*\\.js)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.json)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.wasm)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        }
+      ]
+    },
+    {
+      "source": "/(.*\\.mjs)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\.(js|json|wasm|mjs|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|otf|frag|bin|map)).*)",
       "destination": "/index.html"
     }
   ]
