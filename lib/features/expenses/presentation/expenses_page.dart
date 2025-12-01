@@ -33,7 +33,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
   String _formDescription = '';
   DateTime _formDate = DateTime.now();
 
-  final _categoryLabels = const {
+  // Category labels (slug -> display name). Starts with defaults but can be
+  // extended by the user and from existing data.
+  final Map<String, String> _categoryLabels = {
     'bahan': 'Bahan Mentah',
     'minyak': 'Minyak & Petrol',
     'upah': 'Upah Pekerja',
@@ -54,6 +56,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
       if (mounted) {
         setState(() {
           _expenses = data;
+          // Ensure we know about any categories already stored in DB.
+          for (final exp in data) {
+            if (!_categoryLabels.containsKey(exp.category)) {
+              _categoryLabels[exp.category] = _titleCase(exp.category);
+            }
+          }
         });
       }
     } catch (e) {
@@ -90,6 +98,16 @@ class _ExpensesPageState extends State<ExpensesPage> {
       );
     if (_selectedCategory == 'all') return list;
     return list.where((e) => e.category == _selectedCategory).toList();
+  }
+
+  String _titleCase(String value) {
+    final trimmed = value.replaceAll('_', ' ').trim();
+    if (trimmed.isEmpty) return value;
+    return trimmed
+        .split(' ')
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
+        .join(' ');
   }
 
   String _formatCurrency(num value) {
@@ -142,6 +160,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
                         setState(() => _formCategory = value);
                       }
                     },
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _isSaving ? null : _openAddCategoryDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text(
+                        'Tambah kategori baru',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -272,6 +302,63 @@ class _ExpensesPageState extends State<ExpensesPage> {
     }
   }
 
+  Future<void> _openAddCategoryDialog() async {
+    String name = '';
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Kategori Baru'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nama kategori',
+                hintText: 'Contoh: Sewa Kedai',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => name = value,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Sila masukkan nama kategori';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                final trimmed = name.trim();
+                // Generate a simple slug key.
+                final slug = trimmed
+                    .toLowerCase()
+                    .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+                    .replaceAll(RegExp(r'^_+|_+$'), '');
+
+                setState(() {
+                  _categoryLabels[slug.isEmpty ? trimmed : slug] = trimmed;
+                  _formCategory = slug.isEmpty ? trimmed : slug;
+                });
+
+                Navigator.pop(context);
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -309,9 +396,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeaderSummary(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildCategorySummary(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildExpensesList(),
                   ],
                 ),
