@@ -849,60 +849,77 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
                   const SizedBox(height: 16),
                 ],
                 // Actions
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Status dropdown
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: delivery.status,
-                        decoration: const InputDecoration(
-                          labelText: 'Status',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    // Status dropdown (full width)
+                    DropdownButtonFormField<String>(
+                      value: delivery.status,
+                      decoration: const InputDecoration(
+                        labelText: 'Status',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'delivered', child: Text('Dihantar')),
-                          DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                          DropdownMenuItem(value: 'claimed', child: Text('Dituntut')),
-                          DropdownMenuItem(value: 'rejected', child: Text('Ditolak')),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            _handleUpdateStatus(delivery.id, value);
-                          }
-                        },
                       ),
-                    ),
-                    // Edit rejection button
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedDelivery = delivery;
-                          _editRejectionDialogOpen = true;
-                        });
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'delivered',
+                          child: Text('Dihantar'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'pending',
+                          child: Text('Pending'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'claimed',
+                          child: Text('Dituntut'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'rejected',
+                          child: Text('Ditolak'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          _handleUpdateStatus(delivery.id, value);
+                        }
                       },
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit Tolakan'),
                     ),
-                    // WhatsApp share
-                    OutlinedButton.icon(
-                      onPressed: () => _shareViaWhatsApp(delivery),
-                      icon: const Icon(Icons.share, size: 16),
-                      label: const Text('WhatsApp'),
-                    ),
-                    // Invoice button
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _createdDelivery = delivery;
-                          _invoiceDialogOpen = true;
-                        });
-                      },
-                      icon: const Icon(Icons.receipt, size: 16),
-                      label: const Text('Invois'),
+                    const SizedBox(height: 12),
+                    // Action buttons (wrap nicely on small screens)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _selectedDelivery = delivery;
+                              _editRejectionDialogOpen = true;
+                            });
+                          },
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('Edit Tolakan'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _shareViaWhatsApp(delivery),
+                          icon: const Icon(Icons.share, size: 16),
+                          label: const Text('WhatsApp'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _createdDelivery = delivery;
+                              _invoiceDialogOpen = true;
+                            });
+                          },
+                          icon: const Icon(Icons.receipt, size: 16),
+                          label: const Text('Invois'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
