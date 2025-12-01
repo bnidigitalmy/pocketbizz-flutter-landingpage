@@ -460,6 +460,7 @@ class DeliveryInvoicePDFGenerator {
               // Items
               ...delivery.items.map((item) {
                 final acceptedQty = item.quantity - item.rejectedQty;
+                final lineTotal = acceptedQty * item.unitPrice;
                 return pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 8),
                   child: pw.Column(
@@ -475,7 +476,7 @@ class DeliveryInvoicePDFGenerator {
                             ),
                           ),
                           pw.Text(
-                            'RM${item.totalPrice.toStringAsFixed(2)}',
+                            'RM${lineTotal.toStringAsFixed(2)}',
                             style: const pw.TextStyle(fontSize: 10),
                           ),
                         ],
@@ -509,7 +510,11 @@ class DeliveryInvoicePDFGenerator {
                     ),
                   ),
                   pw.Text(
-                    'RM${delivery.totalAmount.toStringAsFixed(2)}',
+                    // Recalculate total based on accepted quantities
+                    'RM${delivery.items.fold<double>(0.0, (sum, item) {
+                      final acceptedQty = item.quantity - item.rejectedQty;
+                      return sum + (acceptedQty * item.unitPrice);
+                    }).toStringAsFixed(2)}',
                     style: pw.TextStyle(
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
@@ -600,6 +605,7 @@ class DeliveryInvoicePDFGenerator {
               // Items
               ...delivery.items.map((item) {
                 final acceptedQty = item.quantity - item.rejectedQty;
+                final lineTotal = acceptedQty * item.unitPrice;
                 return pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 4),
                   child: pw.Column(
@@ -617,7 +623,7 @@ class DeliveryInvoicePDFGenerator {
                             style: const pw.TextStyle(fontSize: 7),
                           ),
                           pw.Text(
-                            'RM${item.totalPrice.toStringAsFixed(2)}',
+                            'RM${lineTotal.toStringAsFixed(2)}',
                             style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
                           ),
                         ],
@@ -647,7 +653,11 @@ class DeliveryInvoicePDFGenerator {
                     ),
                   ),
                   pw.Text(
-                    'RM${delivery.totalAmount.toStringAsFixed(2)}',
+                    // Recalculate total based on accepted quantities
+                    'RM${delivery.items.fold<double>(0.0, (sum, item) {
+                      final acceptedQty = item.quantity - item.rejectedQty;
+                      return sum + (acceptedQty * item.unitPrice);
+                    }).toStringAsFixed(2)}',
                     style: pw.TextStyle(
                       fontSize: 9,
                       fontWeight: pw.FontWeight.bold,
