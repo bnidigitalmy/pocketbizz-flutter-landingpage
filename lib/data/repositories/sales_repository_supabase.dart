@@ -97,6 +97,7 @@ class SalesRepositorySupabase {
     required List<Map<String, dynamic>> items,
     double? discountAmount,
     String? notes,
+    String? deliveryAddress,
   }) async {
     // Get current user ID
     final userId = supabase.auth.currentUser?.id;
@@ -138,6 +139,7 @@ class SalesRepositorySupabase {
       'discount_amount': discountAmount,
       'final_amount': finalAmount,
       'notes': notes,
+      'delivery_address': deliveryAddress,
     }).select().single();
 
     // Insert sale items

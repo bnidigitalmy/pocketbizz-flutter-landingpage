@@ -67,6 +67,7 @@ $$ LANGUAGE plpgsql;
 -- Recreate trigger function
 CREATE OR REPLACE FUNCTION set_delivery_invoice_number()
 RETURNS TRIGGER AS $$
+
 BEGIN
     IF NEW.invoice_number IS NULL OR NEW.invoice_number = '' THEN
         NEW.invoice_number := generate_delivery_invoice_number();

@@ -91,6 +91,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
   double get _totalAll =>
       _expenses.fold(0.0, (sum, e) => sum + e.amount);
 
+  double get _todayExpenses {
+    final today = DateTime.now();
+    return _expenses
+        .where((e) => DateUtils.isSameDay(e.expenseDate, today))
+        .fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  int get _todayCount {
+    final today = DateTime.now();
+    return _expenses.where((e) => DateUtils.isSameDay(e.expenseDate, today)).length;
+  }
+
   List<Expense> get _filteredExpenses {
     final list = _expenses.toList()
       ..sort(
@@ -363,10 +375,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: _buildAppBar(),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadExpenses,
               child: SingleChildScrollView(
@@ -375,65 +386,110 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildPageHeader(),
-                    const SizedBox(height: 16),
+                    _buildHeaderSummary(),
+                    const SizedBox(height: 12),
                     _buildCategoryGrid(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildExpensesList(),
                   ],
                 ),
               ),
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddDialog,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Perbelanjaan'),
+      ),
     );
   }
 
-  /// Page header with title + big "Tambah Perbelanjaan" button,
-  /// similar to the original React mobile layout.
-  Widget _buildPageHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Perbelanjaan'),
+          Text(
+            'Rekod semua kos perniagaan',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+    );
+  }
+
+  Widget _buildHeaderSummary() {
+    return Row(
       children: [
-        Row(
-          children: [
-            const Expanded(
+        Expanded(
+          child: Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Perbelanjaan',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Rekod semua kos perniagaan',
+                  const Text(
+                    'Jumlah Perbelanjaan',
                     style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(_totalAll),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.error,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: _openAddDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                elevation: 2,
-              ),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text(
-                'Tambah Perbelanjaan',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Hari Ini',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(_todayExpenses),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Text(
+                    '$_todayCount transaksi',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ],
     );
@@ -447,9 +503,18 @@ class _ExpensesPageState extends State<ExpensesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Ringkasan mengikut kategori',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: const [
+            Text(
+              'Ringkasan mengikut kategori',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              'Tap kad untuk tapis.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         GridView.builder(
@@ -559,6 +624,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -576,7 +645,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey[100],
+                              color: AppColors.primary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -584,6 +653,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -634,7 +704,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '-${_formatCurrency(expense.amount)}',
+                      _formatCurrency(expense.amount),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

@@ -1,0 +1,81 @@
+-- Setup Storage Policies for product-images bucket
+-- 
+-- NOTE: This SQL requires superuser/owner privileges on storage.objects table.
+-- If you get "must be owner" error, use Supabase Dashboard instead:
+-- 
+-- 1. Go to Supabase Dashboard > Storage > Policies
+-- 2. Select bucket "product-images"
+-- 3. Create policies manually via UI (see SETUP_STORAGE_POLICIES.md)
+--
+-- OR use Supabase CLI with service role key:
+-- supabase db execute --file setup_product_images_storage_policies.sql
+
+-- Enable RLS on storage.objects if not already enabled
+-- ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Policy 1: Allow authenticated users to INSERT (upload) files
+-- CREATE POLICY "Allow authenticated uploads"
+-- ON storage.objects
+-- FOR INSERT
+-- TO authenticated
+-- WITH CHECK (
+--   bucket_id = 'product-images'
+-- );
+
+-- Policy 2: Allow authenticated users to SELECT (read) files
+-- CREATE POLICY "Allow authenticated reads"
+-- ON storage.objects
+-- FOR SELECT
+-- TO authenticated
+-- USING (
+--   bucket_id = 'product-images'
+-- );
+
+-- Policy 3: Allow authenticated users to DELETE files
+-- CREATE POLICY "Allow authenticated deletes"
+-- ON storage.objects
+-- FOR DELETE
+-- TO authenticated
+-- USING (
+--   bucket_id = 'product-images'
+-- );
+
+-- Policy 4: Allow public SELECT (read) for public bucket
+-- CREATE POLICY "Allow public reads"
+-- ON storage.objects
+-- FOR SELECT
+-- TO public
+-- USING (
+--   bucket_id = 'product-images'
+-- );
+
+-- ============================================
+-- RECOMMENDED: Use Supabase Dashboard UI instead
+-- ============================================
+-- 
+-- Go to: Storage > Policies > product-images > New Policy
+-- 
+-- Create these 4 policies:
+-- 
+-- 1. Name: "Allow authenticated uploads"
+--    Operation: INSERT
+--    Definition: bucket_id = 'product-images'
+--    Roles: authenticated
+-- 
+-- 2. Name: "Allow authenticated reads"
+--    Operation: SELECT
+--    Definition: bucket_id = 'product-images'
+--    Roles: authenticated
+-- 
+-- 3. Name: "Allow authenticated deletes"
+--    Operation: DELETE
+--    Definition: bucket_id = 'product-images'
+--    Roles: authenticated
+-- 
+-- 4. Name: "Allow public reads"
+--    Operation: SELECT
+--    Definition: bucket_id = 'product-images'
+--    Roles: public
+--
+-- See SETUP_STORAGE_POLICIES.md for detailed step-by-step instructions.
+

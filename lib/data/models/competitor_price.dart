@@ -1,4 +1,4 @@
-/// Competitor Price Model
+﻿/// Competitor Price Model
 /// Represents a competitor's price for a specific product
 class CompetitorPrice {
   final String id;

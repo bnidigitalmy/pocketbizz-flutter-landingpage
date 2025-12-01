@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../../core/utils/market_analysis_calculator.dart';
 import '../../../../data/models/competitor_price.dart';
 import '../../../../data/models/product.dart';
@@ -579,19 +579,19 @@ class _MarketAnalysisCardState extends State<MarketAnalysisCard> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('• Bandingkan harga dengan pesaing'),
-              Text('• Tentukan kedudukan harga dalam pasaran'),
-              Text('• Analisis profit margin vs pasaran'),
-              Text('• Dapatkan cadangan harga yang kompetitif'),
+              Text('ΓÇó Bandingkan harga dengan pesaing'),
+              Text('ΓÇó Tentukan kedudukan harga dalam pasaran'),
+              Text('ΓÇó Analisis profit margin vs pasaran'),
+              Text('ΓÇó Dapatkan cadangan harga yang kompetitif'),
               SizedBox(height: 16),
               Text(
                 'Kedudukan Pasaran:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('⬇️ Di Bawah: Harga < 90% purata pasaran'),
-              Text('➡️ Dalam Pasaran: 90-110% purata pasaran'),
-              Text('⬆️ Di Atas: Harga > 110% purata pasaran'),
+              Text('Γ¼ç∩╕Å Di Bawah: Harga < 90% purata pasaran'),
+              Text('Γ₧í∩╕Å Dalam Pasaran: 90-110% purata pasaran'),
+              Text('Γ¼å∩╕Å Di Atas: Harga > 110% purata pasaran'),
             ],
           ),
         ),

@@ -7,8 +7,8 @@ import '../../../data/models/recipe.dart';
 import '../../../data/models/recipe_item.dart';
 import '../../../data/models/stock_item.dart';
 
-/// Recipe Builder Page - NEW STRUCTURE
-/// Creates recipes for products, then adds ingredients
+/// Enhanced Recipe Builder Page
+/// User-friendly recipe management with search, edit, and stock info
 class RecipeBuilderPage extends StatefulWidget {
   final String productId;
   final String productName;
@@ -27,18 +27,48 @@ class RecipeBuilderPage extends StatefulWidget {
 
 class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
   final _recipesRepo = RecipesRepositorySupabase();
-  late final _stockRepo;
+  late final stock_repo.StockRepository _stockRepo;
+  final _searchController = TextEditingController();
   
   Recipe? _activeRecipe;
   List<RecipeItem> _recipeItems = [];
+  List<RecipeItem> _filteredItems = [];
   List<StockItem> _availableStock = [];
+  Map<String, StockItem> _stockMap = {};
   bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _stockRepo = stock_repo.StockRepository(supabase);
+    _searchController.addListener(_onSearchChanged);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+      _applyFilter();
+    });
+  }
+
+  void _applyFilter() {
+    if (_searchQuery.isEmpty) {
+      _filteredItems = List.from(_recipeItems);
+    } else {
+      _filteredItems = _recipeItems.where((item) {
+        final name = item.stockItemName?.toLowerCase() ?? '';
+        return name.contains(_searchQuery);
+      }).toList();
+    }
   }
 
   Future<void> _loadData() async {
@@ -56,16 +86,21 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
       // Get recipe items
       if (_activeRecipe != null) {
         _recipeItems = await _recipesRepo.getRecipeItems(_activeRecipe!.id);
+        _applyFilter();
       }
       
       // Get all stock items
       _availableStock = await _stockRepo.getAllStockItems();
+      _stockMap = {for (var stock in _availableStock) stock.id: stock};
 
       setState(() => _isLoading = false);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Ralat memuatkan data: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
       setState(() => _isLoading = false);
@@ -75,7 +110,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
   Future<Recipe> _createDefaultRecipe() async {
     return await _recipesRepo.createRecipe(
       productId: widget.productId,
-      name: '${widget.productName} - Recipe V1',
+      name: '${widget.productName} Recipe',
       yieldQuantity: 1,
       yieldUnit: widget.productUnit,
     );
@@ -86,77 +121,148 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
 
     StockItem? selectedStock;
     double quantity = 1.0;
-    String unit = 'kg';
+    String unit = 'gram';
 
-    await showDialog(
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _AddIngredientDialog(
+        availableStock: _availableStock,
+        initialStock: selectedStock,
+        initialQuantity: quantity,
+        initialUnit: unit,
+      ),
+    );
+
+    if (result != null && mounted) {
+      selectedStock = result['stock'] as StockItem;
+      quantity = result['quantity'] as double;
+      unit = result['unit'] as String;
+
+      try {
+        await _recipesRepo.addRecipeItem(
+          recipeId: _activeRecipe!.id,
+          stockItemId: selectedStock.id,
+          quantityNeeded: quantity,
+          usageUnit: unit,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Bahan berjaya ditambah'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _editIngredient(RecipeItem item) async {
+    final stock = _stockMap[item.stockItemId];
+    if (stock == null) return;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _AddIngredientDialog(
+        availableStock: _availableStock,
+        initialStock: stock,
+        initialQuantity: item.quantityNeeded,
+        initialUnit: item.usageUnit,
+        isEdit: true,
+      ),
+    );
+
+    if (result != null && mounted) {
+      final quantity = result['quantity'] as double;
+      final unit = result['unit'] as String;
+
+      try {
+        // Recalculate cost
+        final costPerUnit = stock.costPerUnit;
+        final totalCost = quantity * costPerUnit;
+
+        await _recipesRepo.updateRecipeItem(item.id, {
+          'quantity_needed': quantity,
+          'usage_unit': unit,
+          'cost_per_unit': costPerUnit,
+          'total_cost': totalCost,
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Bahan berjaya dikemaskini'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteIngredient(RecipeItem item) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Ingredient'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Stock item dropdown
-              DropdownButtonFormField<StockItem>(
-                value: selectedStock,
-                decoration: const InputDecoration(labelText: 'Ingredient'),
-                items: _availableStock.map((stock) {
-                  return DropdownMenuItem(
-                    value: stock,
-                    child: Text(stock.name),
-                  );
-                }).toList(),
-                onChanged: (value) => setDialogState(() => selectedStock = value),
-              ),
-              const SizedBox(height: 16),
-              // Quantity
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Quantity'),
-                keyboardType: TextInputType.number,
-                initialValue: '1.0',
-                onChanged: (value) => quantity = double.tryParse(value) ?? 1.0,
-              ),
-              const SizedBox(height: 16),
-              // Unit
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Unit'),
-                initialValue: unit,
-                onChanged: (value) => unit = value,
-              ),
-            ],
-          ),
-        ),
+        title: const Text('Padam Bahan?'),
+        content: Text('Adakah anda pasti mahu memadam "${item.stockItemName}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              if (selectedStock != null) {
-                try {
-                  await _recipesRepo.addRecipeItem(
-                    recipeId: _activeRecipe!.id,
-                    stockItemId: selectedStock!.id,
-                    quantityNeeded: quantity,
-                    usageUnit: unit,
-                  );
-                  Navigator.pop(context);
-                  _loadData();
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
-                }
-              }
-            },
-            child: const Text('Add'),
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Padam'),
           ),
         ],
       ),
     );
+
+    if (confirmed == true && mounted) {
+      try {
+        await _recipesRepo.deleteRecipeItem(item.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Bahan berjaya dipadam'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -164,88 +270,526 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Recipe: ${widget.productName}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Resipi'),
+            Text(
+              widget.productName,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_activeRecipe != null) _buildSummaryCard(),
+                    const SizedBox(height: 16),
+                    _buildSearchBar(),
+                    const SizedBox(height: 16),
+                    _buildIngredientsList(),
+                  ],
+                ),
+              ),
+            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addIngredient,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Bahan'),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary.withValues(alpha: 0.1),
+              AppColors.primary.withValues(alpha: 0.05),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                // Recipe Info Card
-                if (_activeRecipe != null)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    color: Colors.white,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _activeRecipe!.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Yield: ${_activeRecipe!.yieldQuantity} ${_activeRecipe!.yieldUnit}'),
-                        Text('Total Cost: RM ${_activeRecipe!.totalCost.toStringAsFixed(2)}'),
-                        Text('Cost Per Unit: RM ${_activeRecipe!.costPerUnit.toStringAsFixed(2)}'),
-                      ],
+                Icon(Icons.restaurant_menu, color: AppColors.primary, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _activeRecipe!.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                const Divider(),
-                // Recipe Items List
-                Expanded(
-                  child: _recipeItems.isEmpty
-                      ? const Center(
-                          child: Text('No ingredients added yet.\nTap + to add.'),
-                        )
-                      : ListView.builder(
-                          itemCount: _recipeItems.length,
-                          itemBuilder: (context, index) {
-                            final item = _recipeItems[index];
-                            return ListTile(
-                              title: Text(item.stockItemName ?? 'Unknown'),
-                              subtitle: Text(
-                                '${item.quantityNeeded} ${item.usageUnit}',
-                              ),
-                              trailing: Text(
-                                'RM ${item.totalCost.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onLongPress: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Delete Ingredient?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        child: const Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm == true) {
-                                  await _recipesRepo.deleteRecipeItem(item.id);
-                                  _loadData();
-                                }
-                              },
-                            );
-                          },
-                        ),
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addIngredient,
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryItem(
+                    'Hasil',
+                    '${_activeRecipe!.yieldQuantity} ${_activeRecipe!.yieldUnit}',
+                    Icons.inventory_2,
+                  ),
+                ),
+                Expanded(
+                  child: _buildSummaryItem(
+                    'Jumlah Kos',
+                    'RM${_activeRecipe!.totalCost.toStringAsFixed(2)}',
+                    Icons.attach_money,
+                  ),
+                ),
+                Expanded(
+                  child: _buildSummaryItem(
+                    'Kos Seunit',
+                    'RM${_activeRecipe!.costPerUnit.toStringAsFixed(2)}',
+                    Icons.calculate,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildSummaryItem(String label, String value, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Cari bahan...',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => _searchController.clear(),
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildIngredientsList() {
+    if (_filteredItems.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_filteredItems.length} bahan',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _filteredItems.length,
+          itemBuilder: (context, index) {
+            final item = _filteredItems[index];
+            return _buildIngredientCard(item);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIngredientCard(RecipeItem item) {
+    final stock = _stockMap[item.stockItemId];
+    final isLowStock = stock?.isLowStock ?? false;
+    final stockAvailable = stock?.currentQuantity ?? 0.0;
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isLowStock ? Colors.orange[200]! : Colors.grey[200]!,
+          width: isLowStock ? 2 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Stock indicator
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isLowStock
+                    ? Colors.orange[50]
+                    : Colors.green[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isLowStock ? Icons.warning : Icons.check_circle,
+                color: isLowStock ? Colors.orange[700] : Colors.green[700],
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Ingredient info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.stockItemName ?? 'Unknown',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${item.quantityNeeded} ${item.usageUnit}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.inventory_2, size: 14, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Stok: ${stockAvailable.toStringAsFixed(1)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isLowStock ? Colors.orange[700] : Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Cost
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'RM${item.totalCost.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.green,
+                  ),
+                ),
+                Text(
+                  'RM${item.costPerUnit.toStringAsFixed(4)}/unit',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            // Actions
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 20, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 20, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Padam'),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _editIngredient(item);
+                } else if (value == 'delete') {
+                  _deleteIngredient(item);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(48),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.restaurant_menu,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Tiada bahan ditemui'
+                : 'Tiada bahan lagi',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Cuba ubah carian anda'
+                : 'Mula dengan menambah bahan pertama',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dialog for adding/editing ingredients
+class _AddIngredientDialog extends StatefulWidget {
+  final List<StockItem> availableStock;
+  final StockItem? initialStock;
+  final double initialQuantity;
+  final String initialUnit;
+  final bool isEdit;
+
+  const _AddIngredientDialog({
+    required this.availableStock,
+    this.initialStock,
+    this.initialQuantity = 1.0,
+    this.initialUnit = 'gram',
+    this.isEdit = false,
+  });
+
+  @override
+  State<_AddIngredientDialog> createState() => _AddIngredientDialogState();
+}
+
+class _AddIngredientDialogState extends State<_AddIngredientDialog> {
+  StockItem? _selectedStock;
+  final _quantityController = TextEditingController();
+  final _unitController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedStock = widget.initialStock;
+    _quantityController.text = widget.initialQuantity.toString();
+    _unitController.text = widget.initialUnit;
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _unitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: Text(widget.isEdit ? 'Edit Bahan' : 'Tambah Bahan'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<StockItem>(
+              value: _selectedStock,
+              decoration: const InputDecoration(
+                labelText: 'Bahan',
+                border: OutlineInputBorder(),
+              ),
+              items: widget.availableStock.map((stock) {
+                return DropdownMenuItem(
+                  value: stock,
+                  child: Text(stock.name),
+                );
+              }).toList(),
+              onChanged: (value) => setState(() => _selectedStock = value),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _quantityController,
+              decoration: const InputDecoration(
+                labelText: 'Kuantiti',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _unitController,
+              decoration: const InputDecoration(
+                labelText: 'Unit',
+                border: OutlineInputBorder(),
+                hintText: 'e.g., gram, ml, pcs',
+              ),
+            ),
+            if (_selectedStock != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Stok tersedia: ${_selectedStock!.currentQuantity.toStringAsFixed(1)} ${_selectedStock!.unit}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedStock == null
+              ? null
+              : () {
+                  final quantity = double.tryParse(_quantityController.text) ?? 0.0;
+                  if (quantity <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Kuantiti mesti lebih daripada 0'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(context, {
+                    'stock': _selectedStock,
+                    'quantity': quantity,
+                    'unit': _unitController.text.trim(),
+                  });
+                },
+          child: Text(widget.isEdit ? 'Kemaskini' : 'Tambah'),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 
@@ -252,7 +252,7 @@ class SaleDetailsDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${item.quantity.toStringAsFixed(1)} × RM${item.unitPrice.toStringAsFixed(2)}',
+                    '${item.quantity.toStringAsFixed(1)} ├ù RM${item.unitPrice.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/widgets/pocketbizz_logo.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../bookings/presentation/bookings_page_optimized.dart';
 import '../../products/presentation/product_list_page.dart';
 import '../../sales/presentation/sales_page.dart';
 import '../../expenses/presentation/expenses_page.dart';
 import '../../vendors/presentation/vendors_page.dart';
 import '../../production/presentation/production_planning_page.dart';
+import '../../finished_products/presentation/finished_products_page.dart';
+import '../../products/presentation/test_image_upload_page.dart';
 import 'dashboard_page_optimized.dart';
 
 class HomePage extends StatefulWidget {
@@ -58,26 +62,28 @@ class _HomePageState extends State<HomePage> {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
+                gradient: AppColors.logoGradient,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Icon(
-                    Icons.business_center,
+                  // PocketBizz Logo
+                  const PocketBizzLogo(
                     size: 48,
-                    color: Colors.white,
+                    showText: false,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   const Text(
                     'PocketBizz',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     supabase.auth.currentUser?.email ?? 'Guest',
                     style: const TextStyle(
@@ -143,6 +149,17 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: const Text('Stok Siap'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const FinishedProductsPage()),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.inventory_2),
               title: const Text('Stock Management'),
               onTap: () {
@@ -196,6 +213,16 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/claims');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.cloud_upload, color: Colors.blue),
+              title: const Text('Test Image Upload'),
+              subtitle: const Text('Verify Supabase Storage', style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/test-upload');
               },
             ),
             const Divider(),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../data/models/competitor_price.dart';
 import '../../../../data/models/product.dart';
@@ -71,7 +71,7 @@ class _CompetitorPricesListDialogState extends State<CompetitorPricesListDialog>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ Harga pesaing telah dikemaskini'),
+              content: Text('Γ£à Harga pesaing telah dikemaskini'),
               backgroundColor: Colors.green,
             ),
           );
@@ -119,7 +119,7 @@ class _CompetitorPricesListDialogState extends State<CompetitorPricesListDialog>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ Harga pesaing telah dipadam'),
+              content: Text('Γ£à Harga pesaing telah dipadam'),
               backgroundColor: Colors.green,
             ),
           );
@@ -383,7 +383,7 @@ class _CompetitorPricesListDialogState extends State<CompetitorPricesListDialog>
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('✅ Harga pesaing telah ditambah'),
+                                content: Text('Γ£à Harga pesaing telah ditambah'),
                                 backgroundColor: Colors.green,
                               ),
                             );

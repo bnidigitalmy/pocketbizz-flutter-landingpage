@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 
-/// PocketBizz Brand Colors - Malaysian SME-Friendly
-/// Primary: Fresh Green (Growth, Money, Halal-friendly)
-/// Accent: Premium Gold (Trust, Value)
+/// PocketBizz Brand Colors - Matching Official Logo
+/// Logo Gradient: Teal/Green (top) to Bright Blue (bottom)
+/// Modern, Professional, Trustworthy
 class AppColors {
-  // Primary Colors - Fresh Emerald Green (PocketBizz Brand)
-  static const primary = Color(0xFF10B981);        // Emerald Green
-  static const primaryDark = Color(0xFF059669);    // Deep Green
-  static const primaryLight = Color(0xFF34D399);   // Light Green
+  // Primary Colors - Logo Gradient Colors
+  // Top: Vibrant Teal/Light Green (from logo top)
+  static const primary = Color(0xFF14B8A6);        // Vibrant Teal (logo top)
+  static const primaryDark = Color(0xFF0D9488);    // Deep Teal
+  static const primaryLight = Color(0xFF2DD4BF);   // Light Teal
   
-  // Accent Colors - Premium Gold
-  static const accent = Color(0xFFF59E0B);         // Amber Gold
-  static const accentLight = Color(0xFFFCD34D);    // Light Gold
-  static const accentDark = Color(0xFFD97706);     // Deep Gold
+  // Accent Colors - Logo Gradient Bottom
+  // Bottom: Bright Light Blue (from logo bottom)
+  static const accent = Color(0xFF3B82F6);         // Bright Blue (logo bottom)
+  static const secondary = Color(0xFF3B82F6);      // Alias for accent (for Material theme)
+  static const accentLight = Color(0xFF60A5FA);    // Light Blue
+  static const accentDark = Color(0xFF2563EB);      // Deep Blue
   
   // Status Colors
-  static const success = Color(0xFF10B981);        // Same as primary (green = success)
-  static const successLight = Color(0xFF6EE7B7);
-  static const warning = Color(0xFFF59E0B);        // Same as accent (gold = warning)
+  static const success = Color(0xFF14B8A6);        // Teal (matches primary)
+  static const successLight = Color(0xFF2DD4BF);
+  static const warning = Color(0xFFF59E0B);        // Amber (for warnings)
   static const warningLight = Color(0xFFFBBF24);
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFF87171);
-  static const info = Color(0xFF3B82F6);
+  static const info = Color(0xFF3B82F6);          // Blue (matches accent)
   static const infoLight = Color(0xFF60A5FA);
   
   // Neutral Colors - Clean & Professional
@@ -34,9 +37,16 @@ class AppColors {
   static const textSecondary = Color(0xFF6B7280);  // Medium grey
   static const textHint = Color(0xFF9CA3AF);       // Light grey
   
-  // Gradients - PocketBizz Signature
+  // Gradients - PocketBizz Official Logo Gradient
+  // Matches logo: Teal/Green (top) to Bright Blue (bottom)
+  static const logoGradient = LinearGradient(
+    colors: [primary, accent],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+  
   static const primaryGradient = LinearGradient(
-    colors: [primary, primaryLight],
+    colors: [primary, accent],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -59,7 +69,7 @@ class AppColors {
     end: Alignment.bottomRight,
   );
   
-  // Premium gradient for special cards
+  // Premium gradient for special cards - matches logo
   static const premiumGradient = LinearGradient(
     colors: [primary, accent],
     begin: Alignment.topLeft,

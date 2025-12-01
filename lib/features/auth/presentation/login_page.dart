@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/widgets/pocketbizz_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -37,21 +38,23 @@ class _LoginPageState extends State<LoginPage> {
           password: _passwordController.text,
         );
 
-        if (response.user != null && mounted) {
+        if (response.user != null) {
           // Create user record in users table
           await supabase.from('users').insert({
             'id': response.user!.id,
             'email': response.user!.email,
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account created! You can now sign in.'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Account created! You can now sign in.'),
+                backgroundColor: Colors.green,
+              ),
+            );
 
-          setState(() => _isSignUp = false);
+            setState(() => _isSignUp = false);
+          }
         }
       } else {
         // Sign in
@@ -102,19 +105,11 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo or app name
-                Icon(
-                  Icons.business_center,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'PocketBizz',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                  textAlign: TextAlign.center,
+                // PocketBizz Logo
+                const PocketBizzBrand(
+                  logoSize: 80,
+                  textSize: 28,
+                  useLogoWithText: true, // Use logowithtext.png
                 ),
                 const SizedBox(height: 8),
                 Text(

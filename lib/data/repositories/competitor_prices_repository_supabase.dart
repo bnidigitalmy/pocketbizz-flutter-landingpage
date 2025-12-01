@@ -1,4 +1,4 @@
-import '../../core/supabase/supabase_client.dart';
+﻿import '../../core/supabase/supabase_client.dart';
 import '../models/competitor_price.dart';
 
 /// Repository for managing competitor prices

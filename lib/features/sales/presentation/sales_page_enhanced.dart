@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import 'sale_details_dialog.dart';

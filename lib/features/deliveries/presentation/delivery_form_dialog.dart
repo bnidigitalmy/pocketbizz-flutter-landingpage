@@ -9,7 +9,6 @@ import '../../../data/models/delivery.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/product.dart';
 import '../../../core/utils/vendor_price_calculator.dart';
-import '../../../data/repositories/finished_products_repository_supabase.dart';
 
 /// Delivery Form Dialog
 /// Handles creating new deliveries with items
@@ -44,8 +43,6 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   bool _isSubmitting = false;
   bool _isLoadingLastDelivery = false;
   Map<String, dynamic>? _vendorCommission;
-  final _finishedProductsRepo = FinishedProductsRepository();
-  final Map<String, double> _productStockMap = {}; // Cache stock availability
 
   @override
   void initState() {
@@ -171,33 +168,6 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
         _calculateTotal();
       });
       return;
-    }
-    
-    // Load stock availability
-    final availableStock = await widget.deliveriesRepo.getAvailableStock(productId);
-    _productStockMap[productId] = availableStock;
-    
-    // Show warning if stock is low
-    if (availableStock <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Stok "${product.name}" habis. Stok sedia ada: ${availableStock.toStringAsFixed(1)} unit.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } else if (availableStock < 10) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Stok "${product.name}" rendah. Stok sedia ada: ${availableStock.toStringAsFixed(1)} unit.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
     }
     
     final retailPrice = product.salePrice.toStringAsFixed(2);
@@ -515,17 +485,8 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   }
 
   Widget _buildItemCard(int index, DeliveryItemForm item) {
-    final availableStock = item.productId.isNotEmpty 
-        ? _productStockMap[item.productId] ?? 0.0 
-        : 0.0;
-    final requestedQty = item.quantity;
-    final isStockInsufficient = availableStock < requestedQty;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: isStockInsufficient && item.productId.isNotEmpty 
-          ? Colors.red[50] 
-          : null,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -567,38 +528,18 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                 Expanded(
                   child: TextFormField(
                     initialValue: item.quantity.toStringAsFixed(1),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Qty',
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      helperText: item.productId.isNotEmpty
-                          ? 'Stok: ${(_productStockMap[item.productId] ?? 0.0).toStringAsFixed(1)} unit'
-                          : null,
-                      helperMaxLines: 1,
-                      errorText: item.productId.isNotEmpty && 
-                          item.quantity > (_productStockMap[item.productId] ?? 0.0)
-                          ? 'Stok tidak cukup!'
-                          : null,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (value) {
-                      _onQuantityChanged(index, value);
-                      // Re-validate stock after quantity change
-                      if (item.productId.isNotEmpty) {
-                        setState(() {});
-                      }
-                    },
+                    onChanged: (value) => _onQuantityChanged(index, value),
                     validator: (value) {
                       final qty = double.tryParse(value ?? '0') ?? 0;
                       if (qty <= 0) {
                         return 'Qty > 0';
-                      }
-                      if (item.productId.isNotEmpty) {
-                        final availableStock = _productStockMap[item.productId] ?? 0.0;
-                        if (qty > availableStock) {
-                          return 'Stok tidak cukup';
-                        }
                       }
                       return null;
                     },

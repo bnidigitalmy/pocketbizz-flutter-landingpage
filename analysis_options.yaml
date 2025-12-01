@@ -24,5 +24,17 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+# Exclude flutter-migration folder and unused pages from analysis
+analyzer:
+  exclude:
+    - flutter-migration/**
+    - pocketbizz-v2/**
+    - lib/features/inventory/presentation/add_stock_page.dart
+    - lib/features/inventory/presentation/ingredient_detail_page.dart
+    - lib/features/inventory/presentation/inventory_list_page.dart
+    - lib/features/inventory/presentation/low_stock_page.dart
+    - lib/features/products/presentation/product_detail_page.dart
+    - lib/features/products/presentation/product_form_page.dart
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

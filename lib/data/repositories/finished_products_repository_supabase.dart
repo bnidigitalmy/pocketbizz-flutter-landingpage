@@ -1,4 +1,4 @@
-import '../../core/supabase/supabase_client.dart';
+﻿import '../../core/supabase/supabase_client.dart';
 import '../models/finished_product.dart';
 
 /// Finished Products Repository

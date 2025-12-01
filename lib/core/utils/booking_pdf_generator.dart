@@ -131,7 +131,7 @@ class BookingPDFGenerator {
                       ),
                       child: pw.Text(
                         _getStatusLabel(booking.status),
-                        style: const pw.TextStyle(
+                        style: pw.TextStyle(
                           fontSize: 10,
                           color: PdfColors.white,
                           fontWeight: pw.FontWeight.bold,
@@ -192,7 +192,7 @@ class BookingPDFGenerator {
                   pw.SizedBox(height: 8),
                   pw.Text(
                     booking.customerName,
-                    style: const pw.TextStyle(
+                    style: pw.TextStyle(
                       fontSize: 14,
                       fontWeight: pw.FontWeight.bold,
                     ),

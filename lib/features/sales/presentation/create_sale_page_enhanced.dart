@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
@@ -24,6 +24,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
   final _customerNameController = TextEditingController();
   final _notesController = TextEditingController();
   final _discountController = TextEditingController();
+  final _deliveryAddressController = TextEditingController();
 
   String _channel = 'walk-in';
   bool _loading = false;
@@ -42,6 +43,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
     _customerNameController.dispose();
     _notesController.dispose();
     _discountController.dispose();
+    _deliveryAddressController.dispose();
     super.dispose();
   }
 
@@ -85,6 +87,18 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
       return;
     }
 
+    // Validate delivery address for online/delivery channels
+    if ((_channel == 'online' || _channel == 'delivery') &&
+        _deliveryAddressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sila masukkan alamat penghantaran'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Validate stock availability
     for (final item in _selectedItems) {
       final productId = item['product_id'] as String;
@@ -96,7 +110,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '❌ Stok tidak mencukupi untuk "$productName": '
+              '⚠️ Stok tidak mencukupi untuk "$productName": '
               'Tersedia: ${availableStock.toStringAsFixed(1)}, '
               'Diperlukan: ${qty.toStringAsFixed(1)}',
             ),
@@ -125,6 +139,9 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        deliveryAddress: (_channel == 'online' || _channel == 'delivery')
+            ? _deliveryAddressController.text.trim()
+            : null,
       );
 
       if (mounted) {
@@ -354,8 +371,8 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).primaryColor.withOpacity(0.1),
-                      Theme.of(context).primaryColor.withOpacity(0.05),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -430,7 +447,34 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // Delivery Address (only for online/delivery)
+            if (_channel == 'online' || _channel == 'delivery')
+              TextFormField(
+                controller: _deliveryAddressController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Alamat Penghantaran *',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.location_on),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  helperText: 'Masukkan alamat lengkap untuk penghantaran',
+                ),
+                validator: (value) {
+                  if ((_channel == 'online' || _channel == 'delivery') &&
+                      (value == null || value.trim().isEmpty)) {
+                    return 'Alamat penghantaran diperlukan';
+                  }
+                  return null;
+                },
+              ),
+
+            if (_channel == 'online' || _channel == 'delivery')
+              const SizedBox(height: 24),
 
             // Items Section
             Row(
@@ -713,8 +757,8 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).primaryColor.withOpacity(0.15),
-                      Theme.of(context).primaryColor.withOpacity(0.08),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.08),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -805,7 +849,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -917,7 +961,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1093,7 +1137,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                                         decoration: BoxDecoration(
                                           color: Theme.of(context)
                                               .primaryColor
-                                              .withOpacity(0.1),
+                                              .withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Icon(

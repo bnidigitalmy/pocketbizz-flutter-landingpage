@@ -1,4 +1,4 @@
-import '../../data/models/competitor_price.dart';
+﻿import '../../data/models/competitor_price.dart';
 
 /// Market Analysis Calculator
 /// Calculates market statistics, position, and recommendations

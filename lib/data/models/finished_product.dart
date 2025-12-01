@@ -1,4 +1,4 @@
-/// Finished Product Summary Model
+﻿/// Finished Product Summary Model
 /// Aggregated view of finished products with total remaining and batch info
 class FinishedProductSummary {
   final String productId;

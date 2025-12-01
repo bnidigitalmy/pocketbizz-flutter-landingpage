@@ -1,10 +1,8 @@
 import '../../core/supabase/supabase_client.dart';
 import '../models/delivery.dart';
-import 'production_repository_supabase.dart';
 
 /// Deliveries Repository for Supabase
 class DeliveriesRepositorySupabase {
-  final _productionRepo = ProductionRepository(supabase);
   /// Get all deliveries with pagination
   Future<Map<String, dynamic>> getAllDeliveries({
     int limit = 20,
@@ -122,42 +120,6 @@ class DeliveriesRepositorySupabase {
     });
   }
 
-  /// Get available stock for a product
-  Future<double> getAvailableStock(String productId) async {
-    try {
-      final batches = await _productionRepo.getOldestBatchesForProduct(productId);
-      return batches.fold<double>(
-        0.0,
-        (sum, batch) => sum + batch.remainingQty,
-      );
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  /// Validate stock availability for all items
-  Future<void> validateStockAvailability(List<Map<String, dynamic>> items) async {
-    for (var item in items) {
-      final productId = item['product_id'] as String;
-      final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-      final rejectedQty = (item['rejected_qty'] as num?)?.toDouble() ?? 0.0;
-      final acceptedQty = quantity - rejectedQty;
-      final productName = item['product_name'] as String;
-
-      if (acceptedQty <= 0) continue; // Skip jika semua rejected
-
-      final availableStock = await getAvailableStock(productId);
-      
-      if (acceptedQty > availableStock) {
-        throw Exception(
-          'Stok tidak mencukupi untuk "${productName}". '
-          'Stok sedia ada: ${availableStock.toStringAsFixed(1)} unit. '
-          'Diperlukan: ${acceptedQty.toStringAsFixed(1)} unit.',
-        );
-      }
-    }
-  }
-
   /// Create delivery
   Future<Delivery> createDelivery({
     required String vendorId,
@@ -175,9 +137,6 @@ class DeliveriesRepositorySupabase {
         .eq('id', vendorId)
         .single();
     final vendorName = vendorResponse['name'] as String;
-
-    // Validate stock availability BEFORE creating delivery
-    await validateStockAvailability(items);
 
     // Calculate total amount based on ACCEPTED quantity only (quantity - rejected_qty)
     final totalAmount = items.fold<double>(
@@ -208,9 +167,8 @@ class DeliveriesRepositorySupabase {
 
     final deliveryId = deliveryResponse['id'] as String;
 
-    // Create delivery items and deduct stock (FIFO)
+    // Create delivery items
     for (var item in items) {
-      final productId = item['product_id'] as String;
       final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
       final unitPrice = (item['unit_price'] as num?)?.toDouble() ?? 0.0;
       final rejectedQty = (item['rejected_qty'] as num?)?.toDouble() ?? 0.0;
@@ -218,10 +176,9 @@ class DeliveriesRepositorySupabase {
       final acceptedQty = quantity - rejectedQty;
       final totalPrice = acceptedQty * unitPrice;
 
-      // Insert delivery item
       await supabase.from('vendor_delivery_items').insert({
         'delivery_id': deliveryId,
-        'product_id': productId,
+        'product_id': item['product_id'] as String,
         'product_name': item['product_name'] as String,
         'quantity': quantity,
         'unit_price': unitPrice,
@@ -230,17 +187,6 @@ class DeliveriesRepositorySupabase {
         'rejected_qty': rejectedQty,
         'rejection_reason': item['rejection_reason'] as String?,
       });
-
-      // Auto-deduct stock from production batches (FIFO) - hanya untuk accepted quantity
-      if (acceptedQty > 0) {
-        try {
-          await _productionRepo.deductFIFO(productId, acceptedQty);
-        } catch (e) {
-          // If stock deduction fails, rollback delivery
-          await supabase.from('vendor_deliveries').delete().eq('id', deliveryId);
-          throw Exception('Failed to deduct stock: $e');
-        }
-      }
     }
 
     final createdDelivery = await getDeliveryById(deliveryId);
