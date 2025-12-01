@@ -363,26 +363,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Perbelanjaan'),
-            Text(
-              'Rekod semua kos perniagaan',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddDialog,
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add),
-        label: const Text('Rekod Belanja'),
-      ),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(),
@@ -395,10 +375,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeaderSummary(),
-                    const SizedBox(height: 12),
-                    _buildCategorySummary(),
-                    const SizedBox(height: 12),
+                    _buildPageHeader(),
+                    const SizedBox(height: 16),
+                    _buildCategoryGrid(),
+                    const SizedBox(height: 16),
                     _buildExpensesList(),
                   ],
                 ),
@@ -407,136 +387,134 @@ class _ExpensesPageState extends State<ExpensesPage> {
     );
   }
 
-  Widget _buildHeaderSummary() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Jumlah Perbelanjaan',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatCurrency(_totalAll),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.error,
-                  ),
-                ),
-              ],
-            ),
-            const Icon(
-              Icons.receipt_long,
-              color: AppColors.primary,
-              size: 32,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategorySummary() {
+  /// Page header with title + big "Tambah Perbelanjaan" button,
+  /// similar to the original React mobile layout.
+  Widget _buildPageHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text(
-              'Ringkasan mengikut kategori',
-              style: TextStyle(fontWeight: FontWeight.w600),
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Perbelanjaan',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Rekod semua kos perniagaan',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
-            Text(
-              'Tap kad untuk tapis.',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _openAddDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 2,
+              ),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text(
+                'Tambah Perbelanjaan',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildCategoryChip(
-                label: 'Semua',
-                amount: _totalAll,
-                isSelected: _selectedCategory == 'all',
-                onTap: () => setState(() => _selectedCategory = 'all'),
-              ),
-              ..._categoryLabels.entries.map((entry) {
-                final amount = _categoryTotals[entry.key] ?? 0.0;
-                return _buildCategoryChip(
-                  label: entry.value,
-                  amount: amount,
-                  isSelected: _selectedCategory == entry.key,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory =
-                          _selectedCategory == entry.key ? 'all' : entry.key;
-                    });
-                  },
-                );
-              }),
-            ],
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildCategoryChip({
-    required String label,
-    required double amount,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppColors.primaryDark : Colors.grey.shade300,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isSelected ? Colors.white : Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _formatCurrency(amount),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : AppColors.error,
-                ),
-              ),
-            ],
-          ),
+  /// Category summary in a 2-column grid of big cards,
+  /// matching the original React mobile layout.
+  Widget _buildCategoryGrid() {
+    final categories = _categoryLabels.entries.toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Ringkasan mengikut kategori',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
-      ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.9,
+          ),
+          itemCount: categories.length,
+          itemBuilder: (context, index) {
+            final entry = categories[index];
+            final amount = _categoryTotals[entry.key] ?? 0.0;
+            final isSelected = _selectedCategory == entry.key;
+
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedCategory =
+                      isSelected ? 'all' : entry.key;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Card(
+                elevation: isSelected ? 3 : 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected
+                        ? AppColors.primary
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        entry.value,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        _formatCurrency(amount),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
