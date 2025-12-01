@@ -106,6 +106,18 @@ class _SalesPageState extends State<SalesPage> {
                 ),
               ),
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await Navigator.of(context).pushNamed('/sales/create');
+          if (result == true && mounted) {
+            _loadSales();
+          }
+        },
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Jualan'),
+      ),
     );
   }
 
@@ -123,33 +135,6 @@ class _SalesPageState extends State<SalesPage> {
       ),
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: ElevatedButton.icon(
-            onPressed: () async {
-              final result = await Navigator.of(context).pushNamed('/sales/create');
-              if (result == true && mounted) {
-                _loadSales();
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 2,
-            ),
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text(
-              'Tambah Jualan',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
