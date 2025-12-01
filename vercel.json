@@ -1,8 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "echo 'Using pre-built files'",
+  "buildCommand": "echo 'Using pre-built Flutter web files. Run: flutter build web --release first'",
   "outputDirectory": "build/web",
-  "installCommand": "echo 'Skip install'",
+  "installCommand": "echo 'Skipping install - using pre-built files'",
+  "framework": null,
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
@@ -54,14 +55,7 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/index.html",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ]
+      "destination": "/index.html"
     }
   ]
 }
