@@ -24,6 +24,7 @@ class EditRejectionDialog extends StatefulWidget {
 }
 
 class _EditRejectionDialogState extends State<EditRejectionDialog> {
+  final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _rejectedQtyControllers = {};
   final Map<String, TextEditingController> _rejectionReasonControllers = {};
   bool _isSaving = false;
@@ -53,6 +54,11 @@ class _EditRejectionDialogState extends State<EditRejectionDialog> {
   }
 
   Future<void> _save() async {
+    // Validate all fields before saving
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -102,39 +108,42 @@ class _EditRejectionDialogState extends State<EditRejectionDialog> {
     return AlertDialog(
       title: const Text('Edit Tolakan Penghantaran'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Kemaskini kuantiti dan sebab tolakan untuk produk yang expired/rosak selepas penghantaran.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Kemaskini kuantiti dan sebab tolakan untuk produk yang expired/rosak selepas penghantaran.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.delivery.vendorName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${widget.delivery.invoiceNumber ?? 'N/A'} - ${widget.delivery.deliveryDate.toString().split(' ')[0]}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.delivery.vendorName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${widget.delivery.invoiceNumber ?? 'N/A'} - ${widget.delivery.deliveryDate.toString().split(' ')[0]}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ...widget.delivery.items.map((item) => _buildItemCard(item)),
-          ],
+              const SizedBox(height: 16),
+              ...widget.delivery.items.map((item) => _buildItemCard(item)),
+            ],
+          ),
         ),
       ),
       actions: [
