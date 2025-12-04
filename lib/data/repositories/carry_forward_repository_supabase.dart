@@ -46,10 +46,12 @@ class CarryForwardRepositorySupabase {
 
     try {
       final response = await supabase
-          .from('available_carry_forward_items')
+          .from('carry_forward_items')
           .select('*')
           .eq('business_owner_id', userId)
           .eq('vendor_id', vendorId)
+          .eq('status', 'available')
+          .gt('quantity_available', 0)
           .order('created_at', ascending: true);
 
       if (response.isEmpty) {
