@@ -272,6 +272,7 @@ class ConsignmentClaimsRepositorySupabase {
         'paid_amount': 0,
         'balance_amount': itemNet,
         'carry_forward_status': itemMetadata?[(itemMap['id'] as String)]?['carry_forward_status'] ?? 'none',
+        'carry_forward': (itemMetadata?[(itemMap['id'] as String)]?['carry_forward_status'] ?? 'none') == 'carry_forward',
       });
     }
 
