@@ -406,9 +406,21 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       }
     });
 
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (canPop) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed('/');
+            }
+          },
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -437,6 +449,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
               onRefresh: () => _loadDeliveries(reset: true),
               child: _buildContent(),
             ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           setState(() => _addDialogOpen = true);

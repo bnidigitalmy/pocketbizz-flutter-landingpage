@@ -334,133 +334,161 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Rekod Penghantaran Baru'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Masukkan maklumat penghantaran',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              // Vendor dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedVendorId,
-                decoration: const InputDecoration(
-                  labelText: 'Vendor *',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.store),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text('Rekod Penghantaran Baru'),
+          SizedBox(height: 4),
+          Text(
+            'Lengkapkan vendor, tarikh dan item. Harga vendor auto ikut komisen.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Vendor dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedVendorId,
+                  decoration: const InputDecoration(
+                    labelText: 'Vendor *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.store),
+                  ),
+                  items: widget.vendors.map((vendor) {
+                    return DropdownMenuItem(
+                      value: vendor.id,
+                      child: Text(vendor.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      _onVendorChanged(value);
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Sila pilih vendor';
+                    }
+                    return null;
+                  },
                 ),
-                items: widget.vendors.map((vendor) {
-                  return DropdownMenuItem(
-                    value: vendor.id,
-                    child: Text(vendor.name),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _onVendorChanged(value);
-                  }
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Sila pilih vendor';
-                  }
-                  return null;
-                },
-              ),
-              // Repeat last delivery button
-              if (_selectedVendorId != null) ...[
+                // Repeat last delivery button
+                if (_selectedVendorId != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Harga vendor auto dari komisen. Boleh ulang penghantaran lepas.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _isLoadingLastDelivery ? null : _loadLastDelivery,
+                        icon: _isLoadingLastDelivery
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.copy, size: 16),
+                        label: Text(_isLoadingLastDelivery ? 'Memuat...' : 'Ulang'),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                // Delivery date
+                TextFormField(
+                  initialValue: DateFormat('yyyy-MM-dd').format(_deliveryDate),
+                  decoration: const InputDecoration(
+                    labelText: 'Tarikh Penghantaran *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  readOnly: true,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _deliveryDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) {
+                      setState(() => _deliveryDate = date);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                // Items section
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Item Dihantar',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Harga ikut komisen vendor (auto).',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: _addItem,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Tambah Item'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _isLoadingLastDelivery ? null : _loadLastDelivery,
-                    icon: _isLoadingLastDelivery
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.copy, size: 16),
-                    label: Text(_isLoadingLastDelivery ? 'Memuat...' : 'Ulang Penghantaran Lepas'),
+                ..._items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return _buildItemCard(index, item);
+                }),
+                const SizedBox(height: 16),
+                // Total amount
+                TextFormField(
+                  initialValue: _totalAmount.toStringAsFixed(2),
+                  decoration: const InputDecoration(
+                    labelText: 'Jumlah (RM)',
+                    border: OutlineInputBorder(),
+                    prefixText: 'RM ',
+                  ),
+                  readOnly: true,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              // Delivery date
-              TextFormField(
-                initialValue: DateFormat('yyyy-MM-dd').format(_deliveryDate),
-                decoration: const InputDecoration(
-                  labelText: 'Tarikh Penghantaran *',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                readOnly: true,
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _deliveryDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date != null) {
-                    setState(() => _deliveryDate = date);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              // Items section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Item Dihantar',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: _addItem,
-                    tooltip: 'Tambah Item',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ..._items.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                return _buildItemCard(index, item);
-              }),
-              const SizedBox(height: 16),
-              // Total amount
-              TextFormField(
-                initialValue: _totalAmount.toStringAsFixed(2),
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah (RM)',
-                  border: OutlineInputBorder(),
-                  prefixText: 'RM ',
-                ),
-                readOnly: true,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: _isSubmitting ? null : () {
-            widget.onCancel();
-            Navigator.pop(context);
-          },
+          onPressed: _isSubmitting
+              ? null
+              : () {
+                  widget.onCancel();
+                  Navigator.pop(context);
+                },
           child: const Text('Batal'),
         ),
         ElevatedButton(
@@ -485,13 +513,19 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   }
 
   Widget _buildItemCard(int index, DeliveryItemForm item) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Product dropdown
                 Expanded(
@@ -568,51 +602,63 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                     ),
                   ),
                 ),
-                // Remove button
+                // Remove button (top-right)
                 if (_items.length > 1)
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(Icons.close, color: Colors.red),
                     onPressed: () => _removeItem(index),
-                    tooltip: 'Padam',
+                    tooltip: 'Padam item',
                   ),
               ],
             ),
             // Rejection section (collapsible)
             ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(top: 8),
               title: const Text(
-                'Rekod Tolakan (Optional)',
+                'Rekod Tolakan (Opsyenal)',
                 style: TextStyle(fontSize: 12),
               ),
               children: [
-                TextFormField(
-                  initialValue: item.rejectedQty.toStringAsFixed(1),
-                  decoration: const InputDecoration(
-                    labelText: 'Kuantiti Ditolak',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (value) {
-                    setState(() {
-                      item.rejectedQty = double.tryParse(value) ?? 0.0;
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  initialValue: item.rejectionReason ?? '',
-                  decoration: const InputDecoration(
-                    labelText: 'Sebab Tolakan',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    hintText: 'Cth: Expired, Rosak',
-                  ),
-                  maxLines: 2,
-                  onChanged: (value) {
-                    setState(() {
-                      item.rejectionReason = value;
-                    });
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: item.rejectedQty.toStringAsFixed(1),
+                        decoration: const InputDecoration(
+                          labelText: 'Qty Tolak',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (value) {
+                          setState(() {
+                            item.rejectedQty = double.tryParse(value) ?? 0.0;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        initialValue: item.rejectionReason ?? '',
+                        decoration: const InputDecoration(
+                          labelText: 'Sebab (opsyenal)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          hintText: 'Cth: Expired, Rosak',
+                        ),
+                        maxLines: 2,
+                        onChanged: (value) {
+                          setState(() {
+                            item.rejectionReason = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

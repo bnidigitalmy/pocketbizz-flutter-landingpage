@@ -45,15 +45,15 @@ class _HomePageState extends State<HomePage> {
           ),
           NavigationDestination(
             icon: Icon(Icons.event_note),
-            label: 'Bookings',
+            label: 'Tempahan',
           ),
           NavigationDestination(
             icon: Icon(Icons.inventory),
-            label: 'Products',
+            label: 'Produk',
           ),
           NavigationDestination(
             icon: Icon(Icons.point_of_sale),
-            label: 'Sales',
+            label: 'Jualan',
           ),
         ],
       ),
@@ -161,7 +161,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.event_note),
-              title: const Text('Bookings'),
+              title: const Text('Tempahan'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _currentIndex = 1);
@@ -169,7 +169,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.inventory),
-              title: const Text('Products'),
+              title: const Text('Produk'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _currentIndex = 2);
@@ -177,7 +177,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.point_of_sale),
-              title: const Text('Sales'),
+              title: const Text('Jualan'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _currentIndex = 3);
@@ -200,7 +200,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.factory_rounded),
-              title: const Text('Production'),
+              title: const Text('Pengeluaran'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -222,7 +222,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.inventory_2),
-              title: const Text('Stock Management'),
+              title: const Text('Pengurusan Stok'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/stock');
@@ -230,7 +230,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.shopping_cart),
-              title: const Text('Shopping List'),
+              title: const Text('Senarai Belian'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/shopping-list');
@@ -253,7 +253,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.description),
-              title: const Text('Purchase Orders'),
+              title: const Text('Pesanan Belian'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/purchase-orders');
@@ -261,7 +261,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.business),
-              title: const Text('Suppliers'),
+              title: const Text('Pembekal'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/suppliers');
@@ -284,7 +284,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.store),
-              title: const Text('Vendors'),
+              title: const Text('Vendor'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -295,7 +295,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.local_shipping),
-              title: const Text('Deliveries'),
+              title: const Text('Penghantaran'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/deliveries');
@@ -318,7 +318,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long),
-              title: const Text('Expenses'),
+              title: const Text('Perbelanjaan'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/expenses');
@@ -326,7 +326,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.payment),
-              title: const Text('Claims'),
+              title: const Text('Tuntutan'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/claims');
@@ -345,7 +345,7 @@ class _HomePageState extends State<HomePage> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
+              title: const Text('Tetapan'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/settings');
@@ -353,7 +353,7 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+              title: const Text('Log Keluar', style: TextStyle(color: Colors.red)),
               onTap: () async {
                 await SupabaseHelper.signOut();
                 if (context.mounted) {

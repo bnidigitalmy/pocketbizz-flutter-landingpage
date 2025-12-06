@@ -815,10 +815,21 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   @override
   Widget build(BuildContext context) {
     final stats = _calculateStats();
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (canPop) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed('/');
+            }
+          },
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

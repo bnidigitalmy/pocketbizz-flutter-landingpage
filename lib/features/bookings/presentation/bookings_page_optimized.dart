@@ -11,8 +11,8 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/utils/booking_pdf_generator.dart';
 import 'create_booking_page_enhanced.dart';
 
-/// Optimized Bookings Page
-/// Full-featured booking management with PDF and WhatsApp sharing
+/// Optimized Tempahan Page
+/// Full-featured tempahan management with PDF and WhatsApp sharing
 class BookingsPageOptimized extends StatefulWidget {
   const BookingsPageOptimized({super.key});
 
@@ -26,7 +26,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
   List<Booking> _bookings = [];
   List<Booking> _filteredBookings = [];
   bool _loading = false;
-  String _selectedStatus = 'all';
+  String _statusTab = 'all'; // all | pending | confirmed | completed
 
   @override
   void initState() {
@@ -55,10 +55,18 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
   }
 
   void _filterBookings() {
-    if (_selectedStatus == 'all') {
-      _filteredBookings = _bookings;
-    } else {
-      _filteredBookings = _bookings.where((b) => b.status == _selectedStatus).toList();
+    switch (_statusTab) {
+      case 'pending':
+        _filteredBookings = _bookings.where((b) => b.status == 'pending').toList();
+        break;
+      case 'confirmed':
+        _filteredBookings = _bookings.where((b) => b.status == 'confirmed').toList();
+        break;
+      case 'completed':
+        _filteredBookings = _bookings.where((b) => b.status == 'completed').toList();
+        break;
+      default:
+        _filteredBookings = _bookings;
     }
   }
 
@@ -67,8 +75,21 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
+    
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (canPop) {
+              Navigator.of(context).pop();
+            } else {
+              // Navigate to dashboard if can't pop
+              Navigator.of(context).pushReplacementNamed('/');
+            }
+          },
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -82,51 +103,44 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
             ),
           ],
         ),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (status) {
-              setState(() {
-                _selectedStatus = status;
-                _filterBookings();
-              });
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'all', child: Text('Semua Status')),
-              const PopupMenuItem(value: 'pending', child: Text('Menunggu')),
-              const PopupMenuItem(value: 'confirmed', child: Text('Disahkan')),
-              const PopupMenuItem(value: 'completed', child: Text('Selesai')),
-              const PopupMenuItem(value: 'cancelled', child: Text('Dibatalkan')),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_getStatusLabel(_selectedStatus)),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadBookings,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
+              child: CustomScrollView(
+                slivers: [
                   // Stats Cards
-                  _buildStatsCards(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: _buildStatsCards(),
+                    ),
+                  ),
 
-                  const SizedBox(height: 24),
+                  // Status Tabs
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: _buildStatusTabs(),
+                    ),
+                  ),
 
-                  // Bookings List
+                  // Senarai Tempahan
                   if (_filteredBookings.isEmpty)
-                    _buildEmptyState()
+                    SliverFillRemaining(
+                      child: _buildEmptyState(),
+                    )
                   else
-                    ..._filteredBookings.map((booking) => _buildBookingCard(booking)),
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final booking = _filteredBookings[index];
+                          return _buildBookingCard(booking);
+                        },
+                        childCount: _filteredBookings.length,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -224,40 +238,110 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(48),
-        child: Column(
-          children: [
-            Icon(
-              Icons.event_busy_rounded,
-              size: 64,
-              color: Colors.grey[400],
+  Widget _buildStatusTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildStatusChip('all', 'Semua', _bookings.length),
+          const SizedBox(width: 8),
+          _buildStatusChip('pending', 'Menunggu', _pendingCount),
+          const SizedBox(width: 8),
+          _buildStatusChip('confirmed', 'Disahkan', _confirmedCount),
+          const SizedBox(width: 8),
+          _buildStatusChip('completed', 'Selesai', _bookings.where((b) => b.status == 'completed').length),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String value, String label, int count) {
+    final isSelected = _statusTab == value;
+    return ChoiceChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Tiada tempahan ${_selectedStatus != 'all' ? 'dengan status "${_getStatusLabel(_selectedStatus)}"' : ''}',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+          ),
+          if (count > 0) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withOpacity(0.3) : Colors.grey.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : Colors.grey[700],
+                ),
               ),
             ),
           ],
-        ),
+        ],
+      ),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _statusTab = value;
+            _filterBookings();
+          });
+        }
+      },
+      selectedColor: AppColors.primary,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey[700],
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.all(48),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.event_busy_rounded,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tiada tempahan ${_statusTab != 'all' ? 'dengan status "${_getStatusLabel(_statusTab)}"' : ''}',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBookingCard(Booking booking) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: InkWell(
+        onTap: () => _showBookingDetails(booking),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header: No. Tempahan & Status
             Row(
               children: [
                 Expanded(
@@ -288,96 +372,74 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                     ],
                   ),
                 ),
-                // Action Buttons
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.download_rounded),
-                      tooltip: 'Muat Turun PDF',
-                      onPressed: () => _downloadPDF(booking),
+                // More actions menu
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) {
+                    if (value == 'pdf') {
+                      _downloadPDF(booking);
+                    } else if (value == 'whatsapp') {
+                      _shareWhatsApp(booking);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'pdf',
+                      child: Row(
+                        children: [
+                          Icon(Icons.download_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Muat Turun PDF'),
+                        ],
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.share_rounded),
-                      tooltip: 'Kongsi WhatsApp',
-                      onPressed: () => _shareWhatsApp(booking),
+                    const PopupMenuItem(
+                      value: 'whatsapp',
+                      child: Row(
+                        children: [
+                          Icon(Icons.share_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Kongsi WhatsApp'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
 
-            const Divider(),
+            const SizedBox(height: 12),
 
-            // Customer Info
+            // Customer & Delivery Info (Simplified)
             Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoRow(Icons.person, booking.customerName),
-                      const SizedBox(height: 4),
-                      _buildInfoRow(Icons.phone, booking.customerPhone),
-                      if (booking.customerEmail != null) ...[
-                        const SizedBox(height: 4),
-                        _buildInfoRow(Icons.email, booking.customerEmail!),
-                      ],
-                    ],
-                  ),
+                  child: _buildInfoRow(Icons.person, booking.customerName),
                 ),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoRow(
-                        Icons.calendar_today,
-                        'Hantar: ${DateFormat('dd MMM yyyy', 'ms_MY').format(DateTime.parse(booking.deliveryDate))}',
-                      ),
-                      if (booking.deliveryTime != null) ...[
-                        const SizedBox(height: 4),
-                        _buildInfoRow(Icons.access_time, booking.deliveryTime!),
-                      ],
-                      if (booking.deliveryLocation != null) ...[
-                        const SizedBox(height: 4),
-                        _buildInfoRow(Icons.location_on, booking.deliveryLocation!),
-                      ],
-                    ],
+                  child: _buildInfoRow(
+                    Icons.calendar_today,
+                    DateFormat('dd MMM yyyy', 'ms_MY').format(DateTime.parse(booking.deliveryDate)),
                   ),
                 ),
               ],
             ),
 
+            const SizedBox(height: 8),
+
+            // Products Summary (if any)
             if (booking.items != null && booking.items!.isNotEmpty) ...[
-              const Divider(),
-              const Text(
-                'Produk Ditempah:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                '${booking.items!.length} produk ditempah',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                ),
               ),
               const SizedBox(height: 8),
-              ...booking.items!.map((item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.productName,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
-                        ),
-                        Chip(
-                          label: Text('${item.quantity}x'),
-                          padding: EdgeInsets.zero,
-                        ),
-                      ],
-                    ),
-                  )),
             ],
 
-            const Divider(),
-
-            // Total & Actions
+            // Total Amount (Large & Prominent)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -385,13 +447,14 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Jumlah: RM${booking.totalAmount.toStringAsFixed(2)}',
+                      'RM${booking.totalAmount.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
                       ),
                     ),
-                    if (booking.depositAmount != null)
+                    if (booking.depositAmount != null && booking.depositAmount! > 0)
                       Text(
                         'Deposit: RM${booking.depositAmount!.toStringAsFixed(2)}',
                         style: TextStyle(
@@ -401,58 +464,56 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                       ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (booking.status == 'pending')
-                      ElevatedButton.icon(
-                        onPressed: () => _updateStatus(booking.id, 'confirmed'),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Sahkan'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    if (booking.status == 'confirmed') ...[
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => _updateStatus(booking.id, 'completed'),
-                        icon: const Icon(Icons.done_all, size: 18),
-                        label: const Text('Selesai'),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: () => _showCancelDialog(booking),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                      ),
-                      child: const Text('Batal'),
-                    ),
-                  ],
-                ),
               ],
             ),
 
-            if (booking.notes != null && booking.notes!.isNotEmpty) ...[
-              const Divider(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Nota:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: 12),
+
+            // Action Buttons (Clear & Simple)
+            Row(
+              children: [
+                if (booking.status == 'pending')
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _updateStatus(booking.id, 'confirmed'),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Sahkan'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    booking.notes!,
-                    style: TextStyle(color: Colors.grey[700]),
+                if (booking.status == 'confirmed') ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _updateStatus(booking.id, 'completed'),
+                      icon: const Icon(Icons.done_all, size: 18),
+                      label: const Text('Selesai'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
                 ],
-              ),
-            ],
+                if (booking.status != 'completed' && booking.status != 'cancelled') ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => _showCancelDialog(booking),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                    child: const Text('Batal'),
+                  ),
+                ],
+              ],
+            ),
           ],
+        ),
         ),
       ),
     );
@@ -546,6 +607,8 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
         return status;
     }
   }
+
+  int get _completedCount => _bookings.where((b) => b.status == 'completed').length;
 
   String _formatEventType(String eventType) {
     switch (eventType.toLowerCase()) {
@@ -719,6 +782,357 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
     }
   }
 
+  Future<void> _showBookingDetails(Booking booking) async {
+    // Reload booking with full details including items
+    try {
+      final fullBooking = await _repo.getBooking(booking.id);
+      
+      if (!mounted) return;
+      
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  fullBooking.bookingNumber,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                _buildStatusBadge(fullBooking.status),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatEventType(fullBooking.eventType),
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const Divider(height: 1),
+                
+                // Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      // Customer Info Section
+                      _buildDetailSection(
+                        'Maklumat Pelanggan',
+                        Icons.person,
+                        [
+                          _buildDetailRow('Nama', fullBooking.customerName),
+                          _buildDetailRow('Telefon', fullBooking.customerPhone),
+                          if (fullBooking.customerEmail != null)
+                            _buildDetailRow('Email', fullBooking.customerEmail!),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Delivery Info Section
+                      _buildDetailSection(
+                        'Maklumat Penghantaran',
+                        Icons.local_shipping,
+                        [
+                          _buildDetailRow(
+                            'Tarikh Hantar',
+                            DateFormat('dd MMMM yyyy', 'ms_MY').format(DateTime.parse(fullBooking.deliveryDate)),
+                          ),
+                          if (fullBooking.deliveryTime != null)
+                            _buildDetailRow('Masa', fullBooking.deliveryTime!),
+                          if (fullBooking.deliveryLocation != null)
+                            _buildDetailRow('Lokasi', fullBooking.deliveryLocation!),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Products Section
+                      if (fullBooking.items != null && fullBooking.items!.isNotEmpty) ...[
+                        _buildDetailSection(
+                          'Produk Ditempah',
+                          Icons.shopping_bag,
+                          [
+                            ...fullBooking.items!.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.productName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${item.quantity.toStringAsFixed(0)}x × RM${item.unitPrice.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    'RM${item.subtotal.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      
+                      // Financial Summary
+                      _buildDetailSection(
+                        'Ringkasan Kewangan',
+                        Icons.receipt_long,
+                        [
+                          if (fullBooking.discountAmount != null && fullBooking.discountAmount! > 0)
+                            _buildDetailRow('Diskaun', '-RM${fullBooking.discountAmount!.toStringAsFixed(2)}', isHighlight: true),
+                          _buildDetailRow(
+                            'Jumlah',
+                            'RM${fullBooking.totalAmount.toStringAsFixed(2)}',
+                            isHighlight: true,
+                            isLarge: true,
+                          ),
+                          if (fullBooking.depositAmount != null && fullBooking.depositAmount! > 0) ...[
+                            _buildDetailRow('Deposit', 'RM${fullBooking.depositAmount!.toStringAsFixed(2)}'),
+                            _buildDetailRow(
+                              'Baki',
+                              'RM${(fullBooking.totalAmount - fullBooking.depositAmount!).toStringAsFixed(2)}',
+                              isHighlight: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                      
+                      if (fullBooking.notes != null && fullBooking.notes!.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildDetailSection(
+                          'Nota',
+                          Icons.note,
+                          [
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                fullBooking.notes!,
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Action Buttons
+                      if (fullBooking.status == 'pending')
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _updateStatus(fullBooking.id, 'confirmed');
+                          },
+                          icon: const Icon(Icons.check, size: 20),
+                          label: const Text('Sahkan Tempahan'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      
+                      if (fullBooking.status == 'confirmed')
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _updateStatus(fullBooking.id, 'completed');
+                          },
+                          icon: const Icon(Icons.done_all, size: 20),
+                          label: const Text('Tandakan Selesai'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Secondary Actions
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _downloadPDF(fullBooking);
+                              },
+                              icon: const Icon(Icons.download_rounded),
+                              label: const Text('PDF'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _shareWhatsApp(fullBooking);
+                              },
+                              icon: const Icon(Icons.share_rounded),
+                              label: const Text('WhatsApp'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading details: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildDetailSection(String title, IconData icon, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {bool isHighlight = false, bool isLarge = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isLarge ? 16 : 14,
+              color: Colors.grey[600],
+              fontWeight: isHighlight ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: isLarge ? 20 : 14,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+                color: isHighlight ? AppColors.primary : Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showCancelDialog(Booking booking) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -744,7 +1158,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
     }
   }
 
-  /// Generate invoice number based on booking date
+  /// Generate invoice number based on tempahan date
   /// Format: INV-YYMM-XXXX (e.g., INV-2412-0001)
   String _generateInvoiceNumber(DateTime date) {
     final yearMonth = DateFormat('yyMM').format(date);
