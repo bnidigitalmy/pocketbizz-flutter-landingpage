@@ -322,8 +322,8 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.primary.withValues(alpha: 0.1),
-              AppColors.primary.withValues(alpha: 0.05),
+              AppColors.primary.withOpacity(0.1),
+              AppColors.primary.withOpacity(0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

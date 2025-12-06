@@ -1003,7 +1003,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Widget _buildSummaryCard(String label, String value, IconData icon, Color color) {
     return Card(
-      color: color.withValues(alpha: 0.1),
+      color: color.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

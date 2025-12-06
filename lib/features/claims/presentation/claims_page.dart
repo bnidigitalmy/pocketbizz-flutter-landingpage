@@ -44,6 +44,8 @@ class _ClaimsPageState extends State<ClaimsPage> {
   List<ConsignmentPayment> _payments = [];
   List<Delivery> _deliveries = [];
   List<Vendor> _vendors = [];
+  final Map<String, GlobalKey> _claimKeys = {};
+  final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -52,6 +54,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
   // Filter states
   String _filterVendor = 'all';
   String _filterPaymentStatus = 'all';
+  String _statusTab = 'all'; // all | outstanding | settled
   bool _showFilters = false;
 
   // Dialog states
@@ -60,6 +63,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
   String? _selectedVendorId;
   String? _phoneInput = '';
   VoidCallback? _pendingWhatsAppAction;
+  String? _highlightClaimId;
 
   @override
   void initState() {
@@ -67,12 +71,44 @@ class _ClaimsPageState extends State<ClaimsPage> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _setHighlight(String claimId) {
+    setState(() => _highlightClaimId = claimId);
+    Future.delayed(const Duration(seconds: 6), () {
+      if (mounted && _highlightClaimId == claimId) {
+        setState(() => _highlightClaimId = null);
+      }
+    });
+  }
+
+  void _scrollToClaim(String claimId) {
+    final key = _claimKeys[claimId];
+    if (key == null) return;
+    Future.delayed(const Duration(milliseconds: 80), () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = key.currentContext;
+        if (context != null) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 550),
+            curve: Curves.easeInOut,
+            alignment: 0.1,
+          );
+        }
+      });
+    });
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       await Future.wait([
         _loadClaims(reset: true),
-        _loadDeliveries(),
         _loadVendors(),
       ]);
     } catch (e) {
@@ -95,6 +131,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
     if (reset) {
       _currentOffset = 0;
       _claims = [];
+      _claimKeys.clear();
     }
 
     setState(() => _isLoadingMore = true);
@@ -109,6 +146,13 @@ class _ClaimsPageState extends State<ClaimsPage> {
           _hasMore = false; // For now, load all claims at once
           _isLoadingMore = false;
         });
+        if (_highlightClaimId != null) {
+          Future.delayed(const Duration(milliseconds: 120), () {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToClaim(_highlightClaimId!);
+            });
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -360,6 +404,14 @@ class _ClaimsPageState extends State<ClaimsPage> {
         return false;
       }
 
+      // Filter by tab (outstanding/settled)
+      if (_statusTab == 'outstanding' && claim.balanceAmount <= 0) {
+        return false;
+      }
+      if (_statusTab == 'settled' && claim.balanceAmount > 0) {
+        return false;
+      }
+
       // Filter by payment status
       if (_filterPaymentStatus != 'all') {
         if (_filterPaymentStatus == 'pending') {
@@ -504,6 +556,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
 
   Widget _buildContent() {
     return CustomScrollView(
+      controller: _scrollController,
       slivers: [
         // Header with export button
         SliverToBoxAdapter(
@@ -526,6 +579,23 @@ class _ClaimsPageState extends State<ClaimsPage> {
         if (_claims.isNotEmpty)
           SliverToBoxAdapter(
             child: _buildSummaryCard(),
+          ),
+
+        // Status tabs
+        if (_claims.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  _statusChip('all', 'Semua'),
+                  const SizedBox(width: 8),
+                  _statusChip('outstanding', 'Outstanding'),
+                  const SizedBox(width: 8),
+                  _statusChip('settled', 'Selesai'),
+                ],
+              ),
+            ),
           ),
 
         // Filters
@@ -570,10 +640,6 @@ class _ClaimsPageState extends State<ClaimsPage> {
             ),
           ),
 
-        // Deliveries list
-        SliverToBoxAdapter(
-          child: _buildDeliveriesList(),
-        ),
       ],
     );
   }
@@ -582,7 +648,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
     final summary = _summaryTotals;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.primary.withValues(alpha: 0.05),
+      color: AppColors.primary.withOpacity(0.05),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -648,8 +714,8 @@ class _ClaimsPageState extends State<ClaimsPage> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: summary['balance']! > 0 
-                    ? Colors.orange.withValues(alpha: 0.1)
-                    : Colors.green.withValues(alpha: 0.1),
+                    ? Colors.orange.withOpacity(0.1)
+                    : Colors.green.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: summary['balance']! > 0 
@@ -694,9 +760,9 @@ class _ClaimsPageState extends State<ClaimsPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -774,7 +840,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  initialValue: _filterVendor,
+                  value: _filterVendor == 'all' ? null : _filterVendor,
                   decoration: const InputDecoration(
                     labelText: 'Vendor',
                     border: OutlineInputBorder(),
@@ -792,7 +858,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: _filterPaymentStatus,
+                  value: _filterPaymentStatus == 'all' ? null : _filterPaymentStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status Bayaran',
                     border: OutlineInputBorder(),
@@ -923,9 +989,19 @@ class _ClaimsPageState extends State<ClaimsPage> {
     final balanceAmount = claim.netAmount - claim.paidAmount;
     final hasOutstanding = balanceAmount > 0;
     final daysOverdue = hasOutstanding ? DateTime.now().difference(claim.claimDate).inDays : 0;
+    final isHighlighted = _highlightClaimId == claim.id;
+    final cardKey = _claimKeys.putIfAbsent(claim.id, () => GlobalKey());
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      key: cardKey,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      color: isHighlighted ? AppColors.primary.withOpacity(0.08) : null,
+      shape: RoundedRectangleBorder(
+        side: isHighlighted
+            ? BorderSide(color: AppColors.primary.withOpacity(0.5), width: 1.2)
+            : BorderSide.none,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1000,7 +1076,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
               ],
             ),
             const SizedBox(height: 12),
-            // Net amount
+            // Amounts
             Text(
               'RM ${claim.netAmount.toStringAsFixed(2)}',
               style: const TextStyle(
@@ -1009,148 +1085,135 @@ class _ClaimsPageState extends State<ClaimsPage> {
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
             ),
-            Text(
-              'Selepas komisyen ${claim.commissionRate}% (RM ${claim.commissionAmount.toStringAsFixed(2)})',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 12),
-            // Amount breakdown
+            const SizedBox(height: 10),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Jumlah Kasar:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      'RM ${claim.grossAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-                if (claim.paidAmount > 0)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Dibayar:',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      Text(
-                        'RM ${claim.paidAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
+                Expanded(
+                  child: _amountTile(
+                    label: 'Dibayar',
+                    value: claim.paidAmount,
+                    color: Colors.green,
                   ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Baki:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      'RM ${balanceAmount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: balanceAmount > 0 ? Colors.orange : Colors.green,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _amountTile(
+                    label: 'Baki',
+                    value: balanceAmount,
+                    color: balanceAmount > 0 ? Colors.orange : Colors.green,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Actions
+            const SizedBox(height: 12),
+            // Actions (simplified)
             Column(
               children: [
+                if (hasOutstanding) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        // Pastikan claim kekal kelihatan: reset tab & filter sebelum reload
+                        setState(() {
+                          _statusTab = 'all';
+                          _filterVendor = 'all';
+                          _filterPaymentStatus = 'all';
+                          _showFilters = false;
+                        });
+                        final result = await Navigator.pushNamed(
+                          context,
+                          '/payments/record',
+                          arguments: {
+                            'vendorId': claim.vendorId,
+                            'claimId': claim.id,
+                          },
+                        );
+                        if (result == true) {
+                          await _loadClaims(reset: true);
+                          _setHighlight(claim.id);
+                          _scrollToClaim(claim.id);
+                        }
+                      },
+                      icon: const Icon(Icons.payment, size: 16),
+                      label: const Text('Rekod Bayaran'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                  onPressed: () {
-                    // Navigate to claim details page
-                    Navigator.pushNamed(
-                      context,
-                      '/claims/detail',
-                      arguments: claim.id,
-                    ).then((_) {
-                      _loadClaims(reset: true);
-                    });
-                  },
+                    onPressed: () {
+                      // Navigate to claim details page
+                      Navigator.pushNamed(
+                        context,
+                        '/claims/detail',
+                        arguments: claim.id,
+                      ).then((_) {
+                        _loadClaims(reset: true);
+                      });
+                    },
                     icon: const Icon(Icons.visibility, size: 16),
                     label: const Text('Lihat Detail Produk'),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _generateClaimStatement(claim.vendorId, vendor.name),
-                        icon: const Icon(Icons.description, size: 16),
-                        label: const Text('Penyata'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _generateThermalClaimStatement(claim.vendorId, vendor.name),
-                        icon: const Icon(Icons.print, size: 16),
-                        label: const Text('Thermal'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _shareClaimViaWhatsApp(claim),
-                        icon: const Icon(Icons.message, size: 16, color: Colors.green),
-                        label: const Text('WhatsApp', style: TextStyle(color: Colors.green)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green,
-                        ),
-                        ),
-                      ),
-                    if (hasOutstanding) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _sendPaymentReminder(claim),
-                          icon: const Icon(Icons.notifications, size: 16),
-                          label: const Text('Ingatkan'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: daysOverdue > 14 ? Colors.red : AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _amountTile({required String label, required double value, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8))),
+          const SizedBox(height: 4),
+          Text(
+            'RM ${value.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChip(String key, String label) {
+    final bool selected = _statusTab == key;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) {
+        setState(() {
+          _statusTab = key;
+          // Keep payment filter unchanged; tab handles outstanding/settled
+        });
+      },
+      selectedColor: AppColors.primary.withOpacity(0.15),
+      labelStyle: TextStyle(
+        color: selected ? AppColors.primary : Colors.black87,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+      ),
+      backgroundColor: Colors.grey[200],
     );
   }
 

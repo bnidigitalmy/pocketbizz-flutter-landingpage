@@ -979,7 +979,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
   Widget _buildStatsCard(String label, String value, IconData icon, Color color) {
     return Card(
-      color: color.withValues(alpha: 0.1),
+      color: color.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1048,10 +1048,10 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
+                                color: statusColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: statusColor.withValues(alpha: 0.3),
+                                  color: statusColor.withOpacity(0.3),
                                 ),
                               ),
                               child: Row(
@@ -1244,7 +1244,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
+                        color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
@@ -1289,7 +1289,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: PurchaseOrder.getStatusColor(po.status).withValues(alpha: 0.1),
+                color: PurchaseOrder.getStatusColor(po.status).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -1522,7 +1522,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: Colors.blue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Column(
@@ -2169,7 +2169,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: Colors.blue.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Text(

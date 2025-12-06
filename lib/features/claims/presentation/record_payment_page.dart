@@ -471,7 +471,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _selectedVendorId,
+                  value: _selectedVendorId,
                   decoration: const InputDecoration(
                     labelText: 'Pilih Vendor',
                     border: OutlineInputBorder(),
@@ -503,7 +503,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     final isSelected = _selectedClaim?.id == claim.id;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
-                      color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : null,
+                      color: isSelected ? AppColors.primary.withOpacity(0.1) : null,
                       child: ListTile(
                         title: Text(
                           claim.claimNumber,
@@ -954,7 +954,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
+                        color: AppColors.success.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.success),
                       ),
@@ -1025,7 +1025,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),

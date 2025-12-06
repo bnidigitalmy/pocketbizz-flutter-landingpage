@@ -548,9 +548,9 @@ class _ProductListPageState extends State<ProductListPage> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: stockColor.withValues(alpha: 0.1),
+                            color: stockColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: stockColor.withValues(alpha: 0.3)),
+                            border: Border.all(color: stockColor.withOpacity(0.3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,

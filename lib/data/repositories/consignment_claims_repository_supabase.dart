@@ -31,23 +31,23 @@ class ConsignmentClaimsRepositorySupabase {
 
     List deliveries = [];
     if (deliveryIds.isNotEmpty) {
-      // Get deliveries to validate
-      final deliveriesResponse = await supabase
-          .from('vendor_deliveries')
-          .select('id, vendor_id, vendor_name')
-          .filter('id', 'in', _buildInFilter(deliveryIds))
-          .eq('business_owner_id', userId);
+    // Get deliveries to validate
+    final deliveriesResponse = await supabase
+        .from('vendor_deliveries')
+        .select('id, vendor_id, vendor_name')
+        .filter('id', 'in', _buildInFilter(deliveryIds))
+        .eq('business_owner_id', userId);
 
       deliveries = deliveriesResponse as List;
-      if (deliveries.length != deliveryIds.length) {
-        throw Exception('Some deliveries not found');
-      }
+    if (deliveries.length != deliveryIds.length) {
+      throw Exception('Some deliveries not found');
+    }
 
-      // Verify all deliveries are for the same vendor
+    // Verify all deliveries are for the same vendor
       final vendorIds =
           deliveries.map((d) => (d as Map)['vendor_id'] as String).toSet();
-      if (vendorIds.length > 1 || !vendorIds.contains(vendorId)) {
-        throw Exception('All deliveries must be for the same vendor');
+    if (vendorIds.length > 1 || !vendorIds.contains(vendorId)) {
+      throw Exception('All deliveries must be for the same vendor');
       }
     }
 
@@ -106,10 +106,10 @@ class ConsignmentClaimsRepositorySupabase {
     // Get delivery items with quantities
     List deliveryItems = [];
     if (deliveryIds.isNotEmpty) {
-      final itemsResponse = await supabase
-          .from('vendor_delivery_items')
-          .select('*')
-          .filter('delivery_id', 'in', _buildInFilter(deliveryIds));
+    final itemsResponse = await supabase
+        .from('vendor_delivery_items')
+        .select('*')
+        .filter('delivery_id', 'in', _buildInFilter(deliveryIds));
       deliveryItems = itemsResponse as List;
     }
 
@@ -166,7 +166,7 @@ class ConsignmentClaimsRepositorySupabase {
     if (itemsToUpdate.isNotEmpty) {
       for (var update in itemsToUpdate) {
         await supabase.from('vendor_delivery_items').update({
-          'quantity_unsold': update['quantity_unsold'],
+              'quantity_unsold': update['quantity_unsold'],
         }).eq('id', update['id']);
       }
     }
@@ -204,22 +204,22 @@ class ConsignmentClaimsRepositorySupabase {
     while (retries > 0) {
       try {
         claimResponse = await supabase
-            .from('consignment_claims')
-            .insert({
-              'business_owner_id': userId,
-              'vendor_id': vendorId,
-              'claim_date': claimDate.toIso8601String().split('T')[0],
-              'status': 'draft',
-              'gross_amount': grossAmount,
-              'commission_rate': commissionRate,
-              'commission_amount': commissionAmount,
-              'net_amount': netAmount,
-              'paid_amount': 0,
-              'balance_amount': netAmount,
-              'notes': notes,
+        .from('consignment_claims')
+        .insert({
+          'business_owner_id': userId,
+          'vendor_id': vendorId,
+          'claim_date': claimDate.toIso8601String().split('T')[0],
+          'status': 'draft',
+          'gross_amount': grossAmount,
+          'commission_rate': commissionRate,
+          'commission_amount': commissionAmount,
+          'net_amount': netAmount,
+          'paid_amount': 0,
+          'balance_amount': netAmount,
+          'notes': notes,
               // Don't set claim_number - let trigger generate it
-            })
-            .select()
+        })
+        .select()
             .single() as Map<String, dynamic>;
 
         // Success - break retry loop
@@ -447,13 +447,13 @@ class ConsignmentClaimsRepositorySupabase {
       return (response as List).map((json) {
         final claimJson = json as Map<String, dynamic>;
         final vendor = claimJson['vendors'] as Map<String, dynamic>?;
-
+        
         // Flatten vendor data into claim JSON
         if (vendor != null) {
           claimJson['vendor_name'] = vendor['name'] as String? ?? '';
           claimJson['vendor_phone'] = vendor['phone'] as String?;
         }
-
+        
         return ConsignmentClaim.fromJson(claimJson);
       }).toList();
     } catch (e) {
@@ -503,14 +503,14 @@ class ConsignmentClaimsRepositorySupabase {
     final paidAmount = (item['paid_amount'] as num?)?.toDouble() ?? 0.0;
 
     await supabase.from('consignment_claim_items').update({
-      'quantity_sold': quantitySold,
-      'quantity_unsold': quantityUnsold,
-      'quantity_expired': quantityExpired,
-      'quantity_damaged': quantityDamaged,
-      'gross_amount': itemGross,
-      'commission_amount': itemCommission,
-      'net_amount': itemNet,
-      'balance_amount': itemNet - paidAmount,
+          'quantity_sold': quantitySold,
+          'quantity_unsold': quantityUnsold,
+          'quantity_expired': quantityExpired,
+          'quantity_damaged': quantityDamaged,
+          'gross_amount': itemGross,
+          'commission_amount': itemCommission,
+          'net_amount': itemNet,
+          'balance_amount': itemNet - paidAmount,
     }).eq('id', itemId);
 
     // Recalculate claim totals
@@ -535,10 +535,10 @@ class ConsignmentClaimsRepositorySupabase {
     }
 
     await supabase.from('consignment_claims').update({
-      'gross_amount': totalGross,
-      'commission_amount': totalCommission,
-      'net_amount': totalNet,
-      'balance_amount': totalNet - totalPaid,
+          'gross_amount': totalGross,
+          'commission_amount': totalCommission,
+          'net_amount': totalNet,
+          'balance_amount': totalNet - totalPaid,
     }).eq('id', claimId);
 
     return await getClaimById(claimId);

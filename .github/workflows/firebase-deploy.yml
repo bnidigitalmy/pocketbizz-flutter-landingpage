@@ -28,8 +28,8 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build Flutter web
-        run: flutter build web --release
+      - name: Build Flutter web (JS, disable Wasm)
+        run: flutter build web --release --no-wasm
 
       - name: Verify build output
         run: |

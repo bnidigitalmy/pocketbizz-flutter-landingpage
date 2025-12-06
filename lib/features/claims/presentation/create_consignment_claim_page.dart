@@ -296,10 +296,10 @@ class _CreateConsignmentClaimPageState extends State<CreateConsignmentClaimPage>
                               children: [
                                 const Expanded(
                                   child: Text(
-                                    'Pilih Penghantaran',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                  'Pilih Penghantaran',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),

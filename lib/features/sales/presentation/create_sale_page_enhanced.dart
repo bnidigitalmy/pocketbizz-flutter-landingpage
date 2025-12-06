@@ -371,8 +371,8 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                      Theme.of(context).primaryColor.withValues(alpha: 0.05),
+                      Theme.of(context).primaryColor.withOpacity(0.1),
+                      Theme.of(context).primaryColor.withOpacity(0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -757,8 +757,8 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                      Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                      Theme.of(context).primaryColor.withOpacity(0.15),
+                      Theme.of(context).primaryColor.withOpacity(0.08),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -849,7 +849,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -961,7 +961,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1137,7 +1137,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                                         decoration: BoxDecoration(
                                           color: Theme.of(context)
                                               .primaryColor
-                                              .withValues(alpha: 0.1),
+                                              .withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Icon(

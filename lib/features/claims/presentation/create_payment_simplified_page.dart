@@ -447,7 +447,7 @@ class _CreatePaymentSimplifiedPageState extends State<CreatePaymentSimplifiedPag
                 ),
                 const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                  initialValue: _selectedVendorId,
+                  value: _selectedVendorId,
                   decoration: const InputDecoration(
                     labelText: 'Pilih Vendor',
                     border: OutlineInputBorder(),
@@ -605,7 +605,7 @@ class _CreatePaymentSimplifiedPageState extends State<CreatePaymentSimplifiedPag
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<PaymentMethod>(
-                  initialValue: _selectedPaymentMethod,
+                  value: _selectedPaymentMethod,
                   decoration: const InputDecoration(
                     labelText: 'Pilih Kaedah',
                     border: OutlineInputBorder(),
@@ -646,7 +646,7 @@ class _CreatePaymentSimplifiedPageState extends State<CreatePaymentSimplifiedPag
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : null,
+                    color: isSelected ? AppColors.primary.withOpacity(0.1) : null,
                     child: ListTile(
                       title: Text(
                         claim.claimNumber,
