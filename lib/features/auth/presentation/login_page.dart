@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/widgets/pocketbizz_logo.dart';
+import '../../subscription/services/subscription_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,10 +20,64 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Check for auth errors from URL (e.g., expired OTP links)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleAuthError();
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  /// Handle authentication errors from URL parameters
+  void _handleAuthError() {
+    final uri = Uri.base;
+    final error = uri.queryParameters['error'];
+    final errorCode = uri.queryParameters['error_code'];
+    final errorDescription = uri.queryParameters['error_description'];
+
+    if (error != null && mounted) {
+      String message = 'Authentication error occurred.';
+      
+      if (errorCode == 'otp_expired') {
+        message = 'Email confirmation link telah tamat tempoh. Sila minta email pengesahan baru.';
+      } else if (errorCode == 'access_denied') {
+        message = 'Akses ditolak. Sila cuba lagi.';
+      } else if (errorDescription != null) {
+        message = Uri.decodeComponent(errorDescription);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 6),
+          action: errorCode == 'otp_expired'
+              ? SnackBarAction(
+                  label: 'Daftar Semula',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    setState(() => _isSignUp = true);
+                  },
+                )
+              : null,
+        ),
+      );
+
+      // Clear URL parameters
+      if (mounted) {
+        final cleanUri = uri.replace(queryParameters: {});
+        // Note: In web, we can't directly modify the URL without navigation
+        // This is just for logging
+        debugPrint('Clearing error parameters from URL');
+      }
+    }
   }
 
   Future<void> _handleAuth() async {
@@ -39,17 +94,40 @@ class _LoginPageState extends State<LoginPage> {
         );
 
         if (response.user != null) {
-          // Create user record in users table
-          await supabase.from('users').insert({
-            'id': response.user!.id,
-            'email': response.user!.email,
-          });
+          // Check if email confirmation is required
+          if (response.session == null) {
+            // Email confirmation required - user profile will be created by database trigger
+            // Trial will be initialized when user confirms email and signs in
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Account created! Please check your email to confirm your account, then sign in to start your free trial.'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 6),
+                ),
+              );
+              setState(() => _isSignUp = false);
+            }
+            return; // Exit early - user needs to confirm email first
+          }
+
+          // Session exists - user is already authenticated
+          // User profile should be auto-created by database trigger
+          // But we'll try to initialize trial if session exists
+          try {
+            final subscriptionService = SubscriptionService();
+            await subscriptionService.initializeTrial();
+          } catch (e) {
+            // Log error but don't block registration
+            debugPrint('Failed to initialize trial: $e');
+          }
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Account created! You can now sign in.'),
+                content: Text('Account created! Free 7-day trial started.'),
                 backgroundColor: Colors.green,
+                duration: Duration(seconds: 4),
               ),
             );
 
@@ -62,6 +140,23 @@ class _LoginPageState extends State<LoginPage> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+
+        // Check if this is a new user who just confirmed email
+        // Initialize trial if they don't have one yet
+        if (response.user != null) {
+          try {
+            final subscriptionService = SubscriptionService();
+            final hasActiveSubscription = await subscriptionService.hasActiveSubscription();
+            
+            // If no active subscription, initialize trial
+            if (!hasActiveSubscription) {
+              await subscriptionService.initializeTrial();
+            }
+          } catch (e) {
+            // Log error but don't block sign in
+            debugPrint('Failed to check/initialize trial on sign in: $e');
+          }
+        }
 
         if (response.user != null && mounted) {
           // Navigate to home

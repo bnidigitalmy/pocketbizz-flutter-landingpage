@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 import 'commission_dialog.dart';
 
 /// Vendors Page (Consignment System)
@@ -170,9 +171,12 @@ class _VendorsPageState extends State<VendorsPage> {
 
     final canPop = ModalRoute.of(context)?.canPop ?? false;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    return SubscriptionGuard(
+      featureName: 'Pengurusan Vendor',
+      allowTrial: true,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -218,6 +222,7 @@ class _VendorsPageState extends State<VendorsPage> {
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Vendor'),
+      ),
       ),
     );
   }

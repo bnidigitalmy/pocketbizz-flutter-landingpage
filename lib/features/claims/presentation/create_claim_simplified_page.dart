@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 // Note: Using original repo for now, can switch to refactored version later
 import '../../../data/repositories/deliveries_repository_supabase.dart';
@@ -638,13 +639,16 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Cipta Tuntutan'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
+    return SubscriptionGuard(
+      featureName: 'Cipta Tuntutan Konsinyemen',
+      allowTrial: true,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Cipta Tuntutan'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        ),
       body: _isLoading && _currentStep == 1
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -666,6 +670,7 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
                 _buildNavigationButtons(),
               ],
             ),
+      ),
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/repositories/consignment_payments_repository_supabase.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
@@ -500,21 +501,24 @@ class _ClaimsPageState extends State<ClaimsPage> {
       // Claim details dialog removed - using navigation instead
     });
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tuntutan & Bayaran'),
-            Text(
-              'Track payment invoice vendor & update expired/rosak',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+    return SubscriptionGuard(
+      featureName: 'Sistem Konsinyemen',
+      allowTrial: true,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tuntutan & Bayaran'),
+              Text(
+                'Track payment invoice vendor & update expired/rosak',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
         actions: [
             IconButton(
               icon: const Icon(Icons.payment),
@@ -551,6 +555,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
               onRefresh: () => _loadClaims(reset: true),
               child: _buildContent(),
             ),
+      ),
     );
   }
 

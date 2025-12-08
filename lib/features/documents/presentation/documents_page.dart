@@ -170,10 +170,14 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
   IconData _getDocumentTypeIcon(String type) {
     switch (type) {
+      case 'all':
+        return Icons.filter_list;
       case 'invoice':
+        return Icons.receipt_long;
       case 'thermal_invoice':
-      case 'receipt_a5':
         return Icons.receipt;
+      case 'receipt_a5':
+        return Icons.description_outlined;
       case 'claim_statement':
         return Icons.description;
       case 'purchase_order':
@@ -202,50 +206,79 @@ class _DocumentsPageState extends State<DocumentsPage> {
       ),
       body: Column(
         children: [
-          // Filter chips
+          // Filter chips - Improved design
           Container(
             padding: EdgeInsets.symmetric(
-              vertical: isMobile ? 6 : 8,
-              horizontal: isMobile ? 8 : 12,
+              vertical: isMobile ? 10 : 12,
+              horizontal: isMobile ? 12 : 16,
             ),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withOpacity(0.1),
+                  width: 1,
                 ),
-              ],
+              ),
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: _documentTypes.map((type) {
                   final isSelected = _selectedDocumentType == type;
+                  final label = type == 'all' ? 'Semua' : _getDocumentTypeLabel(type);
+                  final icon = _getDocumentTypeIcon(type);
+                  
                   return Padding(
-                    padding: EdgeInsets.only(right: isMobile ? 4 : 6),
-                    child: FilterChip(
-                      label: Text(
-                        type == 'all' ? 'Semua' : _getDocumentTypeLabel(type),
-                        style: TextStyle(fontSize: isMobile ? 11 : 12),
-                      ),
-                      selected: isSelected,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 6 : 8,
-                        vertical: isMobile ? 2 : 4,
-                      ),
-                      labelPadding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 4 : 8,
-                      ),
-                      onSelected: (selected) {
-                        if (selected) {
+                    padding: EdgeInsets.only(right: isMobile ? 6 : 8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
                           setState(() {
                             _selectedDocumentType = type;
                           });
                           _loadDocuments();
-                        }
-                      },
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 12 : 16,
+                            vertical: isMobile ? 8 : 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : Colors.grey.withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                icon,
+                                size: isMobile ? 16 : 18,
+                                color: isSelected ? Colors.white : AppColors.primary,
+                              ),
+                              SizedBox(width: isMobile ? 6 : 8),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: isMobile ? 12 : 13,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  color: isSelected ? Colors.white : Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),

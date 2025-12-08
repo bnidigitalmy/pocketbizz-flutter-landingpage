@@ -350,6 +350,15 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.workspace_premium, color: Colors.amber),
+              title: const Text('Langganan'),
+              subtitle: const Text('Urus langganan anda', style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/subscription');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.folder, color: Colors.orange),
               title: const Text('Dokumen Saya'),
               subtitle: const Text('Backup automatik ke Supabase', style: TextStyle(fontSize: 11)),

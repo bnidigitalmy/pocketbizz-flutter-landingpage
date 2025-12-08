@@ -20,6 +20,8 @@ import '../../reports/data/repositories/reports_repository_supabase.dart';
 import '../../reports/data/models/sales_by_channel.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/models/consignment_claim.dart';
+import '../../subscription/services/subscription_service.dart';
+import '../../subscription/data/models/subscription.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -43,6 +45,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _todayStats;
   List<SalesByChannel> _salesByChannel = [];
+  Subscription? _subscription;
   bool _loading = true;
 
   @override
@@ -76,6 +79,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _loadTodaySalesStats(),
         _loadPendingTasks(),
         _loadSalesByChannel(),
+        SubscriptionService().getCurrentSubscription(),
       ]);
 
       if (!mounted) return; // Check again after async operations
@@ -92,6 +96,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _stats = results[0] as Map<String, dynamic>;
         _todayStats = mergedTodayStats;
         _salesByChannel = results[3] as List<SalesByChannel>;
+        _subscription = results[4] as Subscription?;
         _loading = false;
       });
     } catch (e) {
@@ -320,6 +325,10 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // Subscription Expiring Alert
+                  if (_subscription != null && _subscription!.isExpiringSoon)
+                    _buildSubscriptionAlert(),
+
                   // Morning Briefing Card
                   MorningBriefingCard(
                     userName: user?.email?.split('@').first ?? 'SME Owner',
@@ -391,6 +400,87 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildSubscriptionAlert() {
+    final days = _subscription!.daysRemaining;
+    final isTrial = _subscription!.isOnTrial;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.warning.withOpacity(0.1),
+            AppColors.warning.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning,
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.workspace_premium,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isTrial ? 'Trial Hampir Tamat!' : 'Langganan Hampir Tamat!',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isTrial
+                      ? 'Trial percuma anda akan tamat dalam $days hari. Pilih pakej untuk teruskan.'
+                      : 'Langganan anda akan tamat dalam $days hari. Renew sekarang untuk teruskan.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, '/subscription');
+            },
+            icon: const Icon(Icons.arrow_forward, size: 18),
+            label: const Text('Upgrade'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
