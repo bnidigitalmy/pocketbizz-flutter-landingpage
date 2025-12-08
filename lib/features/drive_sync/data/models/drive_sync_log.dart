@@ -39,23 +39,29 @@ class DriveSyncLog {
 
   factory DriveSyncLog.fromJson(Map<String, dynamic> json) {
     return DriveSyncLog(
-      id: json['id'] as String,
-      businessOwnerId: json['business_owner_id'] as String,
-      fileName: json['file_name'] as String,
-      fileType: json['file_type'] as String,
+      id: json['id'] as String? ?? '',
+      businessOwnerId: json['business_owner_id'] as String? ?? '',
+      fileName: json['file_name'] as String? ?? '',
+      fileType: json['file_type'] as String? ?? '',
       fileSizeBytes: json['file_size_bytes'] as int?,
       mimeType: json['mime_type'] as String?,
-      driveFileId: json['drive_file_id'] as String,
-      driveWebViewLink: json['drive_web_view_link'] as String,
+      driveFileId: json['drive_file_id'] as String? ?? '',
+      driveWebViewLink: json['drive_web_view_link'] as String? ?? '',
       driveFolderId: json['drive_folder_id'] as String?,
       relatedEntityType: json['related_entity_type'] as String?,
       relatedEntityId: json['related_entity_id'] as String?,
       vendorName: json['vendor_name'] as String?,
-      syncedAt: DateTime.parse(json['synced_at'] as String),
-      syncStatus: json['sync_status'] as String,
+      syncedAt: json['synced_at'] != null 
+          ? DateTime.parse(json['synced_at'] as String)
+          : DateTime.now(),
+      syncStatus: json['sync_status'] as String? ?? 'success',
       errorMessage: json['error_message'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
     );
   }
 
@@ -92,4 +98,5 @@ class DriveSyncLog {
     return labels[fileType] ?? fileType;
   }
 }
+
 

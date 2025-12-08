@@ -49,8 +49,9 @@ class ReportsPDFGenerator {
 
           // Top Vendors
           if (topVendors.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
             _buildTopVendorsSection(topVendors),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 16),
           ],
 
           // Monthly Trends Summary
@@ -270,7 +271,7 @@ class ReportsPDFGenerator {
               fontWeight: pw.FontWeight.bold,
             ),
           ),
-          pw.SizedBox(height: 12),
+          pw.SizedBox(height: 8),
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300),
             columnWidths: {

@@ -29,6 +29,8 @@ class _DriveSyncPageState extends State<DriveSyncPage> {
   }
 
   Future<void> _checkSignInStatus() async {
+    // Small delay to ensure Google Sign-In state is updated
+    await Future.delayed(const Duration(milliseconds: 100));
     final isSignedIn = DriveSyncHelper.isSignedIn;
     if (mounted) {
       setState(() {
@@ -46,21 +48,26 @@ class _DriveSyncPageState extends State<DriveSyncPage> {
       final success = await DriveSyncHelper.signIn();
       if (mounted) {
         setState(() {
-          _isSignedIn = success;
           _isSigningIn = false;
         });
 
-        if (success) {
+        // Re-check sign-in status after a delay to ensure state is updated
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _checkSignInStatus();
+
+        if (success && _isSignedIn) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✅ Berjaya sign in ke Google Drive!'),
               backgroundColor: Colors.green,
             ),
           );
+          // Reload sync logs to show any existing synced documents
+          await _loadSyncLogs();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Sign in dibatalkan'),
+              content: Text('Sign in dibatalkan atau gagal'),
               backgroundColor: Colors.orange,
             ),
           );

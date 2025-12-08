@@ -10,6 +10,7 @@ import '../data/models/monthly_trend.dart';
 import '../data/models/sales_by_channel.dart';
 import '../utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
+import '../../../core/services/document_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// Reports Page - Phase 1: Foundation
@@ -824,12 +825,20 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         endDate: _endDate,
       );
 
-      // Auto-sync to Google Drive (non-blocking)
+      // Auto-backup to Supabase Storage (non-blocking)
       final dateRangeText = _startDate != null && _endDate != null
           ? '${DateFormat('yyyyMMdd').format(_startDate!)}_${DateFormat('yyyyMMdd').format(_endDate!)}'
           : DateFormat('yyyyMM').format(DateTime.now());
       final fileName = 'Laporan_UntungRugi_$dateRangeText.pdf';
       
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'profit_loss_report',
+        relatedEntityType: 'report',
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,

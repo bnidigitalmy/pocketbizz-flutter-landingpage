@@ -38,6 +38,7 @@ import 'features/planner/presentation/planner_page.dart';
 import 'features/planner/presentation/enhanced_planner_page.dart';
 import 'features/reports/presentation/reports_page.dart';
 import 'features/drive_sync/presentation/drive_sync_page.dart';
+import 'features/documents/presentation/documents_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,6 +118,7 @@ class PocketBizzApp extends StatelessWidget {
         '/planner/old': (context) => const PlannerPage(), // Keep old for reference
         '/reports': (context) => const ReportsPage(),
         '/drive-sync': (context) => const DriveSyncPage(),
+        '/documents': (context) => const DocumentsPage(),
       },
     );
   }

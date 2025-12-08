@@ -10,6 +10,7 @@ import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/utils/booking_pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
+import '../../../core/services/document_storage_service.dart';
 import 'create_booking_page_enhanced.dart';
 
 /// Optimized Tempahan Page
@@ -646,7 +647,16 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
       final filename = '$invoiceNumber.pdf';
       
-      // Auto-sync to Google Drive (non-blocking)
+      // Auto-backup to Supabase Storage (non-blocking)
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: filename,
+        documentType: 'invoice',
+        relatedEntityType: 'booking',
+        relatedEntityId: booking.id,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: filename,

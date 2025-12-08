@@ -40,18 +40,12 @@ class DriveSyncHelper {
       // Initialize if not already done
       await _service.initialize();
       
-      // Check if user is signed in, if not, skip sync (don't block)
-      if (!_service.isSignedIn) {
-        // Try to sign in silently (don't show dialog if user hasn't signed in before)
-        // If user hasn't signed in, just skip sync - don't block the flow
-        final signedIn = await _service.signIn();
-        if (!signedIn) {
-          // User not signed in or cancelled - that's okay, just skip sync
-          return;
-        }
-      }
-
+      // Try to sync - autoSyncDocument will handle checking sign-in status
+      // and re-initializing if needed (e.g., if Google Sign-In is active but Drive API is not initialized)
+      print('🔄 Starting Drive sync for: $fileName (type: $fileType)');
+      
       // Sync to Google Drive
+      // autoSyncDocument will check sign-in status internally and skip if not signed in
       await _service.autoSyncDocument(
         pdfData: pdfData,
         fileName: fileName,

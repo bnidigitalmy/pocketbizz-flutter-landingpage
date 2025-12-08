@@ -37,6 +37,19 @@ static const String googleOAuthClientId = '214368454746-pvb44rkgman7elikd61q3767
 3. ✅ **OAuth Scopes** - Limited to `drive.file` (only files created by app)
 4. ✅ **RLS Policies** - Database sync logs are isolated per user
 
+## Required APIs
+
+### ✅ Google Drive API - REQUIRED
+- **Enable**: APIs & Services > Library > "Google Drive API" > Enable
+- **Purpose**: Upload files to user's Google Drive
+
+### ✅ People API - REQUIRED
+- **Enable**: APIs & Services > Library > "People API" > Enable
+- **Purpose**: Get user profile (name, email, photo) for sign-in
+- **Why**: The `google_sign_in` plugin automatically fetches user profile
+- **Quick Link**: https://console.cloud.google.com/apis/api/people.googleapis.com/overview?project=214368454746
+- **Note**: People API is FREE and standard for Google Sign-In
+
 ## Testing
 
 1. Run app: `flutter run -d chrome`
@@ -53,13 +66,27 @@ static const String googleOAuthClientId = '214368454746-pvb44rkgman7elikd61q3767
 - Verify OAuth consent screen is configured
 - Check authorized domains in Google Cloud Console
 
-### "Access denied"
+### "Access denied" (403)
+- **People API not enabled**: Enable People API (see Required APIs above)
+- **OAuth consent screen**: Add test users or submit for verification
 - Verify OAuth scopes include `drive.file`
 - Check user has granted permissions
 - Verify redirect URIs match Google Cloud Console
+
+### "People API has not been used" (403)
+- **Solution**: Enable People API in Google Cloud Console
+- **Quick Fix**: https://console.cloud.google.com/apis/api/people.googleapis.com/overview?project=214368454746
+- See `ENABLE_PEOPLE_API.md` for detailed instructions
 
 ### "File upload failed"
 - Check user is signed in
 - Verify Google Drive API is enabled
 - Check file size limits (Google Drive has limits)
+
+### Deprecated `signIn` method warning
+- This is a warning from `google_sign_in` plugin
+- It doesn't affect functionality
+- Future versions will migrate to Google Identity Services
+- For now, the current implementation works fine
+
 

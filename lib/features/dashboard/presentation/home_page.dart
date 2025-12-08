@@ -350,6 +350,15 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.folder, color: Colors.orange),
+              title: const Text('Dokumen Saya'),
+              subtitle: const Text('Backup automatik ke Supabase', style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/documents');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.cloud, color: Colors.blue),
               title: const Text('Google Drive Sync'),
               subtitle: const Text('Dokumen yang di-sync', style: TextStyle(fontSize: 11)),

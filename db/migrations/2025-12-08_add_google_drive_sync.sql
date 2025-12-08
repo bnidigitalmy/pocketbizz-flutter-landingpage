@@ -67,6 +67,27 @@ BEGIN
                  AND column_name = 'vendor_name') THEN
     ALTER TABLE public.google_drive_sync_logs ADD COLUMN vendor_name TEXT;
   END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_schema = 'public' 
+                 AND table_name = 'google_drive_sync_logs' 
+                 AND column_name = 'error_message') THEN
+    ALTER TABLE public.google_drive_sync_logs ADD COLUMN error_message TEXT;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_schema = 'public' 
+                 AND table_name = 'google_drive_sync_logs' 
+                 AND column_name = 'file_size_bytes') THEN
+    ALTER TABLE public.google_drive_sync_logs ADD COLUMN file_size_bytes BIGINT;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_schema = 'public' 
+                 AND table_name = 'google_drive_sync_logs' 
+                 AND column_name = 'mime_type') THEN
+    ALTER TABLE public.google_drive_sync_logs ADD COLUMN mime_type TEXT;
+  END IF;
 END $$;
 
 -- Create indexes (only if columns exist)

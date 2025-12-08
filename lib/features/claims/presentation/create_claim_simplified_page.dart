@@ -20,6 +20,7 @@ import '../../../data/models/business_profile.dart';
 import '../../../data/models/carry_forward_item.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
+import '../../../core/services/document_storage_service.dart';
 import 'widgets/claim_summary_card.dart';
 
 /// Simplified Create Claim Page
@@ -2469,8 +2470,18 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
       final file = File(filePath);
       await file.writeAsBytes(pdfBytes);
 
-      // Auto-sync to Google Drive (non-blocking)
+      // Auto-backup to Supabase Storage (non-blocking)
       final fileName = 'Claim_${_createdClaim!.claimNumber}_${DateFormat('yyyyMMdd').format(_createdClaim!.claimDate)}.pdf';
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _createdClaim!.id,
+        vendorName: _selectedVendor!.name,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,

@@ -57,13 +57,23 @@ class DriveSyncRepositorySupabase {
       'error_message': errorMessage,
     };
 
-    final response = await supabase
-        .from(_table)
-        .insert(payload)
-        .select()
-        .single();
+    try {
+      final response = await supabase
+          .from(_table)
+          .insert(payload)
+          .select()
+          .single();
 
-    return DriveSyncLog.fromJson(response as Map<String, dynamic>);
+      if (response == null) {
+        throw Exception('Failed to create sync log: No response from database');
+      }
+
+      return DriveSyncLog.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      print('❌ Error creating sync log: $e');
+      print('Payload: $payload');
+      rethrow;
+    }
   }
 
   /// Update sync log status

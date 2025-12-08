@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
+import '../../../core/services/document_storage_service.dart';
 
 /// Claim Detail Page
 /// Shows full details of a claim with all features
@@ -135,8 +136,18 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
         );
       }
 
-      // Auto-sync to Google Drive (non-blocking)
+      // Auto-backup to Supabase Storage (non-blocking)
       final fileName = 'Claim_${_claim!.claimNumber}_${DateFormat('yyyyMMdd').format(_claim!.claimDate)}.pdf';
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _claim!.id,
+        vendorName: _claim!.vendorName,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,
@@ -208,8 +219,18 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
         onLayout: (format) async => pdfBytes,
       );
 
-      // Auto-sync to Google Drive (non-blocking)
+      // Auto-backup to Supabase Storage (non-blocking)
       final fileName = 'Claim_${_claim!.claimNumber}_${DateFormat('yyyyMMdd').format(_claim!.claimDate)}.pdf';
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _claim!.id,
+        vendorName: _claim!.vendorName,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,

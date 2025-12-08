@@ -14,6 +14,7 @@ import '../../../data/repositories/purchase_order_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
+import '../../../core/services/document_storage_service.dart';
 
 // Conditional import for web
 import 'dart:html' as html if (dart.library.html) 'dart:html';
@@ -386,6 +387,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       
       // Auto-sync to Google Drive (non-blocking)
       final fileName = 'PO_${po.poNumber}_${DateFormat('yyyyMMdd').format(po.createdAt)}.pdf';
+      // Auto-backup to Supabase Storage (non-blocking)
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'purchase_order',
+        relatedEntityType: 'purchase_order',
+        relatedEntityId: po.id,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,
@@ -489,6 +500,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
       // Auto-sync to Google Drive (non-blocking)
       final fileName = 'PO_${po.poNumber}_${DateFormat('yyyyMMdd').format(po.createdAt)}.pdf';
+      // Auto-backup to Supabase Storage (non-blocking)
+      DocumentStorageService.uploadDocumentSilently(
+        pdfBytes: pdfBytes,
+        fileName: fileName,
+        documentType: 'purchase_order',
+        relatedEntityType: 'purchase_order',
+        relatedEntityId: po.id,
+      );
+
+      // Auto-sync to Google Drive (non-blocking, optional)
       DriveSyncHelper.syncDocumentSilently(
         pdfData: pdfBytes,
         fileName: fileName,
