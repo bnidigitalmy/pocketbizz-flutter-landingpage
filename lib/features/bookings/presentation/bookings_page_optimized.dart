@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/utils/booking_pdf_generator.dart';
+import '../../drive_sync/utils/drive_sync_helper.dart';
 import 'create_booking_page_enhanced.dart';
 
 /// Optimized Tempahan Page
@@ -644,6 +645,15 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
       );
 
       final filename = '$invoiceNumber.pdf';
+      
+      // Auto-sync to Google Drive (non-blocking)
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: filename,
+        fileType: 'invoice',
+        relatedEntityType: 'booking',
+        relatedEntityId: booking.id,
+      );
 
       if (kIsWeb) {
         final blob = html.Blob([pdfBytes], 'application/pdf');

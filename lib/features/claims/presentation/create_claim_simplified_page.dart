@@ -19,6 +19,7 @@ import '../../../data/models/consignment_claim.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../data/models/carry_forward_item.dart';
 import '../../../core/utils/pdf_generator.dart';
+import '../../drive_sync/utils/drive_sync_helper.dart';
 import 'widgets/claim_summary_card.dart';
 
 /// Simplified Create Claim Page
@@ -2468,6 +2469,17 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
       final file = File(filePath);
       await file.writeAsBytes(pdfBytes);
 
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'Claim_${_createdClaim!.claimNumber}_${DateFormat('yyyyMMdd').format(_createdClaim!.claimDate)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _createdClaim!.id,
+        vendorName: _selectedVendor!.name,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2521,6 +2533,19 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
       );
+
+      // Auto-sync to Google Drive (non-blocking)
+      if (_createdClaim != null) {
+        final fileName = 'Claim_${_createdClaim!.claimNumber}_${DateFormat('yyyyMMdd').format(_createdClaim!.claimDate)}.pdf';
+        DriveSyncHelper.syncDocumentSilently(
+          pdfData: pdfBytes,
+          fileName: fileName,
+          fileType: 'claim_statement',
+          relatedEntityType: 'claim',
+          relatedEntityId: _createdClaim!.id,
+          vendorName: _selectedVendor!.name,
+        );
+      }
     } catch (e) {
       if (mounted) {
         _showError('Ralat mencetak: $e');
@@ -2591,6 +2616,17 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
         [XFile(filePath)],
         text: message,
         subject: 'Invois Tuntutan ${_createdClaim!.claimNumber}',
+      );
+
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'Claim_${_createdClaim!.claimNumber}_${DateFormat('yyyyMMdd').format(_createdClaim!.claimDate)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _createdClaim!.id,
+        vendorName: _selectedVendor!.name,
       );
 
       if (mounted) {

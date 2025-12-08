@@ -9,6 +9,7 @@ import 'dart:html' as html;
 import '../../../data/models/delivery.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/utils/delivery_invoice_pdf_generator.dart';
+import '../../drive_sync/utils/drive_sync_helper.dart';
 
 /// Invoice Dialog
 /// Shows delivery invoice and allows PDF generation
@@ -66,6 +67,19 @@ class _InvoiceDialogState extends State<InvoiceDialog> {
           onLayout: (PdfPageFormat format) async => pdfBytes,
         );
       }
+
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'Invois_${widget.delivery.invoiceNumber ?? widget.delivery.id}_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
+      final fileType = format == 'thermal' ? 'thermal_invoice' : format == 'mini' ? 'receipt_a5' : 'invoice';
+      
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: fileType,
+        relatedEntityType: 'delivery',
+        relatedEntityId: widget.delivery.id,
+        vendorName: widget.delivery.vendorName,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

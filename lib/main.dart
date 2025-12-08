@@ -34,6 +34,10 @@ import 'features/suppliers/presentation/suppliers_page.dart';
 import 'features/expenses/presentation/expenses_page.dart';
 import 'features/finished_products/presentation/finished_products_page.dart';
 import 'features/products/presentation/test_image_upload_page.dart';
+import 'features/planner/presentation/planner_page.dart';
+import 'features/planner/presentation/enhanced_planner_page.dart';
+import 'features/reports/presentation/reports_page.dart';
+import 'features/drive_sync/presentation/drive_sync_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -109,6 +113,10 @@ class PocketBizzApp extends StatelessWidget {
         '/expenses': (context) => const ExpensesPage(),
         '/finished-products': (context) => const FinishedProductsPage(),
         '/test-upload': (context) => const TestImageUploadPage(),
+        '/planner': (context) => const EnhancedPlannerPage(),
+        '/planner/old': (context) => const PlannerPage(), // Keep old for reference
+        '/reports': (context) => const ReportsPage(),
+        '/drive-sync': (context) => const DriveSyncPage(),
       },
     );
   }

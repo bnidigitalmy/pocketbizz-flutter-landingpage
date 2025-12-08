@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
+import '../../drive_sync/utils/drive_sync_helper.dart';
 
 /// Claim Detail Page
 /// Shows full details of a claim with all features
@@ -134,6 +135,17 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
         );
       }
 
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'Claim_${_claim!.claimNumber}_${DateFormat('yyyyMMdd').format(_claim!.claimDate)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _claim!.id,
+        vendorName: _claim!.vendorName,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -194,6 +206,17 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
       // Use printing package to print
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
+      );
+
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'Claim_${_claim!.claimNumber}_${DateFormat('yyyyMMdd').format(_claim!.claimDate)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'claim_statement',
+        relatedEntityType: 'claim',
+        relatedEntityId: _claim!.id,
+        vendorName: _claim!.vendorName,
       );
 
       if (mounted) {

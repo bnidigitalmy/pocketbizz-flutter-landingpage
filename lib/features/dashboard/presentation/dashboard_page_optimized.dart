@@ -4,7 +4,8 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
-import '../../../data/repositories/purchase_order_repository_supabase.dart' show PurchaseOrderRepository;
+import '../../../data/repositories/purchase_order_repository_supabase.dart'
+    show PurchaseOrderRepository;
 import '../../../data/repositories/stock_repository_supabase.dart';
 import 'widgets/morning_briefing_card.dart';
 import 'widgets/today_performance_card.dart';
@@ -12,6 +13,13 @@ import 'widgets/urgent_actions_widget.dart';
 import 'widgets/smart_suggestions_widget.dart';
 import 'widgets/quick_action_grid.dart';
 import 'widgets/low_stock_alerts_widget.dart';
+import 'widgets/sales_by_channel_card.dart';
+import '../../planner/presentation/widgets/planner_today_card.dart';
+import '../../../core/services/planner_auto_service.dart';
+import '../../reports/data/repositories/reports_repository_supabase.dart';
+import '../../reports/data/models/sales_by_channel.dart';
+import '../../../data/repositories/consignment_claims_repository_supabase.dart';
+import '../../../data/models/consignment_claim.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -28,9 +36,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final _salesRepo = SalesRepositorySupabase();
   final _poRepo = PurchaseOrderRepository(supabase);
   final _stockRepo = StockRepository(supabase);
+  final _plannerAuto = PlannerAutoService();
+  final _reportsRepo = ReportsRepositorySupabase();
+  final _claimsRepo = ConsignmentClaimsRepositorySupabase();
 
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _todayStats;
+  List<SalesByChannel> _salesByChannel = [];
   bool _loading = true;
 
   @override
@@ -55,11 +67,15 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     setState(() => _loading = true);
 
     try {
+      // Kick off auto-task generation (best effort, non-blocking wait)
+      await _plannerAuto.runAll();
+
       // Load all stats in parallel
       final results = await Future.wait([
         _bookingsRepo.getStatistics(),
         _loadTodaySalesStats(),
         _loadPendingTasks(),
+        _loadSalesByChannel(),
       ]);
 
       if (!mounted) return; // Check again after async operations
@@ -75,6 +91,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
         _todayStats = mergedTodayStats;
+        _salesByChannel = results[3] as List<SalesByChannel>;
         _loading = false;
       });
     } catch (e) {
@@ -113,15 +130,81 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         endDate: yesterdayEnd,
       );
 
-      final todayRevenue = todaySales.fold<double>(
+      // Get today's completed bookings
+      final todayBookings = await _bookingsRepo.listBookings(
+        status: 'completed',
+        limit: 10000,
+      );
+      final todayBookingsInRange = todayBookings.where((booking) {
+        final bookingDate = booking.createdAt;
+        return bookingDate.isAfter(todayStart.subtract(const Duration(days: 1))) &&
+            bookingDate.isBefore(todayEnd);
+      }).toList();
+
+      // Get yesterday's completed bookings
+      final yesterdayBookings = await _bookingsRepo.listBookings(
+        status: 'completed',
+        limit: 10000,
+      );
+      final yesterdayBookingsInRange = yesterdayBookings.where((booking) {
+        final bookingDate = booking.createdAt;
+        return bookingDate.isAfter(yesterdayStart.subtract(const Duration(days: 1))) &&
+            bookingDate.isBefore(yesterdayEnd);
+      }).toList();
+
+      // Get today's consignment revenue (settled claims)
+      final todayClaimsResponse = await _claimsRepo.listClaims(
+        fromDate: todayStart,
+        toDate: todayEnd,
+        status: ClaimStatus.settled,
+        limit: 10000,
+      );
+      final todaySettledClaims = (todayClaimsResponse['data'] as List)
+          .cast<ConsignmentClaim>()
+          .where((claim) => claim.status == ClaimStatus.settled)
+          .toList();
+      final todayConsignmentRevenue = todaySettledClaims.fold<double>(
         0.0,
-        (sum, sale) => sum + (sale.totalAmount ?? 0.0),
+        (sum, claim) => sum + claim.netAmount,
       );
 
-      final yesterdayRevenue = yesterdaySales.fold<double>(
-        0.0,
-        (sum, sale) => sum + (sale.totalAmount ?? 0.0),
+      // Get yesterday's consignment revenue
+      final yesterdayClaimsResponse = await _claimsRepo.listClaims(
+        fromDate: yesterdayStart,
+        toDate: yesterdayEnd,
+        status: ClaimStatus.settled,
+        limit: 10000,
       );
+      final yesterdaySettledClaims = (yesterdayClaimsResponse['data'] as List)
+          .cast<ConsignmentClaim>()
+          .where((claim) => claim.status == ClaimStatus.settled)
+          .toList();
+      final yesterdayConsignmentRevenue = yesterdaySettledClaims.fold<double>(
+        0.0,
+        (sum, claim) => sum + claim.netAmount,
+      );
+
+      // Calculate revenue including bookings and consignment
+      // Use finalAmount (after discount) for consistency with sales by channel
+      final todaySalesRevenue = todaySales.fold<double>(
+        0.0,
+        (sum, sale) => sum + sale.finalAmount,
+      );
+      final todayBookingRevenue = todayBookingsInRange.fold<double>(
+        0.0,
+        (sum, booking) => sum + booking.totalAmount,
+      );
+      final todayRevenue = todaySalesRevenue + todayBookingRevenue + todayConsignmentRevenue;
+
+      final yesterdaySalesRevenue = yesterdaySales.fold<double>(
+        0.0,
+        (sum, sale) => sum + sale.finalAmount,
+      );
+      final yesterdayBookingRevenue = yesterdayBookingsInRange.fold<double>(
+        0.0,
+        (sum, booking) => sum + booking.totalAmount,
+      );
+      final yesterdayRevenue = yesterdaySalesRevenue + yesterdayBookingRevenue + yesterdayConsignmentRevenue;
 
       final revenueChange = yesterdayRevenue > 0
           ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100)
@@ -131,8 +214,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         'todayRevenue': todayRevenue,
         'yesterdayRevenue': yesterdayRevenue,
         'revenueChange': revenueChange,
-        'todaySalesCount': todaySales.length,
-        'yesterdaySalesCount': yesterdaySales.length,
+        'todaySalesCount': todaySales.length + todayBookingsInRange.length,
+        'yesterdaySalesCount': yesterdaySales.length + yesterdayBookingsInRange.length,
       };
     } catch (e) {
       return {
@@ -163,6 +246,23 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         'pendingPOs': 0,
         'lowStockCount': 0,
       };
+    }
+  }
+
+  Future<List<SalesByChannel>> _loadSalesByChannel() async {
+    try {
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEnd = todayStart.add(const Duration(days: 1));
+
+      final channels = await _reportsRepo.getSalesByChannel(
+        startDate: todayStart,
+        endDate: todayEnd,
+      );
+
+      return channels;
+    } catch (e) {
+      return [];
     }
   }
 
@@ -237,6 +337,25 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                       todaySalesCount: _todayStats!['todaySalesCount'] ?? 0,
                       yesterdaySalesCount: _todayStats!['yesterdaySalesCount'] ?? 0,
                     ),
+
+                  const SizedBox(height: 16),
+
+                  // Sales by Channel Card
+                  if (_salesByChannel.isNotEmpty) ...[
+                    SalesByChannelCard(
+                      salesByChannel: _salesByChannel,
+                      totalRevenue: _salesByChannel.fold<double>(
+                        0.0,
+                        (sum, channel) => sum + channel.revenue,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Planner mini widget (moved below performance for less stress)
+                  PlannerTodayCard(
+                    onViewAll: () => Navigator.of(context).pushNamed('/planner'),
+                  ),
 
                   const SizedBox(height: 20),
 

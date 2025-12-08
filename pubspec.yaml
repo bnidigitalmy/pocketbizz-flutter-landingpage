@@ -22,6 +22,7 @@ dependencies:
   # Utilities
   intl: ^0.20.2
   shared_preferences: ^2.2.2
+  table_calendar: ^3.1.2
   
   # HTTP (for any remaining REST calls)
   http: ^1.2.0
@@ -44,6 +45,14 @@ dependencies:
   # PDF Generation
   pdf: ^3.11.1
   printing: ^5.13.3
+  
+  # Charts
+  fl_chart: ^0.65.0
+  
+  # Google Services
+  google_sign_in: ^6.2.1
+  googleapis: ^11.3.0
+  googleapis_auth: ^1.4.1
 
 dev_dependencies:
   flutter_test:

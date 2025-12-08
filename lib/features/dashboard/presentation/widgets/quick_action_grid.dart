@@ -72,6 +72,12 @@ class QuickActionGrid extends StatelessWidget {
               color: AppColors.warning,
               onTap: () => Navigator.of(context).pushNamed('/products/add'),
             ),
+            QuickActionCard(
+              label: 'Laporan',
+              icon: Icons.analytics_rounded,
+              color: Colors.indigo,
+              onTap: () => Navigator.of(context).pushNamed('/reports'),
+            ),
           ],
         ),
       ],

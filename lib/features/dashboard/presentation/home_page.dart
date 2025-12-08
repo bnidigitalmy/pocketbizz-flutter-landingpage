@@ -183,6 +183,15 @@ class _HomePageState extends State<HomePage> {
                 setState(() => _currentIndex = 3);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.event_available),
+              title: const Text('Planner'),
+              subtitle: const Text('Tugas & peringatan'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/planner');
+              },
+            ),
             const Divider(),
             
             // Production & Inventory
@@ -330,6 +339,23 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/claims');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Laporan & Analitik'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/reports');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud, color: Colors.blue),
+              title: const Text('Google Drive Sync'),
+              subtitle: const Text('Dokumen yang di-sync', style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/drive-sync');
               },
             ),
             const Divider(),

@@ -13,6 +13,7 @@ import '../../../data/models/purchase_order.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/pdf_generator.dart';
+import '../../drive_sync/utils/drive_sync_helper.dart';
 
 // Conditional import for web
 import 'dart:html' as html if (dart.library.html) 'dart:html';
@@ -383,6 +384,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       message += '📎 *PDF Purchase Order telah dilampirkan*\n\n';
       message += 'Sila sahkan pesanan ini. Terima kasih! 🙏';
       
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'PO_${po.poNumber}_${DateFormat('yyyyMMdd').format(po.createdAt)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'purchase_order',
+        relatedEntityType: 'purchase_order',
+        relatedEntityId: po.id,
+      );
+
       // For mobile: Share PDF first, then open WhatsApp
       if (!kIsWeb) {
         // Share PDF file
@@ -475,6 +486,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
           );
         }
       }
+
+      // Auto-sync to Google Drive (non-blocking)
+      final fileName = 'PO_${po.poNumber}_${DateFormat('yyyyMMdd').format(po.createdAt)}.pdf';
+      DriveSyncHelper.syncDocumentSilently(
+        pdfData: pdfBytes,
+        fileName: fileName,
+        fileType: 'purchase_order',
+        relatedEntityType: 'purchase_order',
+        relatedEntityId: po.id,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
