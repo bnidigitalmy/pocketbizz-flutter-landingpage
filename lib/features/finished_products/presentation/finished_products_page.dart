@@ -83,7 +83,7 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
               ? _buildErrorView()
               : _products.isEmpty
                   ? _buildEmptyView()
-                  : _buildProductsGrid(),
+                  : _buildProductsList(),
     );
   }
 
@@ -153,23 +153,18 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
     );
   }
 
-  Widget _buildProductsGrid() {
+  Widget _buildProductsList() {
     return RefreshIndicator(
       onRefresh: _loadProducts,
-      child: Padding(
+      child: ListView.builder(
         padding: const EdgeInsets.all(16.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: _products.length,
-          itemBuilder: (context, index) {
-            return _buildProductCard(_products[index]);
-          },
-        ),
+        itemCount: _products.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: _buildProductCard(_products[index]),
+          );
+        },
       ),
     );
   }
@@ -190,145 +185,149 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Product Image and Name Row
-              Row(
-                children: [
-                  // Product Image
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[300]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: productInfo?.imageUrl != null && productInfo!.imageUrl!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              productInfo.imageUrl!,
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: Colors.grey[400],
-                                    size: 28,
-                                  ),
-                                );
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : Container(
-                            color: Colors.grey[200],
-                            child: Icon(
-                              Icons.inventory_2_outlined,
-                              color: Colors.grey[400],
-                              size: 28,
-                            ),
-                          ),
+              // Product Image (Left)
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey[300]!,
+                    width: 1,
                   ),
-                  const SizedBox(width: 12),
-                  // Product Name
-                  Expanded(
-                    child: Text(
+                ),
+                child: productInfo?.imageUrl != null && productInfo!.imageUrl!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          productInfo.imageUrl!,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                color: Colors.grey[400],
+                                size: 36,
+                              ),
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          color: Colors.grey[400],
+                          size: 36,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 16),
+              // Product Info (Middle - Expanded)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Product Name
+                    Text(
                       product.productName,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const Icon(Icons.chevron_right, color: Colors.grey),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Total remaining
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    product.totalRemaining.toStringAsFixed(0),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'unit',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Badges
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  Chip(
-                    label: Text('${product.batchCount} batch'),
-                    backgroundColor: Colors.grey[200],
-                    labelStyle: const TextStyle(fontSize: 11),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                  if (product.nearestExpiry != null)
-                    Chip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getExpiryIcon(expiryStatus.status),
-                            size: 14,
-                            color: expiryStatus.color,
+                    const SizedBox(height: 8),
+                    // Quantity and Unit
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          product.totalRemaining.toStringAsFixed(0),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            expiryStatus.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: expiryStatus.color,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'unit',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Badges
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Chip(
+                          label: Text('${product.batchCount} batch'),
+                          backgroundColor: Colors.grey[200],
+                          labelStyle: const TextStyle(fontSize: 11),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        if (product.nearestExpiry != null)
+                          Chip(
+                            label: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getExpiryIcon(expiryStatus.status),
+                                  size: 14,
+                                  color: expiryStatus.color,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  expiryStatus.label,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: expiryStatus.color,
+                                  ),
+                                ),
+                              ],
                             ),
+                            backgroundColor: expiryStatus.backgroundColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                           ),
-                        ],
-                      ),
-                      backgroundColor: expiryStatus.backgroundColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
+              // Chevron Icon (Right)
+              const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),
         ),
