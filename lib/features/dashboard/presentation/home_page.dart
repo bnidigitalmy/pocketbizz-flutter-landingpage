@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../../core/widgets/pocketbizz_logo.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../bookings/presentation/bookings_page_optimized.dart';
 import '../../products/presentation/product_list_page.dart';
@@ -69,60 +68,16 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // PocketBizz Logo - Larger and better positioned
-                  Row(
-                    children: [
-                      Image.asset(
-                        'assets/images/transparentlogo2.png',
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Image.asset(
-                            'assets/images/transparentlogo.png',
-                            width: 56,
-                            height: 56,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Image.asset(
-                                'assets/images/logo.png',
-                                width: 56,
-                                height: 56,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    width: 56,
-                                    height: 56,
-                                    decoration: BoxDecoration(
-                                      gradient: AppColors.logoGradient,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'PocketBizz',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
+                  // PocketBizz Text Only - Clean and Simple
+                  const Text(
+                    'PocketBizz',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                      height: 1.2,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
