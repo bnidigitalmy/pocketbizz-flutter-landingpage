@@ -33,7 +33,14 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _isSignUp = widget.initialSignUp;
+    // Check URL to determine if we should show sign-up mode
+    final uri = Uri.base;
+    final path = uri.path;
+    final shouldShowSignUp = widget.initialSignUp || 
+        path.contains('/register') || 
+        path.contains('/auth/register');
+    _isSignUp = shouldShowSignUp;
+    
     // Check for auth errors from URL (e.g., expired OTP links)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleAuthError();
