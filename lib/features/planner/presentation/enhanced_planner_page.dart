@@ -245,6 +245,8 @@ class _EnhancedPlannerPageState extends State<EnhancedPlannerPage>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateTask,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add_task),
         label: const Text('Tambah Tugasan'),
       ),

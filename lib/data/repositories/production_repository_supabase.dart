@@ -237,7 +237,14 @@ class ProductionRepository {
 
   /// Deduct quantity from batch (FIFO)
   /// Returns remaining quantity to deduct if batch is fully consumed
-  Future<double> deductFromBatch(String batchId, double quantity) async {
+  /// [referenceId] and [referenceType] are optional for tracking purposes
+  Future<double> deductFromBatch(
+    String batchId,
+    double quantity, {
+    String? referenceId,
+    String? referenceType,
+    String? notes,
+  }) async {
     try {
       final batch = await getBatchById(batchId);
       if (batch == null) {
@@ -249,10 +256,32 @@ class ProductionRepository {
       if (newRemaining < 0) {
         // Batch fully consumed, return excess quantity
         await updateRemainingQty(batchId, 0);
+        // Log movement
+        await _logStockMovement(
+          batchId: batchId,
+          productId: batch.productId,
+          movementType: referenceType ?? 'sale',
+          quantity: batch.remainingQty, // Deduct all remaining
+          remainingAfter: 0,
+          referenceId: referenceId,
+          referenceType: referenceType,
+          notes: notes,
+        );
         return -newRemaining; // Return positive excess
       } else {
         // Batch partially consumed
         await updateRemainingQty(batchId, newRemaining);
+        // Log movement
+        await _logStockMovement(
+          batchId: batchId,
+          productId: batch.productId,
+          movementType: referenceType ?? 'sale',
+          quantity: quantity,
+          remainingAfter: newRemaining,
+          referenceId: referenceId,
+          referenceType: referenceType,
+          notes: notes,
+        );
         return 0; // No excess
       }
     } catch (e) {
@@ -260,11 +289,49 @@ class ProductionRepository {
     }
   }
 
+  /// Log stock movement for tracking
+  Future<void> _logStockMovement({
+    required String batchId,
+    required String productId,
+    required String movementType,
+    required double quantity,
+    required double remainingAfter,
+    String? referenceId,
+    String? referenceType,
+    String? notes,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _supabase.from('production_batch_stock_movements').insert({
+        'business_owner_id': userId,
+        'batch_id': batchId,
+        'product_id': productId,
+        'movement_type': movementType,
+        'quantity': quantity,
+        'remaining_after_movement': remainingAfter,
+        'reference_id': referenceId,
+        'reference_type': referenceType,
+        'notes': notes,
+      });
+    } catch (e) {
+      // Log error but don't fail the deduction
+      print('Warning: Failed to log stock movement: $e');
+    }
+  }
+
   /// Deduct quantity using FIFO (from oldest to newest)
+  /// [referenceId] and [referenceType] are optional for tracking purposes
   Future<List<Map<String, dynamic>>> deductFIFO(
     String productId,
-    double quantityToDeduct,
-  ) async {
+    double quantityToDeduct, {
+    String? referenceId,
+    String? referenceType,
+    String? notes,
+  }) async {
     try {
       final batches = await getOldestBatchesForProduct(productId);
       final deductions = <Map<String, dynamic>>[];
@@ -274,7 +341,13 @@ class ProductionRepository {
         if (remaining <= 0) break;
 
         final deductedFromThis = remaining.clamp(0.0, batch.remainingQty);
-        final excess = await deductFromBatch(batch.id, deductedFromThis);
+        final excess = await deductFromBatch(
+          batch.id,
+          deductedFromThis,
+          referenceId: referenceId,
+          referenceType: referenceType,
+          notes: notes,
+        );
 
         deductions.add({
           'batch_id': batch.id,
@@ -494,6 +567,55 @@ class ProductionRepository {
       );
     } catch (e) {
       throw Exception('Failed to preview production plan: $e');
+    }
+  }
+
+  // ============================================================================
+  // STOCK MOVEMENT TRACKING
+  // ============================================================================
+
+  /// Get stock movement history for a specific batch
+  Future<List<Map<String, dynamic>>> getBatchMovementHistory(String batchId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final response = await _supabase
+          .from('production_batch_stock_movements')
+          .select('*')
+          .eq('batch_id', batchId)
+          .eq('business_owner_id', userId)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => json as Map<String, dynamic>).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch movement history: $e');
+    }
+  }
+
+  /// Get stock movement history for all batches of a product
+  Future<List<Map<String, dynamic>>> getProductMovementHistory(String productId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final response = await _supabase
+          .from('production_batch_stock_movements')
+          .select('''
+            *,
+            production_batches!inner(id, batch_date)
+          ''')
+          .eq('product_id', productId)
+          .eq('business_owner_id', userId)
+          .order('created_at', ascending: false);
+
+      return (response as List).map((json) => json as Map<String, dynamic>).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch product movement history: $e');
     }
   }
 }

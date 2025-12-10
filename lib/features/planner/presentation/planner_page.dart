@@ -219,6 +219,8 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addManualTask,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add_task),
         label: const Text('Tambah Tugasan'),
       ),

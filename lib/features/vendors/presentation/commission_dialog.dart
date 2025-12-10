@@ -173,19 +173,23 @@ class _CommissionDialogState extends State<CommissionDialog> {
                   // Commission Type Selector
                   DropdownButtonFormField<String>(
                     value: _commissionType,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Jenis Komisyen *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.settings),
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.settings),
+                      helperText: _commissionType == 'percentage'
+                          ? 'Komisyen berdasarkan peratusan harga jualan (cth: 10%, 15%, 20%)'
+                          : 'Komisyen berdasarkan julat harga (cth: RM0.1-RM5=RM1, RM5.01-RM10=RM1.50)',
+                      helperMaxLines: 2,
                     ),
                     items: const [
                       DropdownMenuItem(
                         value: 'percentage',
-                        child: Text('Peratus (%) - cth: 10%, 15%, 20%'),
+                        child: Text('Peratus (%)'),
                       ),
                       DropdownMenuItem(
                         value: 'price_range',
-                        child: Text('Price Range - cth: RM0.1-RM5=RM1, RM5.01-RM10=RM1.50'),
+                        child: Text('Price Range'),
                       ),
                     ],
                     onChanged: (value) {

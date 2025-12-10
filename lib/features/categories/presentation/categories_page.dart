@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../data/repositories/categories_repository_supabase.dart';
 import '../../../data/models/category.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
@@ -192,9 +193,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddCategoryDialog,
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Kategori'),
       ),
     );
   }

@@ -177,6 +177,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _showAddDialog,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
               label: const Text('Tambah Supplier'),
             ),
@@ -217,10 +219,11 @@ class _SuppliersPageState extends State<SuppliersPage> {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _showAddDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Tambah Supplier Pertama'),
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text('Tambah Supplier Pertama', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -640,6 +643,9 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
                   children: [
                     TextButton(
                       onPressed: _saving ? null : () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
                       child: const Text('Batal'),
                     ),
                     const SizedBox(width: 12),
@@ -647,6 +653,7 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
                       onPressed: _saving ? null : _save,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
@@ -662,7 +669,7 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
                                     AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text('Simpan'),
+                          : const Text('Simpan', style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),

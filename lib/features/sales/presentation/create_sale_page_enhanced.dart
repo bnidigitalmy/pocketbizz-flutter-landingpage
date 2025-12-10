@@ -566,6 +566,22 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                 final qty = (item['quantity'] as num).toDouble();
                 final availableStock = _productStockCache[productId] ?? 0.0;
                 final isStockSufficient = qty <= availableStock;
+                
+                // Find product to get image
+                final product = _availableProducts.firstWhere(
+                  (p) => p.id == productId,
+                  orElse: () => _availableProducts.isNotEmpty ? _availableProducts.first : Product(
+                    id: '',
+                    businessOwnerId: '',
+                    sku: '',
+                    name: item['product_name'] as String,
+                    unit: '',
+                    salePrice: 0.0,
+                    costPrice: 0.0,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  ),
+                );
 
                 return Card(
                   elevation: 3,
@@ -584,24 +600,69 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        // Product Icon
+                        // Product Image
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          width: 60,
+                          height: 60,
                           decoration: BoxDecoration(
-                            color: isStockSufficient
-                                ? Colors.green[100]
-                                : Colors.red[100],
+                            color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey[300]!,
+                              width: 1,
+                            ),
                           ),
-                          child: Icon(
-                            isStockSufficient
-                                ? Icons.check_circle
-                                : Icons.warning,
-                            color: isStockSufficient
-                                ? Colors.green[700]
-                                : Colors.red[700],
-                            size: 24,
-                          ),
+                          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    product.imageUrl!,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          isStockSufficient
+                                              ? Icons.inventory_2_outlined
+                                              : Icons.warning_amber_rounded,
+                                          color: isStockSufficient
+                                              ? Colors.grey[400]
+                                              : Colors.orange[400],
+                                          size: 28,
+                                        ),
+                                      );
+                                    },
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            value: loadingProgress.expectedTotalBytes != null
+                                                ? loadingProgress.cumulativeBytesLoaded /
+                                                    loadingProgress.expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.grey[200],
+                                  child: Icon(
+                                    isStockSufficient
+                                        ? Icons.inventory_2_outlined
+                                        : Icons.warning_amber_rounded,
+                                    color: isStockSufficient
+                                        ? Colors.grey[400]
+                                        : Colors.orange[400],
+                                    size: 28,
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 16),
                         // Product Info
@@ -1044,24 +1105,69 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    // Stock Indicator
+                                    // Product Image
                                     Container(
-                                      padding: const EdgeInsets.all(12),
+                                      width: 60,
+                                      height: 60,
                                       decoration: BoxDecoration(
-                                        color: isAvailable
-                                            ? Colors.green[100]
-                                            : Colors.red[100],
+                                        color: Colors.grey[200],
                                         borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.grey[300]!,
+                                          width: 1,
+                                        ),
                                       ),
-                                      child: Icon(
-                                        isAvailable
-                                            ? Icons.check_circle
-                                            : Icons.warning,
-                                        color: isAvailable
-                                            ? Colors.green[700]
-                                            : Colors.red[700],
-                                        size: 24,
-                                      ),
+                                      child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.network(
+                                                product.imageUrl!,
+                                                width: 60,
+                                                height: 60,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Container(
+                                                    color: Colors.grey[200],
+                                                    child: Icon(
+                                                      isAvailable
+                                                          ? Icons.inventory_2_outlined
+                                                          : Icons.warning_amber_rounded,
+                                                      color: isAvailable
+                                                          ? Colors.grey[400]
+                                                          : Colors.orange[400],
+                                                      size: 28,
+                                                    ),
+                                                  );
+                                                },
+                                                loadingBuilder: (context, child, loadingProgress) {
+                                                  if (loadingProgress == null) return child;
+                                                  return Container(
+                                                    color: Colors.grey[200],
+                                                    child: Center(
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        value: loadingProgress.expectedTotalBytes != null
+                                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                                loadingProgress.expectedTotalBytes!
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Container(
+                                              color: Colors.grey[200],
+                                              child: Icon(
+                                                isAvailable
+                                                    ? Icons.inventory_2_outlined
+                                                    : Icons.warning_amber_rounded,
+                                                color: isAvailable
+                                                    ? Colors.grey[400]
+                                                    : Colors.orange[400],
+                                                size: 28,
+                                              ),
+                                            ),
                                     ),
                                     const SizedBox(width: 16),
                                     // Product Info

@@ -1,8 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../data/models/finished_product.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
+import '../../../data/repositories/production_repository_supabase.dart';
 
 /// Batch Details Dialog
 /// Shows all batches for a specific product with FIFO ordering
@@ -22,7 +24,10 @@ class BatchDetailsDialog extends StatefulWidget {
 
 class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
   final _repository = FinishedProductsRepository();
+  final _productionRepo = ProductionRepository(supabase);
   List<ProductionBatch> _batches = [];
+  Map<String, List<Map<String, dynamic>>> _movementHistory = {};
+  Map<String, bool> _expandedBatches = {};
   bool _isLoading = true;
 
   @override
@@ -35,8 +40,21 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
     setState(() => _isLoading = true);
     try {
       final batches = await _repository.getProductBatches(widget.productId);
+      
+      // Load movement history for all batches
+      final historyMap = <String, List<Map<String, dynamic>>>{};
+      for (final batch in batches) {
+        try {
+          final history = await _productionRepo.getBatchMovementHistory(batch.id);
+          historyMap[batch.id] = history;
+        } catch (e) {
+          historyMap[batch.id] = [];
+        }
+      }
+      
       setState(() {
         _batches = batches;
+        _movementHistory = historyMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -50,6 +68,12 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
         );
       }
     }
+  }
+  
+  void _toggleBatchExpansion(String batchId) {
+    setState(() {
+      _expandedBatches[batchId] = !(_expandedBatches[batchId] ?? false);
+    });
   }
 
   @override
@@ -302,8 +326,223 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
                 ),
               ),
             ],
+            
+            // Tracking History Section
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _toggleBatchExpansion(batch.id),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Jejak Penggunaan Stok',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      (_expandedBatches[batch.id] ?? false)
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Expanded History List
+            if (_expandedBatches[batch.id] ?? false) ...[
+              const SizedBox(height: 8),
+              _buildMovementHistory(batch.id),
+            ],
           ],
         ),
+      ),
+    );
+  }
+  
+  Widget _buildMovementHistory(String batchId) {
+    final movements = _movementHistory[batchId] ?? [];
+    
+    if (movements.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Text(
+              'Tiada rekod penggunaan stok',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: movements.map((movement) {
+          return _buildMovementItem(movement);
+        }).toList(),
+      ),
+    );
+  }
+  
+  Widget _buildMovementItem(Map<String, dynamic> movement) {
+    final movementType = movement['movement_type'] as String? ?? 'sale';
+    final quantity = (movement['quantity'] as num?)?.toDouble() ?? 0.0;
+    final remainingAfter = (movement['remaining_after_movement'] as num?)?.toDouble() ?? 0.0;
+    final createdAt = movement['created_at'] != null
+        ? DateTime.parse(movement['created_at'] as String)
+        : DateTime.now();
+    final notes = movement['notes'] as String?;
+    final referenceType = movement['reference_type'] as String?;
+    
+    // Get icon and color based on movement type
+    IconData icon;
+    Color color;
+    String typeLabel;
+    
+    switch (movementType) {
+      case 'sale':
+        icon = Icons.shopping_cart;
+        color = Colors.green;
+        typeLabel = 'Jualan';
+        break;
+      case 'production':
+        icon = Icons.factory;
+        color = Colors.blue;
+        typeLabel = 'Produksi';
+        break;
+      case 'adjustment':
+        icon = Icons.edit;
+        color = Colors.orange;
+        typeLabel = 'Pelarasan';
+        break;
+      case 'expired':
+        icon = Icons.warning;
+        color = Colors.red;
+        typeLabel = 'Luput';
+        break;
+      case 'damaged':
+        icon = Icons.broken_image;
+        color = Colors.red;
+        typeLabel = 'Rosak';
+        break;
+      default:
+        icon = Icons.help_outline;
+        color = Colors.grey;
+        typeLabel = 'Lain-lain';
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      typeLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('dd MMM yyyy, hh:mm a', 'ms_MY').format(createdAt),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '-${quantity.toStringAsFixed(1)} unit',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                  Text(
+                    'Baki: ${remainingAfter.toStringAsFixed(1)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (notes != null && notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              notes,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

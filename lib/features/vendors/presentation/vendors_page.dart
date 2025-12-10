@@ -220,6 +220,7 @@ class _VendorsPageState extends State<VendorsPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddDialog,
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Vendor'),
       ),

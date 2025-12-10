@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../data/models/planner_task_template.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class TemplatesManagementPage extends StatefulWidget {
   const TemplatesManagementPage({super.key});
@@ -275,6 +276,8 @@ class _TemplatesManagementPageState extends State<TemplatesManagementPage> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateTemplate,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Templat'),
       ),

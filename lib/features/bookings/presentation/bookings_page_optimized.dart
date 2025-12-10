@@ -155,6 +155,8 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
             _loadBookings();
           }
         },
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tempahan Baru'),
       ),

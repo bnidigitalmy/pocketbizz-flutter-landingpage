@@ -117,9 +117,10 @@ class _StockDetailPageState extends State<StockDetailPage> with SingleTickerProv
           );
           if (result == true) _loadData();
         },
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.tune),
         label: const Text('Adjust Stock'),
-        backgroundColor: AppColors.primary,
       ),
     );
   }

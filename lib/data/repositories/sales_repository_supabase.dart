@@ -160,7 +160,14 @@ class SalesRepositorySupabase {
       final quantityToDeduct = (item['quantity'] as num).toDouble();
       
       // Use FIFO to deduct from oldest batches first
-      await productionRepo.deductFIFO(productId, quantityToDeduct);
+      // Log with reference to this sale for tracking
+      await productionRepo.deductFIFO(
+        productId,
+        quantityToDeduct,
+        referenceId: sale['id'],
+        referenceType: 'sale',
+        notes: 'Jualan #${sale['id'].toString().substring(0, 8)}',
+      );
     }
 
     // Return sale with items

@@ -23,9 +23,12 @@ class InventoryListPage extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).pushNamed('/inventory/add'),
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah Inventori'),
       ),
       body: Builder(
         builder: (_) {

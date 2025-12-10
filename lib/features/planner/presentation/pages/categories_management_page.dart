@@ -204,6 +204,8 @@ class _CategoriesManagementPageState extends State<CategoriesManagementPage> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateCategory,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Kategori'),
       ),

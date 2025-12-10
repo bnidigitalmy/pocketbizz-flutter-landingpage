@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../core/theme/app_colors.dart';
 
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
@@ -103,14 +104,17 @@ class _BookingsPageState extends State<BookingsPage> {
                       },
                     ),
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.of(context).pushNamed('/bookings/create');
           if (result == true && mounted) {
             _loadBookings();
           }
         },
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Tempahan Baru'),
       ),
     );
   }

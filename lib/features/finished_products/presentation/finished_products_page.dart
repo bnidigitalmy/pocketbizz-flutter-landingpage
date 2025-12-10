@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/finished_product.dart';
+import '../../../data/models/product.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
+import '../../../data/repositories/products_repository_supabase.dart';
 import 'batch_details_dialog.dart';
 
 /// Finished Products Page
@@ -15,7 +17,10 @@ class FinishedProductsPage extends StatefulWidget {
 
 class _FinishedProductsPageState extends State<FinishedProductsPage> {
   final _repository = FinishedProductsRepository();
+  final _productsRepo = ProductsRepositorySupabase();
   List<FinishedProductSummary> _products = [];
+  List<Product> _allProducts = [];
+  Map<String, Product> _productMap = {};
   bool _isLoading = true;
   String? _error;
 
@@ -32,9 +37,21 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
     });
 
     try {
-      final products = await _repository.getFinishedProductsSummary();
+      final [finishedProducts, allProducts] = await Future.wait([
+        _repository.getFinishedProductsSummary(),
+        _productsRepo.listProducts(),
+      ]);
+
+      // Create product map for quick lookup
+      final productMap = <String, Product>{};
+      for (final product in allProducts as List<Product>) {
+        productMap[product.id] = product;
+      }
+
       setState(() {
-        _products = products;
+        _products = finishedProducts as List<FinishedProductSummary>;
+        _allProducts = allProducts as List<Product>;
+        _productMap = productMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -159,6 +176,9 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
 
   Widget _buildProductCard(FinishedProductSummary product) {
     final expiryStatus = _getExpiryStatus(product.nearestExpiry);
+    
+    // Find product to get image
+    final productInfo = _productMap[product.productId];
 
     return Card(
       elevation: 2,
@@ -173,9 +193,67 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with product name
+              // Product Image and Name Row
               Row(
                 children: [
+                  // Product Image
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                        width: 1,
+                      ),
+                    ),
+                    child: productInfo?.imageUrl != null && productInfo!.imageUrl!.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              productInfo.imageUrl!,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: Colors.grey[400],
+                                    size: 28,
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[200],
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              color: Colors.grey[400],
+                              size: 28,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Product Name
                   Expanded(
                     child: Text(
                       product.productName,

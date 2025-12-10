@@ -265,6 +265,8 @@ class _ProjectsManagementPageState extends State<ProjectsManagementPage> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateProject,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Projek'),
       ),

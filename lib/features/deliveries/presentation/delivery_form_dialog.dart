@@ -34,6 +34,7 @@ class DeliveryFormDialog extends StatefulWidget {
 
 class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _totalAmountController = TextEditingController();
 
   String? _selectedVendorId;
   DateTime _deliveryDate = DateTime.now();
@@ -48,7 +49,13 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   void initState() {
     super.initState();
     _loadLastVendor();
-    _items.add(DeliveryItemForm());
+    _totalAmountController.text = '0.00';
+  }
+
+  @override
+  void dispose() {
+    _totalAmountController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLastVendor() async {
@@ -131,10 +138,403 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
     }
   }
 
-  void _addItem() {
-    setState(() {
-      _items.add(DeliveryItemForm());
-    });
+  void _showProductSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.inventory_2,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Pilih Produk',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Product List
+              Expanded(
+                child: widget.products.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 64,
+                              color: Colors.grey[300],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Tiada produk tersedia',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: widget.products.length,
+                        itemBuilder: (context, index) {
+                          final product = widget.products[index];
+                          final hasPrice = product.salePrice > 0;
+
+                          return Card(
+                            elevation: 2,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: hasPrice
+                                    ? Colors.grey[200]!
+                                    : Colors.orange[200]!,
+                                width: 1,
+                              ),
+                            ),
+                            child: InkWell(
+                              onTap: hasPrice
+                                  ? () {
+                                      Navigator.pop(context);
+                                      _addProduct(product);
+                                    }
+                                  : null,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    // Product Image
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[200],
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.grey[300]!,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(12),
+                                              child: Image.network(
+                                                product.imageUrl!,
+                                                width: 60,
+                                                height: 60,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return Container(
+                                                    color: Colors.grey[200],
+                                                    child: Icon(
+                                                      Icons.inventory_2_outlined,
+                                                      color: Colors.grey[400],
+                                                      size: 28,
+                                                    ),
+                                                  );
+                                                },
+                                                loadingBuilder: (context, child, loadingProgress) {
+                                                  if (loadingProgress == null) return child;
+                                                  return Container(
+                                                    color: Colors.grey[200],
+                                                    child: Center(
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        value: loadingProgress.expectedTotalBytes != null
+                                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                                loadingProgress.expectedTotalBytes!
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Container(
+                                              color: Colors.grey[200],
+                                              child: Icon(
+                                                hasPrice
+                                                    ? Icons.inventory_2_outlined
+                                                    : Icons.warning_amber_rounded,
+                                                color: hasPrice
+                                                    ? Colors.grey[400]
+                                                    : Colors.orange[400],
+                                                size: 28,
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    // Product Info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            product.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.blue[50],
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  'RM${product.salePrice.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                    color: Colors.blue[700],
+                                                  ),
+                                                ),
+                                              ),
+                                              if (!hasPrice) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange[50],
+                                                    borderRadius:
+                                                        BorderRadius.circular(8),
+                                                  ),
+                                                  child: const Text(
+                                                    'Tiada harga',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors.orange,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Add Icon
+                                    if (hasPrice)
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          Icons.add_circle,
+                                          color: AppColors.primary,
+                                          size: 28,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(
+                                        Icons.block,
+                                        color: Colors.grey,
+                                        size: 28,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addProduct(Product product) {
+    // Check if product has valid sale price
+    if (product.salePrice <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Produk "${product.name}" tidak ada harga jualan. Sila update harga produk dahulu.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final qtyController = TextEditingController(text: '1');
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final retailPrice = product.salePrice.toStringAsFixed(2);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.local_shipping, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Price Info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.attach_money, color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Harga Runcit: RM$retailPrice',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Quantity Input
+                  TextField(
+                    controller: qtyController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Kuantiti',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.numbers),
+                    ),
+                    onChanged: (value) => setDialogState(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final qty = double.tryParse(qtyController.text) ?? 0;
+
+                    if (qty <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Kuantiti mesti lebih daripada 0'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    final vendorPrice = await _calculateVendorPrice(retailPrice);
+
+                    setState(() {
+                      _items.add(DeliveryItemForm(
+                        productId: product.id,
+                        productName: product.name,
+                        quantity: qty,
+                        unitPrice: vendorPrice,
+                        retailPrice: retailPrice,
+                      ));
+                      _calculateTotal();
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Tambah'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _removeItem(int index) {
@@ -146,48 +546,6 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
     }
   }
 
-  Future<void> _onProductChanged(int index, String productId) async {
-    final product = widget.products.firstWhere((p) => p.id == productId);
-    
-    // Check if product has valid sale price
-    if (product.salePrice <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Produk "${product.name}" tidak ada harga jualan. Sila update harga produk dahulu.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-      setState(() {
-        _items[index].productId = productId;
-        _items[index].productName = product.name;
-        _items[index].retailPrice = '0.00';
-        _items[index].unitPrice = '0.00';
-        _calculateTotal();
-      });
-      return;
-    }
-    
-    final retailPrice = product.salePrice.toStringAsFixed(2);
-    final vendorPrice = await _calculateVendorPrice(retailPrice);
-
-    setState(() {
-      _items[index].productId = productId;
-      _items[index].productName = product.name;
-      _items[index].retailPrice = retailPrice;
-      _items[index].unitPrice = vendorPrice; // Auto-calculated based on commission
-      _calculateTotal();
-    });
-  }
-
-  void _onQuantityChanged(int index, String value) {
-    setState(() {
-      _items[index].quantity = double.tryParse(value) ?? 0.0;
-      _calculateTotal();
-    });
-  }
 
   // Price is auto-calculated, no manual editing needed
 
@@ -242,7 +600,10 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
         return sum + (price * item.quantity);
       },
     );
-    setState(() => _totalAmount = total);
+    setState(() {
+      _totalAmount = total;
+      _totalAmountController.text = total.toStringAsFixed(2);
+    });
   }
 
   Future<void> _submit() async {
@@ -257,7 +618,7 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
       return;
     }
 
-    if (_items.isEmpty || _items.any((item) => item.productId.isEmpty)) {
+    if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sila tambah sekurang-kurangnya satu item'),
@@ -433,47 +794,122 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Item Dihantar',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Harga ikut komisen vendor (auto).',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+                    const Text(
+                      'Item Dihantar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    TextButton.icon(
-                      onPressed: _addItem,
+                    ElevatedButton.icon(
+                      onPressed: _showProductSelector,
                       icon: const Icon(Icons.add),
-                      label: const Text('Tambah Item'),
+                      label: const Text('Tambah Produk'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                ..._items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return _buildItemCard(index, item);
-                }),
+                const SizedBox(height: 16),
+                if (_items.isEmpty)
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 2,
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 48.0,
+                          horizontal: 32.0,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.local_shipping_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Tiada item lagi',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Klik "Tambah Produk" untuk menambah item',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ..._items.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    return _buildItemCard(index, item);
+                  }),
                 const SizedBox(height: 16),
                 // Total amount
-                TextFormField(
-                  initialValue: _totalAmount.toStringAsFixed(2),
-                  decoration: const InputDecoration(
-                    labelText: 'Jumlah (RM)',
-                    border: OutlineInputBorder(),
-                    prefixText: 'RM ',
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
-                  readOnly: true,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Jumlah (RM)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'RM ${_totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -513,157 +949,356 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   }
 
   Widget _buildItemCard(int index, DeliveryItemForm item) {
-    return Container(
+    final price = double.tryParse(item.unitPrice) ?? 0.0;
+    final itemTotal = price * item.quantity;
+    
+    // Find product to get image
+    final product = widget.products.firstWhere(
+      (p) => p.id == item.productId,
+      orElse: () => widget.products.first,
+    );
+
+    return Card(
+      elevation: 3,
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Product dropdown
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    value: item.productId.isEmpty ? null : item.productId,
-                    decoration: const InputDecoration(
-                      labelText: 'Produk',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                // Product Image
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey[300]!,
+                      width: 1,
                     ),
-                    items: widget.products.map((product) {
-                      return DropdownMenuItem(
-                        value: product.id,
-                        child: Text(product.name),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        _onProductChanged(index, value);
-                      }
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Pilih produk';
-                      }
-                      return null;
-                    },
+                  ),
+                  child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            product.imageUrl!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: Colors.grey,
+                                  size: 28,
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: Colors.grey[200],
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.inventory_2_outlined,
+                            color: Colors.grey,
+                            size: 28,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 16),
+                // Product Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.productName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${item.quantity.toStringAsFixed(1)} × RM${item.unitPrice}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (item.retailPrice != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Runcit: RM${item.retailPrice}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Quantity
-                Expanded(
-                  child: TextFormField(
-                    initialValue: item.quantity.toStringAsFixed(1),
-                    decoration: const InputDecoration(
-                      labelText: 'Qty',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (value) => _onQuantityChanged(index, value),
-                    validator: (value) {
-                      final qty = double.tryParse(value ?? '0') ?? 0;
-                      if (qty <= 0) {
-                        return 'Qty > 0';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Price (Auto-calculated, read-only)
-                Expanded(
-                  child: TextFormField(
-                    initialValue: item.unitPrice,
-                    decoration: InputDecoration(
-                      labelText: 'Harga',
-                      hintText: 'Auto-calculated',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      helperText: 'Auto (tolak komisyen)',
-                      helperMaxLines: 1,
-                    ),
-                    readOnly: true, // User tidak boleh edit - auto-calculated
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                // Remove button (top-right)
-                if (_items.length > 1)
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => _removeItem(index),
-                    tooltip: 'Padam item',
-                  ),
-              ],
-            ),
-            // Rejection section (collapsible)
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(top: 8),
-              title: const Text(
-                'Rekod Tolakan (Opsyenal)',
-                style: TextStyle(fontSize: 12),
-              ),
-              children: [
-                Row(
+                // Amount & Actions
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        initialValue: item.rejectedQty.toStringAsFixed(1),
-                        decoration: const InputDecoration(
-                          labelText: 'Qty Tolak',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (value) {
-                          setState(() {
-                            item.rejectedQty = double.tryParse(value) ?? 0.0;
-                          });
-                        },
+                    Text(
+                      'RM${itemTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.green,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        initialValue: item.rejectionReason ?? '',
-                        decoration: const InputDecoration(
-                          labelText: 'Sebab (opsyenal)',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          hintText: 'Cth: Expired, Rosak',
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Edit quantity button
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.edit,
+                              color: Colors.blue,
+                              size: 18,
+                            ),
+                          ),
+                          onPressed: () => _editItemQuantity(index, item),
+                          tooltip: 'Edit kuantiti',
                         ),
-                        maxLines: 2,
-                        onChanged: (value) {
-                          setState(() {
-                            item.rejectionReason = value;
-                          });
-                        },
-                      ),
+                        // Remove button
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 18,
+                            ),
+                          ),
+                          onPressed: () => _removeItem(index),
+                          tooltip: 'Padam item',
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
+            // Rejection section (collapsible)
+            if (item.rejectedQty > 0 || item.rejectionReason != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (item.rejectedQty > 0)
+                            Text(
+                              'Tolakan: ${item.rejectedQty.toStringAsFixed(1)} unit',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          if (item.rejectionReason != null && item.rejectionReason!.isNotEmpty)
+                            Text(
+                              'Sebab: ${item.rejectionReason}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange[700],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _editRejection(index, item),
+                      child: const Text('Edit', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _editRejection(index, item),
+                icon: const Icon(Icons.warning_amber_rounded, size: 16),
+                label: const Text('Rekod Tolakan (Opsyenal)', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.orange[700],
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _editItemQuantity(int index, DeliveryItemForm item) {
+    final qtyController = TextEditingController(text: item.quantity.toStringAsFixed(1));
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Kuantiti'),
+        content: TextField(
+          controller: qtyController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Kuantiti',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final qty = double.tryParse(qtyController.text) ?? 0.0;
+              if (qty > 0) {
+                setState(() {
+                  _items[index].quantity = qty;
+                  _calculateTotal();
+                });
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editRejection(int index, DeliveryItemForm item) {
+    final rejectedQtyController = TextEditingController(text: item.rejectedQty.toStringAsFixed(1));
+    final reasonController = TextEditingController(text: item.rejectionReason ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rekod Tolakan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: rejectedQtyController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Kuantiti Tolak',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.remove_circle_outline),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Sebab Tolakan',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.description_outlined),
+                hintText: 'Cth: Expired, Rosak, Kerosakan',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _items[index].rejectedQty = double.tryParse(rejectedQtyController.text) ?? 0.0;
+                _items[index].rejectionReason = reasonController.text.trim().isEmpty ? null : reasonController.text.trim();
+              });
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Simpan'),
+          ),
+        ],
       ),
     );
   }

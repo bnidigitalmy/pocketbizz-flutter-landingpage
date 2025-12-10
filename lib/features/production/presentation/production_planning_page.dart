@@ -145,10 +145,11 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                       ),
                       ElevatedButton.icon(
                         onPressed: () => _showPlanningDialog(),
-                        icon: const Icon(Icons.add, size: 20),
-                        label: const Text('Rancang Produksi'),
+                        icon: const Icon(Icons.add, size: 20, color: Colors.white),
+                        label: const Text('Rancang Produksi', style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
@@ -178,9 +179,10 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showPlanningDialog,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Rancang Produksi'),
-        backgroundColor: AppColors.primary,
       ),
     );
   }
@@ -218,6 +220,22 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
 
   Widget _buildBatchCard(ProductionBatch batch) {
     final expiryStatus = _getExpiryStatus(batch.expiryDate);
+    
+    // Find product to get image
+    final product = _products.firstWhere(
+      (p) => p.id == batch.productId || p.name == batch.productName,
+      orElse: () => Product(
+        id: '',
+        businessOwnerId: '',
+        sku: '',
+        name: batch.productName ?? 'Unknown',
+        unit: '',
+        salePrice: 0.0,
+        costPrice: 0.0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -228,6 +246,63 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
           children: [
             Row(
               children: [
+                // Product Image
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey[300]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            product.imageUrl!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: Colors.grey[400],
+                                  size: 28,
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: Colors.grey[200],
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.inventory_2_outlined,
+                            color: Colors.grey[400],
+                            size: 28,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

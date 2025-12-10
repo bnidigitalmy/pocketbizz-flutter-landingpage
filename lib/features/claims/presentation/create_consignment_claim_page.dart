@@ -427,6 +427,8 @@ class _CreateConsignmentClaimPageState extends State<CreateConsignmentClaimPage>
                   ),
                 );
               },
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.edit),
               label: const Text('Edit Kuantiti'),
             )
@@ -560,6 +562,8 @@ class _DeliveryItemsEditorPageState extends State<_DeliveryItemsEditorPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _saveQuantities,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.save),
         label: const Text('Simpan'),
       ),

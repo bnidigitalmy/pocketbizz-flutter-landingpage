@@ -470,9 +470,10 @@ class _StockPageState extends State<StockPage> {
       floatingActionButton: _isSelectionMode && _selectedItemIds.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _showShoppingListDialog,
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.shopping_cart),
               label: Text('Tambah ${_selectedItemIds.length} ke Senarai'),
-              backgroundColor: AppColors.success,
             )
           : FloatingActionButton.extended(
               onPressed: () async {
@@ -484,9 +485,10 @@ class _StockPageState extends State<StockPage> {
                 );
                 if (result == true) _loadStockItems();
               },
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
               label: const Text('Tambah Item'),
-              backgroundColor: AppColors.primary,
             ),
     );
   }

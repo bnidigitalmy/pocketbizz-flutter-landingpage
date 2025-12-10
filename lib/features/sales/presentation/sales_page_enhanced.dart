@@ -282,6 +282,8 @@ class _SalesPageEnhancedState extends State<SalesPageEnhanced> {
             await _loadTodaySummary();
           }
         },
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Jualan Baru'),
       ),

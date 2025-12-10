@@ -776,6 +776,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                       : _handlePreview,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -789,9 +790,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Preview Bahan'),
+                            Text('Preview Bahan', style: TextStyle(color: Colors.white)),
                             SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 18),
+                            Icon(Icons.arrow_forward, size: 18, color: Colors.white),
                           ],
                         ),
                 ),
@@ -834,13 +835,14 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text('Teruskan'),
+                        Text('Teruskan', style: TextStyle(color: Colors.white)),
                         SizedBox(width: 8),
-                        Icon(Icons.arrow_forward, size: 18),
+                        Icon(Icons.arrow_forward, size: 18, color: Colors.white),
                       ],
                     ),
                   ),
@@ -921,7 +923,8 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleConfirm,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.success,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -935,9 +938,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check, size: 20),
+                            Icon(Icons.check, size: 20, color: Colors.white),
                             SizedBox(width: 8),
-                            Text('Sahkan Produksi'),
+                            Text('Sahkan Produksi', style: TextStyle(color: Colors.white)),
                           ],
                         ),
                 ),

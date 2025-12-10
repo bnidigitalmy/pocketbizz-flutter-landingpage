@@ -455,6 +455,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
           setState(() => _addDialogOpen = true);
         },
         backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Penghantaran'),
       ),
