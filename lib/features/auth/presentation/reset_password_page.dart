@@ -85,6 +85,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // Match landing page background
       appBar: AppBar(
         title: const Text('Reset Password'),
       ),

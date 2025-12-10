@@ -63,7 +63,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   Widget build(BuildContext context) {
     const cardBg = Colors.white;
-    const pageBg = Color(0xFFF7F2E9); // warm neutral backdrop
+    const pageBg = Colors.white; // Match landing page background
 
     return Scaffold(
       backgroundColor: pageBg,

@@ -214,7 +214,7 @@ class _LoginPageState extends State<LoginPage> {
     final badgeColor = AppColors.warning;
     final badgeBg = AppColors.warning.withOpacity(0.12);
     final cardBg = Colors.white;
-    const pageBg = Color(0xFFF7F2E9); // warm neutral backdrop similar to mock
+    const pageBg = Colors.white; // Match landing page background
 
     return Scaffold(
       backgroundColor: pageBg,
@@ -408,7 +408,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             SizedBox(height: 10),
-                            _BenefitRow(text: 'Semua features (lebih 10 modul)'),
+                            _BenefitRow(text: 'Semua features (had 10 produk)'),
                             _BenefitRow(text: 'Setup & tutorial percuma'),
                             _BenefitRow(text: 'Tiada credit card diperlukan'),
                           ],
