@@ -208,11 +208,39 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _isSignUp ? 'Create your account' : 'Sign in to continue',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  _isSignUp ? 'Cuba Percuma 7 Hari' : 'Log Masuk Akaun Anda',
+                  style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 8),
+                Text(
+                  _isSignUp
+                      ? 'Daftar & terus aktifkan trial. Tiada kad kredit. Sokongan WhatsApp jika perlukan bantuan.'
+                      : 'Masuk semula untuk teruskan operasi anda.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                if (_isSignUp)
+                  Column(
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: const [
+                          _BenefitChip(text: '7 hari percuma, tiada kad kredit'),
+                          _BenefitChip(text: 'Data selamat (AES-256 + SSL)'),
+                          _BenefitChip(text: 'Boleh batal bila-bila masa'),
+                          _BenefitChip(text: 'Sokongan WhatsApp 010-782 7802'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                const SizedBox(height: 8),
 
                 // Email field
                 TextFormField(
@@ -240,7 +268,8 @@ class _LoginPageState extends State<LoginPage> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: 'Kata Laluan',
+                    helperText: _isSignUp ? 'Minimum 6 aksara' : null,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -256,10 +285,10 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return 'Sila masukkan kata laluan';
                     }
                     if (_isSignUp && value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return 'Minimum 6 aksara';
                     }
                     return null;
                   },
@@ -278,7 +307,7 @@ class _LoginPageState extends State<LoginPage> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_isSignUp ? 'Sign Up' : 'Sign In'),
+                      : Text(_isSignUp ? 'Daftar & Mulakan Percuma' : 'Log Masuk'),
                 ),
                 const SizedBox(height: 8),
 
@@ -290,7 +319,7 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () {
                         Navigator.pushNamed(context, '/forgot-password');
                       },
-                      child: const Text('Forgot Password?'),
+                      child: const Text('Terlupa kata laluan?'),
                     ),
                   ),
 
@@ -303,14 +332,39 @@ class _LoginPageState extends State<LoginPage> {
                   },
                   child: Text(
                     _isSignUp
-                        ? 'Already have an account? Sign In'
-                        : 'Don\'t have an account? Sign Up',
+                        ? 'Sudah ada akaun? Log Masuk'
+                        : 'Belum ada akaun? Daftar Percuma',
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Simple chip to highlight signup benefits
+class _BenefitChip extends StatelessWidget {
+  final String text;
+  const _BenefitChip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.teal.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.teal.withOpacity(0.2)),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.teal[800],
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }
