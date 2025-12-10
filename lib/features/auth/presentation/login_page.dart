@@ -243,15 +243,11 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Icon circle
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.inventory_2_outlined, color: AppColors.primary, size: 28),
+                    // Logo
+                    const PocketBizzBrand(
+                      logoSize: 56,
+                      textSize: 26,
+                      useLogoWithText: true,
                     ),
                     const SizedBox(height: 12),
                     // Trial badge
