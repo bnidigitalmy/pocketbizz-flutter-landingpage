@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
+import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/delivery.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/product.dart';
+import '../../../data/models/business_profile.dart';
 import 'delivery_form_dialog.dart';
 import 'edit_rejection_dialog.dart';
 import 'payment_status_dialog.dart';
@@ -30,10 +33,12 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
   final _deliveriesRepo = DeliveriesRepositorySupabase();
   final _vendorsRepo = VendorsRepositorySupabase();
   final _productsRepo = ProductsRepositorySupabase();
+  final _businessProfileRepo = BusinessProfileRepository();
 
   List<Delivery> _deliveries = [];
   List<Vendor> _vendors = [];
   List<Product> _products = [];
+  BusinessProfile? _businessProfile;
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -67,6 +72,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
         _loadDeliveries(reset: true),
         _loadVendors(),
         _loadProducts(),
+        _loadBusinessProfile(),
       ]);
     } catch (e) {
       if (mounted) {
@@ -81,6 +87,20 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _loadBusinessProfile() async {
+    try {
+      final profile = await _businessProfileRepo.getBusinessProfile();
+      if (mounted) {
+        setState(() {
+          _businessProfile = profile;
+        });
+      }
+    } catch (e) {
+      // Business profile is optional, continue without it
+      debugPrint('Failed to load business profile: $e');
     }
   }
 
@@ -1026,6 +1046,11 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
   }
 
   Future<void> _shareViaWhatsApp(Delivery delivery) async {
+    // Ensure business profile is loaded
+    if (_businessProfile == null) {
+      await _loadBusinessProfile();
+    }
+
     final statusLabels = {
       'delivered': 'Dihantar',
       'pending': 'Pending',
@@ -1033,8 +1058,23 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
       'rejected': 'Ditolak',
     };
 
-    var message = '*ManisBizz - Penghantaran*\n\n' +
-        'Vendor: *${delivery.vendorName}*\n' +
+    // Use business profile name or default to PocketBizz
+    final businessName = _businessProfile?.businessName ?? 'PocketBizz';
+    
+    var message = '*$businessName - Penghantaran*\n\n';
+    
+    // Add business info if available
+    if (_businessProfile != null) {
+      if (_businessProfile!.address != null && _businessProfile!.address!.isNotEmpty) {
+        message += 'Alamat: ${_businessProfile!.address}\n';
+      }
+      if (_businessProfile!.phone != null && _businessProfile!.phone!.isNotEmpty) {
+        message += 'Tel: ${_businessProfile!.phone}\n';
+      }
+      message += '\n';
+    }
+    
+    message += 'Vendor: *${delivery.vendorName}*\n' +
         'Tarikh: ${DateFormat('dd MMMM yyyy', 'ms_MY').format(delivery.deliveryDate)}\n' +
         'Status: ${statusLabels[delivery.status] ?? delivery.status}\n' +
         'Jumlah: RM ${delivery.totalAmount.toStringAsFixed(2)}\n\n' +

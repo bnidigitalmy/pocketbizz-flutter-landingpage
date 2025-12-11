@@ -632,6 +632,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
         // Date Input
         if (_expiryInputType == 'date') ...[
           TextFormField(
+            key: ValueKey(_expiryDate?.toIso8601String() ?? 'empty'),
             initialValue: _expiryDate != null
                 ? DateFormat('yyyy-MM-dd').format(_expiryDate!)
                 : '',
@@ -651,7 +652,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
               if (date != null) {
-                setState(() => _expiryDate = date);
+                setState(() {
+                  _expiryDate = date;
+                });
               }
             },
           ),
@@ -875,13 +878,14 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                             : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
                         ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('Teruskan'),
+                            Text('Teruskan', style: TextStyle(color: Colors.white)),
                             SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 18),
+                            Icon(Icons.arrow_forward, size: 18, color: Colors.white),
                           ],
                         ),
                       ),

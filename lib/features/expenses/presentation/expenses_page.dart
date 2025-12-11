@@ -32,6 +32,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
   String _formAmount = '';
   String _formDescription = '';
   DateTime _formDate = DateTime.now();
+  late TextEditingController _dateController;
 
   // Category labels (slug -> display name). Starts with defaults but can be
   // extended by the user and from existing data.
@@ -46,7 +47,16 @@ class _ExpensesPageState extends State<ExpensesPage> {
   @override
   void initState() {
     super.initState();
+    _dateController = TextEditingController(
+      text: DateFormat('yyyy-MM-dd').format(_formDate),
+    );
     _loadExpenses();
+  }
+
+  @override
+  void dispose() {
+    _dateController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadExpenses() async {
@@ -135,6 +145,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
     _formAmount = '';
     _formDescription = '';
     _formDate = DateTime.now();
+    _dateController.text = DateFormat('yyyy-MM-dd').format(_formDate);
 
     await showDialog(
       context: context,
@@ -222,18 +233,19 @@ class _ExpensesPageState extends State<ExpensesPage> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.calendar_today),
                     ),
-                    controller: TextEditingController(
-                      text: DateFormat('yyyy-MM-dd').format(_formDate),
-                    ),
+                    controller: _dateController,
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
                         initialDate: _formDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
+                        firstDate: DateTime(2020, 1, 1), // Allow dates from 2020 onwards
+                        lastDate: DateTime.now().add(const Duration(days: 1)), // Allow today and past dates
                       );
                       if (picked != null) {
-                        setState(() => _formDate = picked);
+                        setState(() {
+                          _formDate = picked;
+                          _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+                        });
                       }
                     },
                   ),

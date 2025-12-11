@@ -350,7 +350,12 @@ class PDFGenerator {
   }
 
   /// Generate Purchase Order PDF (for suppliers)
-  static Future<Uint8List> generatePOPDF(PurchaseOrder po) async {
+  static Future<Uint8List> generatePOPDF(
+    PurchaseOrder po, {
+    String? businessName,
+    String? businessAddress,
+    String? businessPhone,
+  }) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -363,9 +368,9 @@ class PDFGenerator {
               title: 'PURCHASE ORDER',
               documentNumber: po.poNumber,
               date: po.createdAt,
-              businessName: 'PocketBizz',
-              businessAddress: null,
-              businessPhone: null,
+              businessName: businessName ?? 'PocketBizz',
+              businessAddress: businessAddress,
+              businessPhone: businessPhone,
             ),
             pw.SizedBox(height: 20),
             pw.Container(
@@ -411,26 +416,31 @@ class PDFGenerator {
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300),
               columnWidths: const {
-                0: pw.FlexColumnWidth(4),
-                1: pw.FlexColumnWidth(1),
-                2: pw.FlexColumnWidth(1.5),
+                0: pw.FlexColumnWidth(0.5),
+                1: pw.FlexColumnWidth(3.5),
+                2: pw.FlexColumnWidth(1),
                 3: pw.FlexColumnWidth(1.5),
+                4: pw.FlexColumnWidth(1.5),
               },
               children: [
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                   children: [
+                    _tableCell('#', isHeader: true),
                     _tableCell('Item', isHeader: true),
                     _tableCell('Qty', isHeader: true),
                     _tableCell('Harga Anggaran', isHeader: true),
                     _tableCell('Jumlah', isHeader: true),
                   ],
                 ),
-                ...po.items.map((item) {
+                ...po.items.asMap().entries.map((entry) {
+                  final index = entry.key + 1;
+                  final item = entry.value;
                   final estPrice = item.estimatedPrice ?? item.actualPrice ?? 0;
                   final total = estPrice * item.quantity;
                   return pw.TableRow(
                     children: [
+                      _tableCell(index.toString(), alignment: pw.Alignment.center),
                       _tableCell(item.itemName),
                       _tableCell('${item.quantity.toStringAsFixed(1)} ${item.unit}'),
                       _tableCell(
@@ -827,14 +837,21 @@ class PDFGenerator {
     );
   }
 
-  static pw.Widget _tableCell(String text, {bool isHeader = false}) {
+  static pw.Widget _tableCell(
+    String text, {
+    bool isHeader = false,
+    pw.Alignment? alignment,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(8),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontSize: isHeader ? 10 : 9,
-          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+      child: pw.Align(
+        alignment: alignment ?? pw.Alignment.centerLeft,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: isHeader ? 10 : 9,
+            fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
         ),
       ),
     );

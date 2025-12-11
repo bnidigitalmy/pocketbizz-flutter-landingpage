@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/unit_conversion.dart';
+import '../../../core/services/image_upload_service.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../data/models/category.dart';
 import '../../../data/models/product.dart';
@@ -25,11 +28,15 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   final _categoriesRepo = CategoriesRepositorySupabase();
   final _productsRepo = ProductsRepositorySupabase();
   final _recipesRepo = RecipesRepositorySupabase();
+  final _imageService = ImageUploadService();
 
   // Product Info
   final _nameController = TextEditingController();
   final _categoryController = TextEditingController();
   final _imageUrlController = TextEditingController();
+  String? _currentImageUrl;
+  XFile? _pendingImage;
+  Uint8List? _pendingImageBytes;
   
   // Production Costs
   final _unitsPerBatchController = TextEditingController(text: '1');
@@ -178,6 +185,79 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = source == ImageSource.gallery
+          ? await _imageService.pickImageFromGallery()
+          : await _imageService.pickImageFromCamera();
+
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _pendingImage = image;
+          _pendingImageBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat memilih gambar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Ambil Gambar'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            if (_currentImageUrl != null || _pendingImage != null)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Padam Gambar'),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _currentImageUrl = null;
+                    _pendingImage = null;
+                    _pendingImageBytes = null;
+                    _imageUrlController.clear();
+                  });
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.cancel),
+              title: const Text('Batal'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
     final hasValidRecipe = _recipeItems.any((item) => 
@@ -225,6 +305,27 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       );
 
       final createdProduct = await _productsRepo.createProduct(product);
+
+      // 1b. Upload image if any, then update product record
+      if (_pendingImage != null) {
+        try {
+          final imageUrl = await _imageService.uploadProductImage(
+            _pendingImage!,
+            createdProduct.id,
+          );
+          await _productsRepo.updateProduct(createdProduct.id, {'image_url': imageUrl});
+          _currentImageUrl = imageUrl;
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gambar tidak dapat dimuat naik: $e'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      }
 
       // 2. Create recipe
       final recipe = await _recipesRepo.createRecipe(
@@ -283,6 +384,10 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
+                  // Product Image
+                  _buildImageSection(),
+                  const SizedBox(height: 24),
+                  
                   // Header
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -902,6 +1007,95 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
           Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
           Text('RM ${price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    Widget preview;
+    if (_pendingImageBytes != null) {
+      preview = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(
+          _pendingImageBytes!,
+          width: double.infinity,
+          height: 180,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (_currentImageUrl != null && _currentImageUrl!.isNotEmpty) {
+      preview = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          _currentImageUrl!,
+          width: double.infinity,
+          height: 180,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      preview = _buildImagePlaceholder();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Gambar Produk',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        preview,
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: _showImageSourceDialog,
+          icon: const Icon(Icons.photo_camera_back_outlined),
+          label: const Text('Tukar Gambar'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_outlined, size: 48, color: Colors.grey[500]),
+            const SizedBox(height: 8),
+            Text(
+              'Tiada gambar',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }

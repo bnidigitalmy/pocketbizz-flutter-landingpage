@@ -61,35 +61,43 @@ ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchase_order_items ENABLE ROW LEVEL SECURITY;
 
 -- RLS for purchase_orders
+DROP POLICY IF EXISTS "Users can view their own purchase orders" ON purchase_orders;
 CREATE POLICY "Users can view their own purchase orders"
     ON purchase_orders FOR SELECT
     USING (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can insert their own purchase orders" ON purchase_orders;
 CREATE POLICY "Users can insert their own purchase orders"
     ON purchase_orders FOR INSERT
     WITH CHECK (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can update their own purchase orders" ON purchase_orders;
 CREATE POLICY "Users can update their own purchase orders"
     ON purchase_orders FOR UPDATE
     USING (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can delete their own purchase orders" ON purchase_orders;
 CREATE POLICY "Users can delete their own purchase orders"
     ON purchase_orders FOR DELETE
     USING (auth.uid() = business_owner_id);
 
 -- RLS for purchase_order_items
+DROP POLICY IF EXISTS "Users can view their own purchase order items" ON purchase_order_items;
 CREATE POLICY "Users can view their own purchase order items"
     ON purchase_order_items FOR SELECT
     USING (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can insert their own purchase order items" ON purchase_order_items;
 CREATE POLICY "Users can insert their own purchase order items"
     ON purchase_order_items FOR INSERT
     WITH CHECK (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can update their own purchase order items" ON purchase_order_items;
 CREATE POLICY "Users can update their own purchase order items"
     ON purchase_order_items FOR UPDATE
     USING (auth.uid() = business_owner_id);
 
+DROP POLICY IF EXISTS "Users can delete their own purchase order items" ON purchase_order_items;
 CREATE POLICY "Users can delete their own purchase order items"
     ON purchase_order_items FOR DELETE
     USING (auth.uid() = business_owner_id);
@@ -102,10 +110,12 @@ DECLARE
     v_total_amount NUMERIC;
     v_expense_id UUID;
     v_po_item RECORD;
+    v_supplier_id UUID;
+    v_po_number TEXT;
 BEGIN
     -- Get PO info
-    SELECT business_owner_id, total_amount
-    INTO v_business_owner_id, v_total_amount
+    SELECT business_owner_id, total_amount, supplier_id, po_number
+    INTO v_business_owner_id, v_total_amount, v_supplier_id, v_po_number
     FROM purchase_orders
     WHERE id = p_po_id;
 
@@ -134,20 +144,20 @@ BEGIN
     -- Create expense record
     INSERT INTO expenses (
         business_owner_id,
+        vendor_id,
         amount,
         category,
-        description,
+        currency,
         expense_date,
-        reference_id,
-        reference_type
+        notes
     ) VALUES (
         v_business_owner_id,
+        v_supplier_id,
         v_total_amount,
-        'Purchases',
-        format('Purchase Order: %s', p_po_id),
+        'Bahan Mentah (PO)',  -- Specific category for PO purchases to distinguish from manual entries
+        'MYR',
         CURRENT_DATE,
-        p_po_id,
-        'purchase_order'
+        format('Purchase Order: %s', v_po_number)
     ) RETURNING id INTO v_expense_id;
 
     -- Update PO status

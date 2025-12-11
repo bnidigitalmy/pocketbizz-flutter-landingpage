@@ -773,59 +773,126 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Senarai Belian',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    _cartItems.isEmpty
-                                        ? 'Cart kosong. Tambah item untuk buat PO.'
-                                        : '${_cartItems.length} item. Klik \'Buat PO\' bila sedia.',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Flexible(
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  alignment: WrapAlignment.end,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isNarrow = constraints.maxWidth < 400;
+                              
+                              if (isNarrow) {
+                                // Stack vertically for narrow screens
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ElevatedButton.icon(
-                                      onPressed: () => _showManualAddDialog(),
-                                      icon: const Icon(Icons.add, size: 18),
-                                      label: const Text('Tambah Item'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: Colors.white,
+                                    const Text(
+                                      'Senarai Belian',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    if (_cartItems.isNotEmpty)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _showSupplierDialog(),
-                                        icon: const Icon(Icons.description, size: 18),
-                                        label: const Text('Buat PO'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.success,
-                                          foregroundColor: Colors.white,
-                                        ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _cartItems.isEmpty
+                                          ? 'Cart kosong. Tambah item untuk buat PO.'
+                                          : '${_cartItems.length} item. Klik \'Buat PO\' bila sedia.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
                                       ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => _showManualAddDialog(),
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: const Text('Tambah Item'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.primary,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        if (_cartItems.isNotEmpty)
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton.icon(
+                                              onPressed: () => _showSupplierDialog(),
+                                              icon: const Icon(Icons.description, size: 18),
+                                              label: const Text('Buat PO'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppColors.success,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ],
-                                ),
-                              ),
-                            ],
+                                );
+                              } else {
+                                // Horizontal layout for wider screens
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Senarai Belian',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            _cartItems.isEmpty
+                                                ? 'Cart kosong. Tambah item untuk buat PO.'
+                                                : '${_cartItems.length} item. Klik \'Buat PO\' bila sedia.',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Flexible(
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        alignment: WrapAlignment.end,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showManualAddDialog(),
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: const Text('Tambah Item'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.primary,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                          ),
+                                          if (_cartItems.isNotEmpty)
+                                            ElevatedButton.icon(
+                                              onPressed: () => _showSupplierDialog(),
+                                              icon: const Icon(Icons.description, size: 18),
+                                              label: const Text('Buat PO'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppColors.success,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+                            },
                           ),
                         ),
                         if (_cartItems.isEmpty)
@@ -908,47 +975,111 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.warning, color: Colors.amber[700]),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Cadangan: Item Stok Rendah',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.amber,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isNarrow = constraints.maxWidth < 400;
+                                
+                                if (isNarrow) {
+                                  // Stack vertically for narrow screens
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.warning, color: Colors.amber[700]),
+                                          const SizedBox(width: 8),
+                                          const Expanded(
+                                            child: Text(
+                                              'Cadangan: Item Stok Rendah',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Klik sekali untuk tambah terus ke cart dengan kuantiti cadangan',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      if (availableLowStock.length > 1) ...[
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: _quickAddAllLowStock,
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: Text('Tambah Semua (${availableLowStock.length})'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.amber[600],
+                                              foregroundColor: Colors.white,
+                                            ),
                                           ),
                                         ),
                                       ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Klik sekali untuk tambah terus ke cart dengan kuantiti cadangan',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[700],
+                                    ],
+                                  );
+                                } else {
+                                  // Horizontal layout for wider screens
+                                  return Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(Icons.warning, color: Colors.amber[700]),
+                                                const SizedBox(width: 8),
+                                                const Expanded(
+                                                  child: Text(
+                                                    'Cadangan: Item Stok Rendah',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.amber,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Klik sekali untuk tambah terus ke cart dengan kuantiti cadangan',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[700],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                if (availableLowStock.length > 1)
-                                  ElevatedButton.icon(
-                                    onPressed: _quickAddAllLowStock,
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: Text('Tambah Semua (${availableLowStock.length})'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.amber[600],
-                                      foregroundColor: Colors.white,
-                                    ),
-                                  ),
-                              ],
+                                      if (availableLowStock.length > 1) ...[
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: ElevatedButton.icon(
+                                            onPressed: _quickAddAllLowStock,
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: Text('Tambah Semua (${availableLowStock.length})'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.amber[600],
+                                              foregroundColor: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                }
+                              },
                             ),
                           ),
                           ...availableLowStock.take(5).map((item) {
@@ -962,34 +1093,86 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             final suggested = (threshold * 2) - currentQty;
                             final qty = suggested > 0 ? suggested : threshold;
                             
-                            return ListTile(
-                              title: Text(freshStockItem.name),
-                              subtitle: Text(
-                                'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ElevatedButton(
-                                    onPressed: () => _quickAddLowStock(item),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[600],
-                                      foregroundColor: Colors.white,
+                            final screenWidth = MediaQuery.of(context).size.width;
+                            final isNarrow = screenWidth < 400;
+                            
+                            if (isNarrow) {
+                              // Stack buttons vertically for narrow screens
+                              return ListTile(
+                                title: Text(freshStockItem.name),
+                                subtitle: Text(
+                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
+                                ),
+                                isThreeLine: true,
+                                trailing: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 100,
+                                      child: ElevatedButton(
+                                        onPressed: () => _quickAddLowStock(item),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green[600],
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        ),
+                                        child: const FittedBox(
+                                          child: Text('Quick Add', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
                                     ),
-                                    child: const Text('Quick Add'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  OutlinedButton(
-                                    onPressed: () {
-                                      _selectedStockId = item.id;
-                                      _manualQtyController.text = qty.toStringAsFixed(1);
-                                      _showManualAddDialog();
-                                    },
-                                    child: const Text('Edit'),
-                                  ),
-                                ],
-                              ),
-                            );
+                                    const SizedBox(height: 4),
+                                    SizedBox(
+                                      width: 100,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          _selectedStockId = item.id;
+                                          _manualQtyController.text = qty.toStringAsFixed(1);
+                                          _showManualAddDialog();
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        ),
+                                        child: const FittedBox(
+                                          child: Text('Edit', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              // Horizontal buttons for wider screens
+                              return ListTile(
+                                title: Text(freshStockItem.name),
+                                subtitle: Text(
+                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: () => _quickAddLowStock(item),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green[600],
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('Quick Add'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      onPressed: () {
+                                        _selectedStockId = item.id;
+                                        _manualQtyController.text = qty.toStringAsFixed(1);
+                                        _showManualAddDialog();
+                                      },
+                                      child: const Text('Edit'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
                           }),
                         ],
                       ),
@@ -1348,6 +1531,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                       labelText: 'Nama Supplier *',
                       border: OutlineInputBorder(),
                     ),
+                    onChanged: (value) {
+                      setDialogState(() {});
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextField(

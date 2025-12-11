@@ -46,9 +46,17 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
         _productionRepo.getAllBatches(),
       ]);
 
+      // Sort batches: latest production date (or created) on top
+      final sortedBatches = List<ProductionBatch>.from(batchesResult as List)
+        ..sort((a, b) {
+          final aDate = a.batchDate;
+          final bDate = b.batchDate;
+          return bDate.compareTo(aDate);
+        });
+
       setState(() {
         _products = List<Product>.from(productsResult as List);
-        _batches = List<ProductionBatch>.from(batchesResult as List);
+        _batches = sortedBatches;
         _isLoading = false;
       });
     } catch (e) {
@@ -115,45 +123,26 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Header with Plan Button
+                // Header text only (FAB used for action)
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: Colors.white,
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Rancang & Rekod Produksi',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Pilih produk, semak bahan, rekod produksi',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                      const Text(
+                        'Rancang & Rekod Produksi',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _showPlanningDialog(),
-                        icon: const Icon(Icons.add, size: 20, color: Colors.white),
-                        label: const Text('Rancang Produksi', style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pilih produk, semak bahan, rekod produksi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
                         ),
                       ),
                     ],
@@ -236,6 +225,10 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
         updatedAt: DateTime.now(),
       ),
     );
+
+    final productionDate = batch.batchDate;
+    final expiryDate = batch.expiryDate;
+    final dateFormat = DateFormat('dd MMM yyyy');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -323,41 +316,45 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                             label: Text('${batch.quantity} unit'),
                             backgroundColor: AppColors.primary.withOpacity(0.1),
                           ),
-                          if (batch.expiryDate != null)
-                              Chip(
-                                label: Text(
-                                  DateFormat('dd MMM yyyy')
-                                      .format(batch.expiryDate ?? DateTime.now()),
-                                ),
+                          if (productionDate != null)
+                            Chip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.event_note, size: 14, color: Colors.blueGrey),
+                                  const SizedBox(width: 4),
+                                  Text('Produksi: ${dateFormat.format(productionDate)}'),
+                                ],
+                              ),
+                              backgroundColor: Colors.blueGrey.withOpacity(0.12),
+                            ),
+                          if (expiryDate != null)
+                            Chip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    expiryStatus == 'expired'
+                                        ? Icons.warning
+                                        : expiryStatus == 'expiring'
+                                            ? Icons.warning_amber
+                                            : Icons.event_available,
+                                    size: 14,
+                                    color: expiryStatus == 'expired'
+                                        ? Colors.red
+                                        : expiryStatus == 'expiring'
+                                            ? Colors.orange
+                                            : Colors.green,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text('Luput: ${dateFormat.format(expiryDate)}'),
+                                ],
+                              ),
                               backgroundColor: expiryStatus == 'expired'
-                                  ? Colors.red.withOpacity(0.1)
+                                  ? Colors.red.withOpacity(0.12)
                                   : expiryStatus == 'expiring'
-                                      ? Colors.orange.withOpacity(0.1)
-                                      : Colors.green.withOpacity(0.1),
-                            ),
-                          if (expiryStatus == 'expired')
-                            Chip(
-                              label: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.warning, size: 14, color: Colors.red),
-                                  SizedBox(width: 4),
-                                  Text('Luput', style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                              backgroundColor: Colors.red.withOpacity(0.1),
-                            ),
-                          if (expiryStatus == 'expiring')
-                            Chip(
-                              label: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.warning_amber, size: 14, color: Colors.orange),
-                                  SizedBox(width: 4),
-                                  Text('Hampir Luput', style: TextStyle(color: Colors.orange)),
-                                ],
-                              ),
-                              backgroundColor: Colors.orange.withOpacity(0.1),
+                                      ? Colors.orange.withOpacity(0.12)
+                                      : Colors.green.withOpacity(0.12),
                             ),
                         ],
                       ),

@@ -5,10 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
+import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/delivery.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/product.dart';
 import '../../../core/utils/vendor_price_calculator.dart';
+import '../../../core/supabase/supabase_client.dart';
 
 /// Delivery Form Dialog
 /// Handles creating new deliveries with items
@@ -35,6 +37,8 @@ class DeliveryFormDialog extends StatefulWidget {
 class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _totalAmountController = TextEditingController();
+  final _deliveryDateController = TextEditingController();
+  final _productionRepo = ProductionRepository(supabase);
 
   String? _selectedVendorId;
   DateTime _deliveryDate = DateTime.now();
@@ -44,18 +48,39 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
   bool _isSubmitting = false;
   bool _isLoadingLastDelivery = false;
   Map<String, dynamic>? _vendorCommission;
+  final Map<String, double> _productStockCache = {};
 
   @override
   void initState() {
     super.initState();
+    _deliveryDateController.text = DateFormat('yyyy-MM-dd').format(_deliveryDate);
     _loadLastVendor();
     _totalAmountController.text = '0.00';
+    _loadProductStock();
   }
 
   @override
   void dispose() {
+    _deliveryDateController.dispose();
     _totalAmountController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProductStock() async {
+    // Load stock availability for all products
+    for (final product in widget.products) {
+      try {
+        final availableStock = await _productionRepo.getTotalRemainingForProduct(product.id);
+        setState(() {
+          _productStockCache[product.id] = availableStock;
+        });
+      } catch (e) {
+        debugPrint('Error loading stock for ${product.id}: $e');
+        setState(() {
+          _productStockCache[product.id] = 0.0;
+        });
+      }
+    }
   }
 
   Future<void> _loadLastVendor() async {
@@ -428,6 +453,8 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
       return;
     }
 
+    final availableStock = _productStockCache[product.id] ?? 0.0;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -477,6 +504,37 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Stock Info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: availableStock > 0 ? Colors.green[50] : Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: availableStock > 0 ? Colors.green[300]! : Colors.red[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          availableStock > 0 ? Icons.check_circle : Icons.warning,
+                          color: availableStock > 0 ? Colors.green : Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Stok Tersedia: ${availableStock.toStringAsFixed(1)} unit',
+                            style: TextStyle(
+                              color: availableStock > 0 ? Colors.green[700] : Colors.red[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // Quantity Input
                   TextField(
                     controller: qtyController,
@@ -485,6 +543,19 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                       labelText: 'Kuantiti',
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.numbers),
+                      helperText: availableStock > 0
+                          ? 'Maksimum: ${availableStock.toStringAsFixed(1)} unit'
+                          : 'Tiada stok tersedia',
+                      errorText: () {
+                        final qty = double.tryParse(qtyController.text) ?? 0;
+                        if (qty <= 0) {
+                          return 'Kuantiti mesti lebih daripada 0';
+                        }
+                        if (qty > availableStock) {
+                          return 'Kuantiti melebihi stok tersedia';
+                        }
+                        return null;
+                      }(),
                     ),
                     onChanged: (value) => setDialogState(() {}),
                   ),
@@ -496,13 +567,25 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                   child: const Text('Batal'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
+                  onPressed: availableStock > 0 ? () async {
                     final qty = double.tryParse(qtyController.text) ?? 0;
 
                     if (qty <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Kuantiti mesti lebih daripada 0'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (qty > availableStock) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Kuantiti melebihi stok tersedia (${availableStock.toStringAsFixed(1)} unit)',
+                          ),
                           backgroundColor: Colors.red,
                         ),
                       );
@@ -522,9 +605,9 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                       _calculateTotal();
                     });
                     Navigator.pop(context);
-                  },
+                  } : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: availableStock > 0 ? AppColors.primary : Colors.grey,
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('Tambah'),
@@ -645,6 +728,29 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
         ),
       );
       return;
+    }
+
+    // Validate stock availability for all items
+    for (final item in _items) {
+      final productId = item.productId;
+      final qty = item.quantity;
+      final productName = item.productName;
+      final availableStock = _productStockCache[productId] ?? 0.0;
+
+      if (qty > availableStock) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '⚠️ Stok tidak mencukupi untuk "$productName": '
+              'Tersedia: ${availableStock.toStringAsFixed(1)}, '
+              'Diperlukan: ${qty.toStringAsFixed(1)}',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -770,7 +876,7 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                 const SizedBox(height: 16),
                 // Delivery date
                 TextFormField(
-                  initialValue: DateFormat('yyyy-MM-dd').format(_deliveryDate),
+                  controller: _deliveryDateController,
                   decoration: const InputDecoration(
                     labelText: 'Tarikh Penghantaran *',
                     border: OutlineInputBorder(),
@@ -781,11 +887,14 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                     final date = await showDatePicker(
                       context: context,
                       initialDate: _deliveryDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
+                      firstDate: DateTime(2020, 1, 1), // Allow dates from 2020 onwards
+                      lastDate: DateTime.now().add(const Duration(days: 1)), // Allow today and past dates
                     );
                     if (date != null) {
-                      setState(() => _deliveryDate = date);
+                      setState(() {
+                        _deliveryDate = date;
+                        _deliveryDateController.text = DateFormat('yyyy-MM-dd').format(date);
+                      });
                     }
                   },
                 ),

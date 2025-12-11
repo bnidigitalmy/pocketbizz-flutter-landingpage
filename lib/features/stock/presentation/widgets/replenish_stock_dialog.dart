@@ -322,6 +322,7 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: AppColors.success,
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -340,6 +341,7 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
+                                  color: Colors.white,
                                 ),
                               ),
                       ),

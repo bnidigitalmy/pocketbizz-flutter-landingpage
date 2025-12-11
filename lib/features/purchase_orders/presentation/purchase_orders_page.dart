@@ -11,6 +11,8 @@ import 'dart:io';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/purchase_order.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
+import '../../../data/repositories/business_profile_repository_supabase.dart';
+import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
@@ -30,8 +32,10 @@ class PurchaseOrdersPage extends StatefulWidget {
 
 class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   final _poRepo = PurchaseOrderRepository(supabase);
+  final _businessProfileRepo = BusinessProfileRepository();
   
   List<PurchaseOrder> _purchaseOrders = [];
+  BusinessProfile? _businessProfile;
   bool _isLoading = true;
   
   // Selected PO for dialogs
@@ -67,7 +71,36 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   @override
   void initState() {
     super.initState();
-    _loadPurchaseOrders();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadPurchaseOrders(),
+      _loadBusinessProfile(),
+    ]);
+  }
+
+  Future<void> _loadBusinessProfile() async {
+    try {
+      final profile = await _businessProfileRepo.getBusinessProfile();
+      if (mounted) {
+        setState(() {
+          _businessProfile = profile;
+        });
+        debugPrint('Business profile loaded: ${profile?.businessName}, ${profile?.address}, ${profile?.phone}');
+      }
+    } catch (e) {
+      // Business profile is optional, continue without it
+      debugPrint('Failed to load business profile: $e');
+    }
+  }
+
+  /// Ensure business profile is loaded before generating PDF
+  Future<void> _ensureBusinessProfileLoaded() async {
+    if (_businessProfile == null) {
+      await _loadBusinessProfile();
+    }
   }
 
   @override
@@ -334,8 +367,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
   Future<void> _shareWhatsApp(PurchaseOrder po) async {
     try {
+      // Ensure business profile is loaded
+      await _ensureBusinessProfileLoaded();
+      
       // Generate PDF first
-      final pdfBytes = await PDFGenerator.generatePOPDF(po);
+      final pdfBytes = await PDFGenerator.generatePOPDF(
+        po,
+        businessName: _businessProfile?.businessName,
+        businessAddress: _businessProfile?.address,
+        businessPhone: _businessProfile?.phone,
+      );
       
       // Create message with PDF info
       final date = DateFormat('dd MMMM yyyy', 'ms_MY').format(po.createdAt);
@@ -459,8 +500,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
   Future<void> _downloadPDF(PurchaseOrder po) async {
     try {
+      // Ensure business profile is loaded
+      await _ensureBusinessProfileLoaded();
+      
       // Generate PDF
-      final pdfBytes = await PDFGenerator.generatePOPDF(po);
+      final pdfBytes = await PDFGenerator.generatePOPDF(
+        po,
+        businessName: _businessProfile?.businessName,
+        businessAddress: _businessProfile?.address,
+        businessPhone: _businessProfile?.phone,
+      );
       
       if (kIsWeb) {
         // For web, trigger download
@@ -760,8 +809,16 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
     }
     
     try {
+      // Ensure business profile is loaded
+      await _ensureBusinessProfileLoaded();
+      
       // Generate PDF first
-      final pdfBytes = await PDFGenerator.generatePOPDF(_selectedPO!);
+      final pdfBytes = await PDFGenerator.generatePOPDF(
+        _selectedPO!,
+        businessName: _businessProfile?.businessName,
+        businessAddress: _businessProfile?.address,
+        businessPhone: _businessProfile?.phone,
+      );
       
       // Convert PDF to base64 for email attachment
       final pdfBase64 = base64Encode(pdfBytes);
