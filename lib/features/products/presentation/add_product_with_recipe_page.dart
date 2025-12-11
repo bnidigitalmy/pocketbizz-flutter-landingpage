@@ -473,6 +473,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -612,7 +613,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                   children: [
                     Text(stock.name, style: const TextStyle(fontWeight: FontWeight.w500)),
                     Text(
-                      '${stock.packageSize}${stock.unit} @ RM${stock.purchasePrice.toStringAsFixed(2)} (RM${pricePerUnit.toStringAsFixed(4)}/${stock.unit})',
+                      '${stock.packageSize}${stock.unit} @ RM${stock.purchasePrice.toStringAsFixed(2)} (RM${pricePerUnit.toStringAsFixed(2)}/${stock.unit})',
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
@@ -688,7 +689,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                   Icon(Icons.attach_money, size: 16, color: AppColors.accent),
                   const SizedBox(width: 8),
                   Text(
-                    'Kos: RM ${itemCost.toStringAsFixed(4)}',
+                    'Kos: RM ${itemCost.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
