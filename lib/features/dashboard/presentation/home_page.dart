@@ -322,25 +322,26 @@ class _HomePageState extends State<HomePage> {
                 Navigator.pushNamed(context, '/documents');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.cloud, color: Colors.blue),
-              title: const Text('Google Drive Sync'),
-              subtitle: const Text('Dokumen yang di-sync', style: TextStyle(fontSize: 11)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/drive-sync');
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.cloud_upload, color: Colors.blue),
-              title: const Text('Test Image Upload'),
-              subtitle: const Text('Verify Supabase Storage', style: TextStyle(fontSize: 11)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/test-upload');
-              },
-            ),
+            // Hidden from user - development/testing features
+            // ListTile(
+            //   leading: const Icon(Icons.cloud, color: Colors.blue),
+            //   title: const Text('Google Drive Sync'),
+            //   subtitle: const Text('Dokumen yang di-sync', style: TextStyle(fontSize: 11)),
+            //   onTap: () {
+            //     Navigator.pop(context);
+            //     Navigator.pushNamed(context, '/drive-sync');
+            //   },
+            // ),
+            // const Divider(),
+            // ListTile(
+            //   leading: const Icon(Icons.cloud_upload, color: Colors.blue),
+            //   title: const Text('Test Image Upload'),
+            //   subtitle: const Text('Verify Supabase Storage', style: TextStyle(fontSize: 11)),
+            //   onTap: () {
+            //     Navigator.pop(context);
+            //     Navigator.pushNamed(context, '/test-upload');
+            //   },
+            // ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.settings),
