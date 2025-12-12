@@ -404,9 +404,16 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
               child: Card(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.green[200]!, width: 1),
+                  side: BorderSide(
+                    color: _status == _PaymentStatus.failed 
+                        ? Colors.red[200]! 
+                        : Colors.green[200]!, 
+                    width: 1,
+                  ),
                 ),
-                color: Colors.green[50],
+                color: _status == _PaymentStatus.failed 
+                    ? Colors.red[50] 
+                    : Colors.green[50],
                 elevation: 0,
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -446,37 +453,44 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   }
 
   Widget _buildHeader() {
+    final isFailed = _status == _PaymentStatus.failed;
+    final isSuccess = _status == _PaymentStatus.success && _active != null;
+    
     return Column(
       children: [
         // Icon in circular background
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.green[100],
+            color: isFailed ? Colors.red[100] : Colors.green[100],
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.check_circle,
+            isFailed ? Icons.error : Icons.check_circle,
             size: 64,
-            color: Colors.green[600],
+            color: isFailed ? Colors.red[600] : Colors.green[600],
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          'Pembayaran Berjaya!',
+          isFailed ? 'Pembayaran Gagal' : isSuccess ? 'Pembayaran Berjaya!' : 'Memproses Pembayaran',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Colors.green[900],
+            color: isFailed ? Colors.red[900] : Colors.green[900],
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
-          'Terima kasih atas pembayaran anda',
+          isFailed 
+              ? 'Pembayaran anda tidak berjaya. Sila cuba lagi.'
+              : isSuccess
+                  ? 'Terima kasih atas pembayaran anda'
+                  : 'Sila tunggu sebentar...',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.green[700],
+            color: isFailed ? Colors.red[700] : Colors.green[700],
           ),
           textAlign: TextAlign.center,
         ),
@@ -548,11 +562,13 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       ),
       child: _unauthorized
           ? _buildUnauthorizedState()
-          : _isLoading
-              ? _buildLoadingState()
-              : _active != null
-                  ? _buildSuccessState()
-                  : _buildWaitingState(),
+          : _status == _PaymentStatus.failed
+              ? _buildFailedState()
+              : _isLoading
+                  ? _buildLoadingState()
+                  : _active != null
+                      ? _buildSuccessState()
+                      : _buildWaitingState(),
     );
   }
 
@@ -708,6 +724,49 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
     );
   }
 
+  Widget _buildFailedState() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[600], size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Pembayaran Tidak Berjaya',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red[600],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Pembayaran anda tidak dapat diproses. Sila semak maklumat pembayaran anda atau cuba dengan kaedah pembayaran lain.',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[600],
+          ),
+        ),
+        if (_orderNumber != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Order Number: $_orderNumber',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[500],
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildActions() {
     if (_unauthorized) {
       return SizedBox(
@@ -724,31 +783,54 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       );
     }
 
+    final isFailed = _status == _PaymentStatus.failed;
     final showSuccess = _active != null && _status == _PaymentStatus.success;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ElevatedButton(
-          onPressed: () => _navigateTo('/subscription'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: showSuccess ? AppColors.primary : Colors.white,
-            foregroundColor: showSuccess ? Colors.white : AppColors.primary,
-            side: showSuccess ? null : BorderSide(color: AppColors.primary),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+        if (isFailed) ...[
+          ElevatedButton(
+            onPressed: () => _navigateTo('/subscription'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text('Cuba Bayar Semula'),
           ),
-          child: Text(showSuccess ? 'Lihat Subscription' : 'Semak Status'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: () => _navigateTo('/home'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: BorderSide(color: AppColors.primary),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () => _navigateTo('/home'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text('Ke Dashboard'),
           ),
-          child: const Text('Ke Dashboard'),
-        ),
+        ] else ...[
+          ElevatedButton(
+            onPressed: () => _navigateTo('/subscription'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: showSuccess ? AppColors.primary : Colors.white,
+              foregroundColor: showSuccess ? Colors.white : AppColors.primary,
+              side: showSuccess ? null : BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: Text(showSuccess ? 'Lihat Subscription' : 'Semak Status'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () => _navigateTo('/home'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text('Ke Dashboard'),
+          ),
+        ],
       ],
     );
   }
