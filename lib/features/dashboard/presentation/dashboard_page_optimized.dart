@@ -23,6 +23,8 @@ import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/models/consignment_claim.dart';
 import '../../subscription/services/subscription_service.dart';
 import '../../subscription/data/models/subscription.dart';
+import '../../../data/repositories/business_profile_repository_supabase.dart';
+import '../../../data/models/business_profile.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -42,11 +44,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final _plannerAuto = PlannerAutoService();
   final _reportsRepo = ReportsRepositorySupabase();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
+  final _businessProfileRepo = BusinessProfileRepository();
 
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _todayStats;
   List<SalesByChannel> _salesByChannel = [];
   Subscription? _subscription;
+  BusinessProfile? _businessProfile;
   bool _loading = true;
 
   @override
@@ -81,6 +85,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _loadPendingTasks(),
         _loadSalesByChannel(),
         SubscriptionService().getCurrentSubscription(),
+        _businessProfileRepo.getBusinessProfile(),
       ]);
 
       if (!mounted) return; // Check again after async operations
@@ -98,6 +103,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _todayStats = mergedTodayStats;
         _salesByChannel = results[3] as List<SalesByChannel>;
         _subscription = results[4] as Subscription?;
+        _businessProfile = results[5] as BusinessProfile?;
         _loading = false;
       });
     } catch (e) {
@@ -332,7 +338,9 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   // Morning Briefing Card
                   MorningBriefingCard(
-                    userName: user?.email?.split('@').first ?? 'SME Owner',
+                    userName: _businessProfile?.businessName ?? 
+                              user?.email?.split('@').first ?? 
+                              'SME Owner',
                   ),
 
                   const SizedBox(height: 20),
