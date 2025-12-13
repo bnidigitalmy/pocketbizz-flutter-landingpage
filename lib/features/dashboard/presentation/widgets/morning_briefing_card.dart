@@ -49,11 +49,11 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
   }
 
   String _getGreeting() {
-    if (hour < 12) {
+    if (_hour < 12) {
       return 'Selamat Pagi';
-    } else if (hour < 15) {
+    } else if (_hour < 15) {
       return 'Selamat Tengah Hari';
-    } else if (hour < 19) {
+    } else if (_hour < 19) {
       return 'Selamat Petang';
     } else {
       return 'Selamat Malam';
@@ -61,11 +61,11 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
   }
 
   String _getMotivationalMessage() {
-    if (hour < 12) {
+    if (_hour < 12) {
       return 'Mari kita mulakan hari dengan produktif! 💪';
-    } else if (hour < 15) {
+    } else if (_hour < 15) {
       return 'Teruskan momentum hari ini! 🚀';
-    } else if (hour < 19) {
+    } else if (_hour < 19) {
       return 'Hampir selesai, teruskan usaha! 💼';
     } else {
       return 'Terima kasih atas usaha hari ini! 🙏';
@@ -73,9 +73,9 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
   }
 
   IconData _getTimeIcon() {
-    if (hour < 12) {
+    if (_hour < 12) {
       return Icons.wb_sunny;
-    } else if (hour < 19) {
+    } else if (_hour < 19) {
       return Icons.wb_twilight;
     } else {
       return Icons.nightlight_round;
