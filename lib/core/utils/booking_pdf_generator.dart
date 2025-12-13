@@ -749,6 +749,70 @@ class BookingPDFGenerator {
             
             pw.SizedBox(height: 20),
             
+            // Products Ordered Section
+            if (booking.items != null && booking.items!.isNotEmpty) ...[
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Produk Ditempah',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blueGrey800,
+                      ),
+                    ),
+                    pw.SizedBox(height: 12),
+                    // Products Table
+                    pw.Table(
+                      border: pw.TableBorder.all(color: PdfColors.grey300),
+                      columnWidths: {
+                        0: const pw.FlexColumnWidth(0.3),
+                        1: const pw.FlexColumnWidth(2.0),
+                        2: const pw.FlexColumnWidth(1.0),
+                        3: const pw.FlexColumnWidth(1.2),
+                        4: const pw.FlexColumnWidth(1.2),
+                      },
+                      children: [
+                        // Header Row
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                          children: [
+                            _buildTableCell('No', isHeader: true, fontSize: 9),
+                            _buildTableCell('Produk', isHeader: true, fontSize: 9),
+                            _buildTableCell('Kuantiti', isHeader: true, fontSize: 9),
+                            _buildTableCell('Harga', isHeader: true, fontSize: 9),
+                            _buildTableCell('Jumlah', isHeader: true, fontSize: 9),
+                          ],
+                        ),
+                        // Item Rows
+                        ...booking.items!.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final item = entry.value;
+                          return pw.TableRow(
+                            children: [
+                              _buildTableCell('${index + 1}', fontSize: 9),
+                              _buildTableCell(item.productName, fontSize: 9),
+                              _buildTableCell(item.quantity.toStringAsFixed(1), fontSize: 9),
+                              _buildTableCell('RM${item.unitPrice.toStringAsFixed(2)}', fontSize: 9),
+                              _buildTableCell('RM${item.subtotal.toStringAsFixed(2)}', fontSize: 9),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+            ],
+            
             // Booking Summary
             pw.Container(
               padding: const pw.EdgeInsets.all(16),

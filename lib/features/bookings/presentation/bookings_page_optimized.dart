@@ -1525,7 +1525,10 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text('Ya, Generate Resit'),
                 ),
               ],
