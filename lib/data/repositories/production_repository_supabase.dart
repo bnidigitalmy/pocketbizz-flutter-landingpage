@@ -447,6 +447,7 @@ class ProductionRepository {
   Future<List<Map<String, dynamic>>> consumeStock({
     required String productId,
     required double quantity,
+    String? deliveryId,
     String? note,
   }) async {
     try {
@@ -502,6 +503,18 @@ class ProductionRepository {
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', batch.id);
+
+        // Log stock movement for tracking
+        await _logStockMovement(
+          batchId: batch.id,
+          productId: productId,
+          movementType: 'delivery',
+          quantity: toConsume,
+          remainingAfter: newRemaining,
+          referenceId: deliveryId,
+          referenceType: 'delivery',
+          notes: note,
+        );
 
         updates.add({
           'batchId': batch.id,

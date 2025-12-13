@@ -440,6 +440,11 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
         color = Colors.green;
         typeLabel = 'Jualan';
         break;
+      case 'delivery':
+        icon = Icons.local_shipping;
+        color = Colors.orange;
+        typeLabel = 'Penghantaran';
+        break;
       case 'production':
         icon = Icons.factory;
         color = Colors.blue;

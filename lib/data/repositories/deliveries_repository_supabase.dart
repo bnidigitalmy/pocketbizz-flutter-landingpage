@@ -182,6 +182,7 @@ class DeliveriesRepositorySupabase {
           await productionRepo.consumeStock(
             productId: productId,
             quantity: acceptedQty,
+            deliveryId: deliveryId,
             note: 'Delivery #$deliveryId - Accepted: $acceptedQty, Rejected: $rejectedQty',
           );
         } catch (e) {
