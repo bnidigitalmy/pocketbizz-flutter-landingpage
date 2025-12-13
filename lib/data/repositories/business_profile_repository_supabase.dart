@@ -23,6 +23,36 @@ class BusinessProfileRepository {
     }
   }
 
+  /// Ensure user exists in users table (for existing users who signed up before trigger was created)
+  Future<void> _ensureUserExists(String userId) async {
+    try {
+      // Check if user exists in users table
+      final userCheck = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      // If user doesn't exist, create it
+      if (userCheck == null) {
+        final authUser = supabase.auth.currentUser;
+        if (authUser == null) return;
+
+        await supabase.from('users').insert({
+          'id': userId,
+          'email': authUser.email ?? '',
+          'full_name': authUser.userMetadata?['full_name'] ?? 
+                      authUser.userMetadata?['name'] ?? 
+                      authUser.email?.split('@')[0] ?? 
+                      'User',
+        }).onConflict('id').doNothing();
+      }
+    } catch (e) {
+      // Log error but don't throw - this is a best-effort operation
+      print('Warning: Failed to ensure user exists: $e');
+    }
+  }
+
   /// Create or update business profile
   Future<BusinessProfile> saveBusinessProfile({
     required String businessName,
@@ -39,6 +69,9 @@ class BusinessProfileRepository {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('User not authenticated');
+
+      // Ensure user exists in users table before saving business profile
+      await _ensureUserExists(userId);
 
       // Check if profile exists
       final existing = await getBusinessProfile();
@@ -78,6 +111,33 @@ class BusinessProfileRepository {
 
       return BusinessProfile.fromJson(response);
     } catch (e) {
+      // Provide more specific error messages
+      final errorString = e.toString().toLowerCase();
+      
+      if (errorString.contains('foreign key constraint') || 
+          errorString.contains('business_profile_business_owner_id_fkey')) {
+        throw Exception(
+          'User account not properly set up. Please try logging out and logging back in, or contact support.'
+        );
+      }
+      
+      if (errorString.contains('unique constraint') || 
+          errorString.contains('409') ||
+          errorString.contains('duplicate')) {
+        // If we get a unique constraint error, try to update instead
+        try {
+          final response = await supabase
+              .from('business_profile')
+              .update(data)
+              .eq('business_owner_id', userId)
+              .select()
+              .single();
+          return BusinessProfile.fromJson(response);
+        } catch (retryError) {
+          throw Exception('Failed to save business profile: $retryError');
+        }
+      }
+      
       throw Exception('Failed to save business profile: $e');
     }
   }
