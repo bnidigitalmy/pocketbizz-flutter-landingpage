@@ -38,14 +38,28 @@ class BusinessProfileRepository {
         final authUser = supabase.auth.currentUser;
         if (authUser == null) return;
 
-        await supabase.from('users').insert({
-          'id': userId,
-          'email': authUser.email ?? '',
-          'full_name': authUser.userMetadata?['full_name'] ?? 
-                      authUser.userMetadata?['name'] ?? 
-                      authUser.email?.split('@')[0] ?? 
-                      'User',
-        }).onConflict('id').doNothing();
+        // Try to insert user, ignore if already exists (race condition)
+        try {
+          await supabase.from('users').insert({
+            'id': userId,
+            'email': authUser.email ?? '',
+            'full_name': authUser.userMetadata?['full_name'] ?? 
+                        authUser.userMetadata?['name'] ?? 
+                        authUser.email?.split('@')[0] ?? 
+                        'User',
+          });
+        } catch (insertError) {
+          // If insert fails due to conflict (user already exists), that's okay
+          // This can happen in race conditions or if trigger already created the user
+          final errorString = insertError.toString().toLowerCase();
+          if (!errorString.contains('duplicate') && 
+              !errorString.contains('unique') &&
+              !errorString.contains('23505')) { // PostgreSQL unique violation code
+            // Re-throw if it's a different error
+            rethrow;
+          }
+          // Otherwise, silently ignore - user already exists
+        }
       }
     } catch (e) {
       // Log error but don't throw - this is a best-effort operation
@@ -66,30 +80,30 @@ class BusinessProfileRepository {
     String? accountName,
     String? paymentQrCode,
   }) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    // Ensure user exists in users table before saving business profile
+    await _ensureUserExists(userId);
+
+    // Check if profile exists
+    final existing = await getBusinessProfile();
+
+    final data = {
+      'business_owner_id': userId,
+      'business_name': businessName,
+      'tagline': tagline,
+      'registration_number': registrationNumber,
+      'address': address,
+      'phone': phone,
+      'email': email,
+      'bank_name': bankName,
+      'account_number': accountNumber,
+      'account_name': accountName,
+      'payment_qr_code': paymentQrCode,
+    };
+
     try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) throw Exception('User not authenticated');
-
-      // Ensure user exists in users table before saving business profile
-      await _ensureUserExists(userId);
-
-      // Check if profile exists
-      final existing = await getBusinessProfile();
-
-      final data = {
-        'business_owner_id': userId,
-        'business_name': businessName,
-        'tagline': tagline,
-        'registration_number': registrationNumber,
-        'address': address,
-        'phone': phone,
-        'email': email,
-        'bank_name': bankName,
-        'account_number': accountNumber,
-        'account_name': accountName,
-        'payment_qr_code': paymentQrCode,
-      };
-
       Map<String, dynamic> response;
 
       if (existing != null) {
