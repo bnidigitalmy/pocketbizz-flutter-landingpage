@@ -120,12 +120,34 @@ class BookingItem {
 /// Bookings repository using Supabase
 class BookingsRepositorySupabase {
   /// Generate booking number (B0001, B0002, etc.)
+  /// Uses max booking number to avoid race conditions
   Future<String> _generateBookingNumber() async {
-    final count = await supabase
+    // Get the max booking number to avoid race conditions
+    final result = await supabase
         .from('bookings')
-        .count();
+        .select('booking_number')
+        .order('booking_number', ascending: false)
+        .limit(1)
+        .maybeSingle();
 
-    final nextNumber = count + 1;
+    int nextNumber = 1;
+    
+    if (result != null && result['booking_number'] != null) {
+      final lastNumber = result['booking_number'] as String;
+      // Extract number from format like "B0001"
+      if (lastNumber.startsWith('B')) {
+        try {
+          final numberStr = lastNumber.substring(1);
+          final lastNum = int.parse(numberStr);
+          nextNumber = lastNum + 1;
+        } catch (e) {
+          // If parsing fails, fall back to count
+          final count = await supabase.from('bookings').count();
+          nextNumber = count + 1;
+        }
+      }
+    }
+
     return 'B${nextNumber.toString().padLeft(4, '0')}';
   }
 
@@ -160,40 +182,76 @@ class BookingsRepositorySupabase {
 
     final finalTotal = itemsTotal - discountAmount;
 
-    // Generate booking number
-    final bookingNumber = await _generateBookingNumber();
-
     // Get current user ID
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
 
-    // Insert booking
-    final booking = await supabase.from('bookings').insert({
-      'business_owner_id': userId,
-      'booking_number': bookingNumber,
-      'customer_name': customerName,
-      'customer_phone': customerPhone,
-      'customer_email': customerEmail,
-      'event_type': eventType,
-      'event_date': eventDate,
-      'delivery_date': deliveryDate,
-      'delivery_time': deliveryTime,
-      'delivery_location': deliveryLocation,
-      'notes': notes,
-      'discount_type': discountType,
-      'discount_value': discountValue,
-      'discount_amount': discountAmount,
-      'total_amount': finalTotal,
-      'deposit_amount': depositAmount,
-      'status': 'pending',
-    }).select().single();
+    // Insert booking with retry logic for duplicate booking_number
+    Booking? booking;
+    int maxRetries = 5;
+    int retryCount = 0;
+    
+    while (booking == null && retryCount < maxRetries) {
+      try {
+        // Generate booking number
+        final bookingNumber = await _generateBookingNumber();
+
+        // Insert booking
+        final bookingData = await supabase.from('bookings').insert({
+          'business_owner_id': userId,
+          'booking_number': bookingNumber,
+          'customer_name': customerName,
+          'customer_phone': customerPhone,
+          'customer_email': customerEmail,
+          'event_type': eventType,
+          'event_date': eventDate,
+          'delivery_date': deliveryDate,
+          'delivery_time': deliveryTime,
+          'delivery_location': deliveryLocation,
+          'notes': notes,
+          'discount_type': discountType,
+          'discount_value': discountValue,
+          'discount_amount': discountAmount,
+          'total_amount': finalTotal,
+          'deposit_amount': depositAmount,
+          'status': 'pending',
+        }).select().single();
+        
+        booking = Booking.fromJson(bookingData);
+      } catch (e) {
+        final errorString = e.toString().toLowerCase();
+        
+        // If duplicate booking_number error, retry with new number
+        if (errorString.contains('duplicate') || 
+            errorString.contains('unique constraint') ||
+            errorString.contains('bookings_booking_number_key') ||
+            errorString.contains('409')) {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            throw Exception('Failed to create booking: Unable to generate unique booking number after $maxRetries attempts. Please try again.');
+          }
+          // Wait a bit before retry to avoid immediate collision
+          await Future.delayed(Duration(milliseconds: 100 * retryCount));
+        } else {
+          // Other errors, throw immediately
+          throw Exception('Failed to create booking: $e');
+        }
+      }
+    }
+    
+    if (booking == null) {
+      throw Exception('Failed to create booking: Unable to generate unique booking number.');
+    }
+
+    // At this point, booking is guaranteed to be non-null
+    final finalBooking = booking!;
 
     // Insert booking items
     final bookingItems = items.map((item) => {
       'business_owner_id': userId, // Required for RLS policy
-      'booking_id': booking['id'],
+      'booking_id': finalBooking.id,
       'product_id': item['product_id'],
       'product_name': item['product_name'],
       'quantity': item['quantity'],
@@ -204,7 +262,7 @@ class BookingsRepositorySupabase {
     await supabase.from('booking_items').insert(bookingItems);
 
     // Return booking with items
-    return getBooking(booking['id']);
+    return getBooking(finalBooking.id);
   }
 
   /// Get booking by ID with items
