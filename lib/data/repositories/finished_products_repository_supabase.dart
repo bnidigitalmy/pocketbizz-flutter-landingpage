@@ -73,12 +73,16 @@ class FinishedProductsRepository {
 
   /// Get all batches for a specific product
   /// Ordered by batch_date (FIFO - oldest first)
-  Future<List<ProductionBatch>> getProductBatches(String productId) async {
+  /// If includeCompleted is true, includes batches with remaining_qty = 0
+  Future<List<ProductionBatch>> getProductBatches(
+    String productId, {
+    bool includeCompleted = false,
+  }) async {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('User not authenticated');
 
-      final response = await supabase
+      var query = supabase
           .from('production_batches')
           .select('''
             *,
@@ -87,9 +91,14 @@ class FinishedProductsRepository {
             )
           ''')
           .eq('business_owner_id', userId)
-          .eq('product_id', productId)
-          .gt('remaining_qty', 0)
-          .order('batch_date', ascending: true); // FIFO - oldest first
+          .eq('product_id', productId);
+
+      // Only filter by remaining_qty if not including completed batches
+      if (!includeCompleted) {
+        query = query.gt('remaining_qty', 0);
+      }
+
+      final response = await query.order('batch_date', ascending: true); // FIFO - oldest first
 
       return (response as List)
           .map((json) => ProductionBatch.fromJson(json as Map<String, dynamic>))
@@ -97,6 +106,14 @@ class FinishedProductsRepository {
     } catch (e) {
       throw Exception('Failed to fetch product batches: $e');
     }
+  }
+
+  /// Get all batches including completed ones (for history)
+  /// Returns all batches regardless of remaining_qty
+  Future<List<ProductionBatch>> getAllProductBatchesIncludingCompleted(
+    String productId,
+  ) async {
+    return getProductBatches(productId, includeCompleted: true);
   }
 }
 

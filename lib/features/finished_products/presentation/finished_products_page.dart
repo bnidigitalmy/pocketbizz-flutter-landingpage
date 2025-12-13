@@ -147,8 +147,131 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
                   ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 32),
+            // Button to view history
+            ElevatedButton.icon(
+              onPressed: () => _showAllProductsHistory(),
+              icon: const Icon(Icons.history),
+              label: const Text('Lihat Sejarah Stok'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showAllProductsHistory() async {
+    // Show dialog with all products that have history (including completed batches)
+    if (_allProducts.isEmpty) return;
+
+    // Show bottom sheet with list of products
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Sejarah Stok Siap',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Products list
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _allProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = _allProducts[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: Icon(
+                              Icons.inventory_2,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          title: Text(product.name),
+                          subtitle: Text('Klik untuk lihat sejarah batch'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showBatchDetailsWithHistory(product.id, product.name);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showBatchDetailsWithHistory(
+    String productId,
+    String productName,
+  ) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BatchDetailsDialog(
+        productId: productId,
+        productName: productName,
       ),
     );
   }

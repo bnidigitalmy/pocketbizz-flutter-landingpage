@@ -36,10 +36,16 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
     _loadBatches();
   }
 
+  bool _showCompleted = false;
+
   Future<void> _loadBatches() async {
     setState(() => _isLoading = true);
     try {
-      final batches = await _repository.getProductBatches(widget.productId);
+      // Load batches including completed ones if _showCompleted is true
+      final batches = await _repository.getProductBatches(
+        widget.productId,
+        includeCompleted: _showCompleted,
+      );
       
       // Load movement history for all batches
       final historyMap = <String, List<Map<String, dynamic>>>{};
@@ -116,6 +122,26 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
                         ),
                       ),
                     ),
+                    // Toggle to show completed batches
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showCompleted = !_showCompleted;
+                        });
+                        _loadBatches();
+                      },
+                      icon: Icon(
+                        _showCompleted ? Icons.visibility_off : Icons.history,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _showCompleted ? 'Aktif' : 'Sejarah',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(context),
@@ -149,12 +175,31 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
             Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Tiada batch untuk produk ini',
+              _showCompleted
+                  ? 'Tiada rekod sejarah untuk produk ini'
+                  : 'Tiada batch untuk produk ini',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
               ),
             ),
+            if (!_showCompleted) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showCompleted = true;
+                  });
+                  _loadBatches();
+                },
+                icon: const Icon(Icons.history),
+                label: const Text('Lihat Sejarah'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -427,7 +472,6 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
         ? DateTime.parse(movement['created_at'] as String)
         : DateTime.now();
     final notes = movement['notes'] as String?;
-    final referenceType = movement['reference_type'] as String?;
     
     // Get icon and color based on movement type
     IconData icon;
