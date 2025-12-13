@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_time_helper.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
@@ -58,6 +59,8 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
     try {
       final bookings = await _repo.listBookings();
+      // Sort by createdAt descending (newest first) - repository already sorts, but ensure it here too
+      bookings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
         _bookings = bookings;
         _filterBookings();
@@ -925,6 +928,23 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                       
                       const SizedBox(height: 24),
                       
+                      // Booking Date Section
+                      _buildDetailSection(
+                        'Maklumat Tempahan',
+                        Icons.calendar_today,
+                        [
+                          _buildDetailRow(
+                            'Tarikh Tempahan Dibuat',
+                            DateTimeHelper.formatDateTime(
+                              fullBooking.createdAt,
+                              pattern: 'dd MMMM yyyy, hh:mm a',
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
                       // Delivery Info Section
                       _buildDetailSection(
                         'Maklumat Penghantaran',
@@ -932,7 +952,10 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                         [
                           _buildDetailRow(
                             'Tarikh Hantar',
-                            DateFormat('dd MMMM yyyy', 'ms_MY').format(DateTime.parse(fullBooking.deliveryDate)),
+                            DateTimeHelper.formatDate(
+                              DateTime.parse(fullBooking.deliveryDate),
+                              pattern: 'dd MMMM yyyy',
+                            ),
                           ),
                           if (fullBooking.deliveryTime != null)
                             _buildDetailRow('Masa', fullBooking.deliveryTime!),
