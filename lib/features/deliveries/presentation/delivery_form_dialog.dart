@@ -88,8 +88,15 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
       final prefs = await SharedPreferences.getInstance();
       final lastVendorId = prefs.getString('pocketbizz_last_delivery_vendor');
       if (lastVendorId != null && mounted) {
-        setState(() => _selectedVendorId = lastVendorId);
-        _onVendorChanged(lastVendorId);
+        // Only set vendor if it exists in the vendors list
+        final vendorExists = widget.vendors.any((v) => v.id == lastVendorId);
+        if (vendorExists) {
+          setState(() => _selectedVendorId = lastVendorId);
+          _onVendorChanged(lastVendorId);
+        } else {
+          // Clear invalid vendor ID from preferences
+          await prefs.remove('pocketbizz_last_delivery_vendor');
+        }
       }
     } catch (e) {
       debugPrint('Error loading last vendor: $e');
@@ -823,7 +830,10 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
               children: [
                 // Vendor dropdown
                 DropdownButtonFormField<String>(
-                  value: _selectedVendorId,
+                  value: _selectedVendorId != null && 
+                         widget.vendors.any((v) => v.id == _selectedVendorId)
+                      ? _selectedVendorId
+                      : null,
                   decoration: const InputDecoration(
                     labelText: 'Vendor *',
                     border: OutlineInputBorder(),
