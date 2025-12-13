@@ -131,7 +131,7 @@ CREATE TRIGGER trigger_update_booking_total_paid
 COMMENT ON TABLE booking_payments IS 'Tracks payment history for bookings. Supports multiple payments per booking.';
 COMMENT ON COLUMN booking_payments.payment_number IS 'Auto-generated payment number (format: PAY-YYMM-0001)';
 COMMENT ON COLUMN booking_payments.payment_amount IS 'Amount paid in this payment';
-COMMENT ON COLUMN booking_payments.total_paid IS 'Total amount paid for the booking (sum of all payments)';
+COMMENT ON COLUMN bookings.total_paid IS 'Total amount paid for the booking (sum of all payments from booking_payments table)';
 
 COMMIT;
 
