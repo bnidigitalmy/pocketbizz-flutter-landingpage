@@ -32,6 +32,7 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
   final Map<String, DateTime?> _expiryByProductId = {};
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _notesCtrl = TextEditingController();
+  final Map<String, bool> _expandedProducts = {};
 
   BulkProductionPlan? _plan;
   bool _isLoading = false;
@@ -541,7 +542,7 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
     final plan = _plan;
     if (plan == null) return const SizedBox.shrink();
 
-    final missingMaterials = plan.materials.where((m) => !m.isSufficient).length;
+    final insufficientMaterials = plan.materials.where((m) => !m.isSufficient).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,47 +560,49 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
                 ),
                 const SizedBox(height: 8),
                 Text('Produk dipilih: ${plan.selectedCount}'),
-                Text('Boleh produce sekarang: ${plan.producibleCount} (partial)'),
-                Text('Bahan tidak cukup: $missingMaterials item'),
+                Text('Produk boleh diproduksi sekarang: ${plan.producibleCount}/${plan.selectedCount}'),
+                Text('Bahan tidak mencukupi (perlu dibeli): ${insufficientMaterials.length} item'),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        const Text('Status Produk', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...plan.products.map((p) {
-          final color = p.canProduceNow ? Colors.green : Colors.red;
-          final reason = !p.hasActiveRecipe
-              ? 'Tiada resipi aktif'
-              : p.canProduceNow
-                  ? 'OK'
-                  : p.blockers.isEmpty
-                      ? 'Stok tidak cukup'
-                      : p.blockers.take(2).map((b) => '${b.stockItemName} (-${b.shortageInStockUnit.toStringAsFixed(2)} ${b.stockUnit})').join(', ');
-          final expiry = _expiryPerProduct ? _expiryByProductId[p.productId] : null;
-          final expiryToShow = expiry ?? _expiryDate;
-
-          return ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(p.canProduceNow ? Icons.check_circle : Icons.cancel, color: color),
-            title: Text('${p.productName} (${p.batchCount} batch = ${p.totalUnits} unit)'),
-            subtitle: Text(
-              expiryToShow == null
-                  ? reason
-                  : '$reason\nExpiry: ${DateFormat('dd MMM yyyy', 'ms_MY').format(expiryToShow)}',
+        if (insufficientMaterials.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.red.withOpacity(0.25)),
             ),
-            trailing: Text(
-              'RM ${p.estimatedTotalCost.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.red),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Stok tidak mencukupi untuk produce semua produk.\n'
+                    'Sila beli bahan terlebih dahulu (atau guna “Produce Yang Boleh” untuk hasilkan yang cukup stok).',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
             ),
-          );
-        }),
+          ),
+        ],
         const SizedBox(height: 16),
-        const Text('Bahan Diperlukan (Gabungan)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Produk Dipilih (dengan bahan digunakan)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        ...plan.materials.map((m) {
+        ...plan.products.map((p) => _buildProductPreviewCard(p)),
+        const SizedBox(height: 16),
+        const Text('Bahan Yang Tidak Mencukupi (Perlu dibeli)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (insufficientMaterials.isEmpty)
+          Text(
+            '✅ Semua bahan mencukupi.',
+            style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
+          ),
+        ...insufficientMaterials.map((m) {
           final insufficient = !m.isSufficient;
           return Card(
             elevation: 0,
@@ -611,16 +614,132 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
                 'Stok: ${m.currentStock.toStringAsFixed(2)} ${m.stockUnit}'
                 '${insufficient ? ' • Kurang: ${m.shortageStockQty.toStringAsFixed(2)} ${m.stockUnit}' : ''}',
               ),
-              trailing: insufficient
-                  ? Text(
-                      'Beli: ${m.packagesNeeded} pek',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-                    )
-                  : const Text('OK', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              trailing: Text(
+                'Beli: ${m.packagesNeeded} pek',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              ),
             ),
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildProductPreviewCard(BulkProductionProductPlan p) {
+    final statusColor = p.canProduceNow ? Colors.green : Colors.red;
+    final isExpanded = _expandedProducts[p.productId] ?? false;
+    final reason = !p.hasActiveRecipe
+        ? 'Tiada resipi aktif'
+        : p.canProduceNow
+            ? 'Boleh produce'
+            : 'Stok tidak mencukupi (semak bahan dalam senarai)';
+    final expiry = _expiryPerProduct ? _expiryByProductId[p.productId] : null;
+    final expiryToShow = expiry ?? _expiryDate;
+    final shortageByStockItemId = <String, double>{};
+    for (final b in p.blockers) {
+      shortageByStockItemId[b.stockItemId] =
+          (shortageByStockItemId[b.stockItemId] ?? 0) + b.shortageInStockUnit;
+    }
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: statusColor.withOpacity(0.25)),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        onExpansionChanged: (expanded) => setState(() {
+          _expandedProducts[p.productId] = expanded;
+        }),
+        leading: const Icon(Icons.check_circle, color: AppColors.primary),
+        title: Text('${p.productName} (${p.batchCount} batch = ${p.totalUnits} unit)'),
+        subtitle: Text(expiryToShow == null ? reason : '$reason • Expiry: ${DateFormat('dd MMM yyyy', 'ms_MY').format(expiryToShow)}'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!p.hasActiveRecipe)
+              Icon(Icons.info_outline, color: Colors.grey[600])
+            else if (!p.canProduceNow)
+              const Icon(Icons.warning_amber_rounded, color: Colors.red)
+            else
+              const Icon(Icons.check_circle_outline, color: Colors.green),
+            const SizedBox(width: 8),
+            Text(
+              'RM ${p.estimatedTotalCost.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: Colors.grey[600],
+            ),
+          ],
+        ),
+        children: [
+          if (!p.hasActiveRecipe)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text('Tiada bahan untuk dipreview kerana resipi aktif belum diset.'),
+            )
+          else if (p.materials.isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text('Tiada bahan ditemui untuk produk ini.'),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Bahan digunakan:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...p.materials.map((m) {
+                    final shortage = shortageByStockItemId[m.stockItemId] ?? 0.0;
+                    final isShort = shortage > 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isShort ? Icons.error_outline : Icons.circle,
+                            size: isShort ? 16 : 6,
+                            color: isShort ? Colors.red : Colors.grey,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              m.stockItemName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: isShort ? Colors.red[700] : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${m.quantityUsageUnit.toStringAsFixed(2)} ${m.usageUnit}'
+                            '  (≈ ${m.quantityStockUnit.toStringAsFixed(2)} ${m.stockUnit})'
+                            '${isShort ? '  •  Kurang: ${shortage.toStringAsFixed(2)} ${m.stockUnit}' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isShort ? Colors.red[700] : Colors.grey[700],
+                              fontWeight: isShort ? FontWeight.w700 : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -677,7 +796,7 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _produceNowPartial,
                   icon: const Icon(Icons.factory),
-                  label: const Text('Produce (Partial)'),
+                  label: const Text('Produce Yang Boleh'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -705,7 +824,7 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _produceNowPartial,
                     icon: const Icon(Icons.factory),
-                    label: const Text('Produce (Partial)'),
+                    label: const Text('Produce Yang Boleh'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,

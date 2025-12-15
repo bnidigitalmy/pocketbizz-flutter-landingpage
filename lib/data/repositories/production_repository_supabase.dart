@@ -778,6 +778,8 @@ class ProductionRepository {
       final requiredByProduct =
           <String, Map<String, double>>{}; // product_id -> (stock_item_id -> qty_in_stock_unit)
       final requiredAll = <String, double>{}; // stock_item_id -> total qty_in_stock_unit
+      final perProductMaterials =
+          <String, List<BulkProductMaterialLine>>{}; // product_id -> materials
 
       for (final productId in productIds) {
         final items = recipeItemsByProductId[productId] ?? const [];
@@ -785,6 +787,7 @@ class ProductionRepository {
         if (batchCount <= 0) continue;
 
         final perProduct = <String, double>{};
+        final perProductLinesByKey = <String, BulkProductMaterialLine>{};
         for (final ri in items) {
           final stockItemId = ri['stock_item_id'] as String?;
           if (stockItemId == null) continue;
@@ -805,8 +808,33 @@ class ProductionRepository {
 
           perProduct[stockItemId] = (perProduct[stockItemId] ?? 0) + convertedQty;
           requiredAll[stockItemId] = (requiredAll[stockItemId] ?? 0) + convertedQty;
+
+          final key = '$stockItemId|$usageUnit';
+          final existing = perProductLinesByKey[key];
+          if (existing == null) {
+            perProductLinesByKey[key] = BulkProductMaterialLine(
+              stockItemId: stockItemId,
+              stockItemName: (stock['name'] as String?) ?? 'Unknown',
+              quantityUsageUnit: totalUsageQty,
+              usageUnit: usageUnit,
+              quantityStockUnit: convertedQty,
+              stockUnit: stockUnit,
+            );
+          } else {
+            perProductLinesByKey[key] = BulkProductMaterialLine(
+              stockItemId: stockItemId,
+              stockItemName: existing.stockItemName,
+              quantityUsageUnit: existing.quantityUsageUnit + totalUsageQty,
+              usageUnit: existing.usageUnit,
+              quantityStockUnit: existing.quantityStockUnit + convertedQty,
+              stockUnit: existing.stockUnit,
+            );
+          }
         }
         requiredByProduct[productId] = perProduct;
+        final lines = perProductLinesByKey.values.toList()
+          ..sort((a, b) => a.stockItemName.toLowerCase().compareTo(b.stockItemName.toLowerCase()));
+        perProductMaterials[productId] = lines;
       }
 
       // Build materials list (for FULL plan)
@@ -872,6 +900,7 @@ class ProductionRepository {
               hasActiveRecipe: false,
               canProduceNow: false,
               blockers: const [],
+              materials: const [],
             ),
           );
           continue;
@@ -914,6 +943,7 @@ class ProductionRepository {
             hasActiveRecipe: true,
             canProduceNow: canProduceNow,
             blockers: blockers,
+            materials: perProductMaterials[productId] ?? const [],
           ),
         );
       }

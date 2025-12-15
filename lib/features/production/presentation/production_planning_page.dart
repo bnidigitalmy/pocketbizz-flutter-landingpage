@@ -138,7 +138,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                 ListTile(
                   leading: const Icon(Icons.restaurant_menu, color: AppColors.primary),
                   title: const Text('Rancang Produksi (1 Produk)'),
-                  subtitle: const Text('Flow sedia ada: preview bahan → sahkan produksi'),
+                  subtitle: const Text('Pilih 1 produk, semak bahan & rekod produksi'),
                   onTap: () {
                     Navigator.pop(context);
                     _showPlanningDialog();

@@ -25,6 +25,24 @@ class BulkProductionBlocker {
   });
 }
 
+class BulkProductMaterialLine {
+  final String stockItemId;
+  final String stockItemName;
+  final double quantityUsageUnit; // in usageUnit (recipe unit)
+  final String usageUnit;
+  final double quantityStockUnit; // converted to stockUnit
+  final String stockUnit;
+
+  BulkProductMaterialLine({
+    required this.stockItemId,
+    required this.stockItemName,
+    required this.quantityUsageUnit,
+    required this.usageUnit,
+    required this.quantityStockUnit,
+    required this.stockUnit,
+  });
+}
+
 class BulkProductionProductPlan {
   final String productId;
   final String productName;
@@ -35,6 +53,7 @@ class BulkProductionProductPlan {
   final bool hasActiveRecipe;
   final bool canProduceNow;
   final List<BulkProductionBlocker> blockers;
+  final List<BulkProductMaterialLine> materials; // per product, for preview
 
   BulkProductionProductPlan({
     required this.productId,
@@ -46,6 +65,7 @@ class BulkProductionProductPlan {
     required this.hasActiveRecipe,
     required this.canProduceNow,
     required this.blockers,
+    required this.materials,
   });
 }
 
