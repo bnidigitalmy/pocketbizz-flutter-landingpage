@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/utils/unit_conversion.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../../data/repositories/stock_repository_supabase.dart' as stock_repo;
 import '../../../data/models/recipe.dart';
@@ -187,9 +188,23 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
       final unit = result['unit'] as String;
 
       try {
-        // Recalculate cost
-        final costPerUnit = stock.costPerUnit;
-        final totalCost = quantity * costPerUnit;
+        // Recalculate cost using unit conversion:
+        // total_cost = (quantity converted to stock.unit) * stock.costPerUnit
+        if (unit.toLowerCase().trim() != stock.unit.toLowerCase().trim() &&
+            !UnitConversion.canConvert(unit, stock.unit)) {
+          throw Exception(
+            'Unit tidak serasi. Resepi: "$unit", Stok: "${stock.unit}". '
+            'Sila pilih unit yang serasi (contoh ml↔liter, g↔kg).',
+          );
+        }
+
+        final convertedQty = UnitConversion.convert(
+          quantity: quantity,
+          fromUnit: unit,
+          toUnit: stock.unit,
+        );
+        final costPerUnit = stock.costPerUnit; // cost per stock.unit
+        final totalCost = convertedQty * costPerUnit;
 
         await _recipesRepo.updateRecipeItem(item.id, {
           'quantity_needed': quantity,
@@ -265,6 +280,80 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     }
   }
 
+  Future<void> _recalculateAllCosts() async {
+    if (_activeRecipe == null) return;
+
+    setState(() => _isLoading = true);
+    int updated = 0;
+    int skipped = 0;
+
+    try {
+      for (final item in _recipeItems) {
+        final stock = _stockMap[item.stockItemId];
+        if (stock == null) {
+          skipped++;
+          continue;
+        }
+
+        final usageUnit = item.usageUnit.trim();
+        final stockUnit = stock.unit.trim();
+
+        if (usageUnit.toLowerCase() != stockUnit.toLowerCase() &&
+            !UnitConversion.canConvert(usageUnit, stockUnit)) {
+          skipped++;
+          continue;
+        }
+
+        final convertedQty = UnitConversion.convert(
+          quantity: item.quantityNeeded,
+          fromUnit: usageUnit,
+          toUnit: stockUnit,
+        );
+
+        final costPerUnit = stock.costPerUnit;
+        final totalCost = convertedQty * costPerUnit;
+
+        final shouldUpdate = (totalCost - item.totalCost).abs() >= 0.01 ||
+            (costPerUnit - item.costPerUnit).abs() >= 0.0001;
+
+        if (shouldUpdate) {
+          await _recipesRepo.updateRecipeItem(item.id, {
+            'cost_per_unit': costPerUnit,
+            'total_cost': totalCost,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          updated++;
+        }
+      }
+
+      // Update recipe rollups (materials_cost/total_cost/cost_per_unit) in DB
+      await _recipesRepo.recalculateRecipeCost(_activeRecipe!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Recalculate siap. Updated: $updated, Skipped: $skipped'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat recalculate: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _loadData();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -282,6 +371,13 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Recalculate Kos',
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _recalculateAllCosts,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -675,6 +771,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
   StockItem? _selectedStock;
   final _quantityController = TextEditingController();
   final _unitController = TextEditingController();
+  List<String> _compatibleUnits = const [];
 
   @override
   void initState() {
@@ -682,6 +779,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
     _selectedStock = widget.initialStock;
     _quantityController.text = widget.initialQuantity.toString();
     _unitController.text = widget.initialUnit;
+    _updateCompatibleUnits();
   }
 
   @override
@@ -689,6 +787,30 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
     _quantityController.dispose();
     _unitController.dispose();
     super.dispose();
+  }
+
+  void _updateCompatibleUnits() {
+    final stock = _selectedStock;
+    if (stock == null) {
+      setState(() => _compatibleUnits = const []);
+      return;
+    }
+
+    final units = UnitConversion.getCompatibleUnits(stock.unit)..sort();
+    final normalized = units.map((u) => u.toLowerCase()).toSet();
+
+    if (!normalized.contains(stock.unit.toLowerCase())) {
+      units.insert(0, stock.unit);
+    }
+
+    final current = _unitController.text.trim();
+    final currentOk =
+        current.isNotEmpty && units.map((u) => u.toLowerCase()).contains(current.toLowerCase());
+    if (!currentOk) {
+      _unitController.text = stock.unit;
+    }
+
+    setState(() => _compatibleUnits = units);
   }
 
   @override
@@ -714,7 +836,10 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
                   child: Text(stock.name),
                 );
               }).toList(),
-              onChanged: (value) => setState(() => _selectedStock = value),
+              onChanged: (value) {
+                setState(() => _selectedStock = value);
+                _updateCompatibleUnits();
+              },
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -726,13 +851,27 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _unitController,
+            DropdownButtonFormField<String>(
+              value: _compatibleUnits.isEmpty ? null : _unitController.text.trim(),
               decoration: const InputDecoration(
-                labelText: 'Unit',
+                labelText: 'Unit Resepi',
                 border: OutlineInputBorder(),
-                hintText: 'e.g., gram, ml, pcs',
+                helperText: 'Unit mesti serasi dengan unit stok bahan (weight/volume/count).',
               ),
+              items: _compatibleUnits
+                  .map(
+                    (u) => DropdownMenuItem<String>(
+                      value: u,
+                      child: Text(u),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _unitController.text = value);
+              },
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Sila pilih unit' : null,
             ),
             if (_selectedStock != null) ...[
               const SizedBox(height: 16),

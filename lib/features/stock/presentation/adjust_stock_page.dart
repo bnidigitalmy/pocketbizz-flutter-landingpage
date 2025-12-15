@@ -62,7 +62,9 @@ class _AdjustStockPageState extends State<AdjustStockPage> {
     setState(() => _isLoading = true);
 
     try {
-      final quantity = double.parse(_quantityController.text);
+      // Convert from pek/pcs to base unit
+      final quantityInPek = double.parse(_quantityController.text);
+      final quantity = quantityInPek * widget.stockItem.packageSize;
       final quantityChange = _isAdding ? quantity : -quantity;
 
       await _stockRepository.recordStockMovement(
@@ -70,7 +72,9 @@ class _AdjustStockPageState extends State<AdjustStockPage> {
           stockItemId: widget.stockItem.id,
           movementType: _selectedType,
           quantityChange: quantityChange,
-          reason: _reasonController.text.trim(),
+          reason: _reasonController.text.trim().isEmpty
+              ? '${_isAdding ? "Added" : "Removed"} ${quantityInPek.toStringAsFixed(0)} pek/pcs (${quantity.toStringAsFixed(2)} ${widget.stockItem.unit})'
+              : _reasonController.text.trim(),
         ),
       );
 
@@ -321,57 +325,68 @@ class _AdjustStockPageState extends State<AdjustStockPage> {
   }
 
   Widget _buildQuantityInput() {
-    return TextFormField(
-      controller: _quantityController,
-      keyboardType: TextInputType.number,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'Please enter quantity';
-        }
-        final qty = double.tryParse(value);
-        if (qty == null || qty <= 0) {
-          return 'Invalid quantity';
-        }
-        return null;
-      },
-      onChanged: (value) => setState(() {}), // Trigger rebuild for preview
-      decoration: InputDecoration(
-        labelText: 'Quantity',
-        hintText: 'e.g., 100',
-        suffixText: widget.stockItem.unit,
-        prefixIcon: Icon(
-          Icons.scale,
-          color: _isAdding ? Colors.green : Colors.red,
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: _isAdding ? Colors.green : Colors.red,
-            width: 2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _quantityController,
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Sila masukkan kuantiti';
+            }
+            final qty = double.tryParse(value);
+            if (qty == null || qty <= 0) {
+              return 'Kuantiti mesti nombor positif';
+            }
+            return null;
+          },
+          onChanged: (value) => setState(() {}), // Trigger rebuild for preview
+          decoration: InputDecoration(
+            labelText: 'Quantity',
+            hintText: _isAdding ? 'e.g., 5 (untuk 5 pek/pcs)' : 'e.g., 2 (untuk 2 pek/pcs)',
+            suffixText: _isAdding ? 'pek/pcs' : 'pek/pcs',
+            prefixIcon: Icon(
+              Icons.scale,
+              color: _isAdding ? Colors.green : Colors.red,
+            ),
+            helperText: _isAdding 
+                ? 'Masukkan bilangan pek/pcs yang ditambah. Contoh: Jika beli 5 pek @ ${widget.stockItem.packageSize.toStringAsFixed(0)} ${widget.stockItem.unit}, masukkan: 5'
+                : 'Masukkan bilangan pek/pcs yang dikurangkan.',
+            helperMaxLines: 2,
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: _isAdding ? Colors.green : Colors.red,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
           ),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
-        ),
-      ),
+      ],
     );
   }
 
   Widget _buildNewQuantityPreview() {
-    final qty = double.tryParse(_quantityController.text);
-    if (qty == null) return const SizedBox.shrink();
+    final qtyInPek = double.tryParse(_quantityController.text);
+    if (qtyInPek == null) return const SizedBox.shrink();
 
+    // Convert from pek/pcs to base unit
+    final qty = qtyInPek * widget.stockItem.packageSize;
     final newQuantity = widget.stockItem.currentQuantity + (_isAdding ? qty : -qty);
     final color = _isAdding ? Colors.green : Colors.red;
 
@@ -382,36 +397,58 @@ class _AdjustStockPageState extends State<AdjustStockPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
         children: [
-          Text(
-            UnitConversion.formatQuantity(
-              widget.stockItem.currentQuantity,
-              widget.stockItem.unit,
-            ),
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+          // Pek/pcs info
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shopping_bag, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                '${qtyInPek.toStringAsFixed(0)} pek/pcs (${qty.toStringAsFixed(2)} ${widget.stockItem.unit})',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Icon(
-              Icons.arrow_forward,
-              color: color,
-            ),
-          ),
-          Text(
-            UnitConversion.formatQuantity(
-              newQuantity,
-              widget.stockItem.unit,
-            ),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: newQuantity < 0 ? Colors.red : Colors.black87,
-            ),
+          const SizedBox(height: 12),
+          // Quantity preview
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                UnitConversion.formatQuantity(
+                  widget.stockItem.currentQuantity,
+                  widget.stockItem.unit,
+                ),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: color,
+                ),
+              ),
+              Text(
+                UnitConversion.formatQuantity(
+                  newQuantity,
+                  widget.stockItem.unit,
+                ),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: newQuantity < 0 ? Colors.red : Colors.black87,
+                ),
+              ),
+            ],
           ),
         ],
       ),

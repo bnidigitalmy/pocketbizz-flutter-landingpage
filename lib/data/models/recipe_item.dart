@@ -8,8 +8,8 @@ class RecipeItem {
   final String stockItemId;
   final double quantityNeeded;
   final String usageUnit;
-  final double costPerUnit;  // Cost per unit of stock item
-  final double totalCost;     // quantityNeeded * costPerUnit
+  final double costPerUnit;  // Cost per base unit of stock item (stock_items.unit)
+  final double totalCost;     // (quantityNeeded converted to stock unit) * costPerUnit
   final int position;
   final String? notes;
   final DateTime createdAt;

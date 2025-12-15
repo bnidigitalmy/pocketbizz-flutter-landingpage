@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/stock_item.dart';
 import '../models/stock_movement.dart';
+import '../models/stock_item_batch.dart';
 
 /// Stock Repository for managing stock items and movements
 class StockRepository {
@@ -300,6 +301,143 @@ class StockRepository {
   }
 
   // ============================================================================
+  // BULK IMPORT
+  // ============================================================================
+
+  /// Bulk import stock items from parsed data
+  /// Returns summary dengan success/failure counts
+  Future<Map<String, dynamic>> bulkImportStockItems(
+    List<Map<String, dynamic>> items, {
+    bool skipDuplicates = true,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+
+      int successCount = 0;
+      int failureCount = 0;
+      final List<String> errors = [];
+
+      // Get existing items untuk check duplicates
+      final existingItems = await getAllStockItems();
+      final existingNames = existingItems.map((item) => item.name.toLowerCase()).toSet();
+
+      // Prepare batch insert data
+      final List<Map<String, dynamic>> itemsToInsert = [];
+      final List<Map<String, dynamic>> movementsToRecord = [];
+
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        final rowNum = i + 2; // +2 for header row and 0-index
+
+        try {
+          // Validate required fields
+          if (item['name'] == null || item['name'].toString().trim().isEmpty) {
+            errors.add('Row $rowNum: Item Name diperlukan');
+            failureCount++;
+            continue;
+          }
+
+          final name = item['name'].toString().trim();
+          final unit = item['unit']?.toString().trim() ?? 'pcs';
+          final packageSize = (item['packageSize'] as num?)?.toDouble() ?? 1.0;
+          final purchasePrice = (item['purchasePrice'] as num?)?.toDouble() ?? 0.0;
+          final currentQuantity = (item['currentQuantity'] as num?)?.toDouble() ?? 0.0;
+          final lowStockThreshold = (item['lowStockThreshold'] as num?)?.toDouble() ?? 5.0;
+          final notes = item['notes']?.toString().trim();
+
+          // Check for duplicates
+          if (skipDuplicates && existingNames.contains(name.toLowerCase())) {
+            errors.add('Row $rowNum: "$name" already exists (skipped)');
+            failureCount++;
+            continue;
+          }
+
+          // Prepare stock item data
+          final stockItemData = {
+            'business_owner_id': userId,
+            'name': name,
+            'unit': unit,
+            'package_size': packageSize,
+            'purchase_price': purchasePrice,
+            'current_quantity': 0.0, // Will be set via movement if quantity > 0
+            'low_stock_threshold': lowStockThreshold,
+            'notes': notes,
+            'is_archived': false,
+            'version': 0,
+          };
+
+          itemsToInsert.add(stockItemData);
+
+          // If initial quantity provided, prepare movement
+          if (currentQuantity > 0) {
+            movementsToRecord.add({
+              'name': name,
+              'quantity': currentQuantity,
+              'reason': 'Imported from file',
+            });
+          }
+
+          successCount++;
+        } catch (e) {
+          errors.add('Row $rowNum: Error processing item - $e');
+          failureCount++;
+        }
+      }
+
+      // Batch insert stock items
+      if (itemsToInsert.isNotEmpty) {
+        final response = await _supabase
+            .from('stock_items')
+            .insert(itemsToInsert)
+            .select();
+
+        // Record initial stock movements if needed
+        if (movementsToRecord.isNotEmpty && response != null) {
+          final insertedItems = (response as List).map((json) => StockItem.fromJson(json)).toList();
+          
+          // Create map of name to ID
+          final nameToId = <String, String>{};
+          for (final item in insertedItems) {
+            nameToId[item.name.toLowerCase()] = item.id;
+          }
+
+          // Record movements
+          for (final movement in movementsToRecord) {
+            final itemId = nameToId[movement['name'].toString().toLowerCase()];
+            if (itemId != null) {
+              try {
+                await recordStockMovement(
+                  StockMovementInput(
+                    stockItemId: itemId,
+                    movementType: StockMovementType.purchase,
+                    quantityChange: (movement['quantity'] as num).toDouble(),
+                    reason: movement['reason'] as String,
+                  ),
+                );
+              } catch (e) {
+                errors.add('Failed to record initial stock for "${movement['name']}": $e');
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        'success': true,
+        'successCount': successCount,
+        'failureCount': failureCount,
+        'totalCount': items.length,
+        'errors': errors,
+      };
+    } catch (e) {
+      throw Exception('Failed to bulk import stock items: $e');
+    }
+  }
+
+  // ============================================================================
   // STATISTICS
   // ============================================================================
 
@@ -322,6 +460,107 @@ class StockRepository {
       };
     } catch (e) {
       throw Exception('Failed to get stock statistics: $e');
+    }
+  }
+
+  // ============================================================================
+  // STOCK ITEM BATCHES
+  // ============================================================================
+
+  /// Get all batches for a stock item
+  Future<List<StockItemBatch>> getStockItemBatches(String stockItemId) async {
+    try {
+      final response = await _supabase
+          .from('stock_item_batches')
+          .select()
+          .eq('stock_item_id', stockItemId)
+          .order('purchase_date', ascending: true)
+          .order('expiry_date', ascending: true);
+
+      return (response as List)
+          .map((json) => StockItemBatch.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch stock item batches: $e');
+    }
+  }
+
+  /// Get batch summary for a stock item
+  Future<Map<String, dynamic>> getBatchSummary(String stockItemId) async {
+    try {
+      final response = await _supabase
+          .from('stock_item_batches_summary')
+          .select()
+          .eq('stock_item_id', stockItemId)
+          .maybeSingle();
+
+      if (response == null) {
+        return {
+          'total_batches': 0,
+          'total_quantity': 0.0,
+          'total_remaining': 0.0,
+          'earliest_expiry': null,
+          'expired_batches': 0,
+          'active_batches': 0,
+        };
+      }
+
+      return {
+        'total_batches': response['total_batches'] ?? 0,
+        'total_quantity': (response['total_quantity'] as num?)?.toDouble() ?? 0.0,
+        'total_remaining': (response['total_remaining'] as num?)?.toDouble() ?? 0.0,
+        'earliest_expiry': response['earliest_expiry'] != null
+            ? DateTime.parse(response['earliest_expiry'] as String)
+            : null,
+        'expired_batches': response['expired_batches'] ?? 0,
+        'active_batches': response['active_batches'] ?? 0,
+      };
+    } catch (e) {
+      debugPrint('Error getting batch summary: $e');
+      // Return default if view doesn't exist
+      return {
+        'total_batches': 0,
+        'total_quantity': 0.0,
+        'total_remaining': 0.0,
+        'earliest_expiry': null,
+        'expired_batches': 0,
+        'active_batches': 0,
+      };
+    }
+  }
+
+  /// Create a new stock item batch
+  Future<String> createStockItemBatch(StockItemBatchInput input) async {
+    try {
+      final response = await _supabase.rpc(
+        'record_stock_item_batch',
+        params: input.toJson(),
+      );
+
+      return response as String;
+    } catch (e) {
+      throw Exception('Failed to create stock item batch: $e');
+    }
+  }
+
+  /// Get batches with expiry alerts (expired or expiring soon)
+  Future<List<StockItemBatch>> getExpiringBatches({int daysAhead = 7}) async {
+    try {
+      final cutoffDate = DateTime.now().add(Duration(days: daysAhead));
+      
+      final response = await _supabase
+          .from('stock_item_batches')
+          .select()
+          .not('expiry_date', 'is', null)
+          .lte('expiry_date', cutoffDate.toIso8601String().split('T')[0])
+          .gt('remaining_qty', 0)
+          .order('expiry_date', ascending: true);
+
+      return (response as List)
+          .map((json) => StockItemBatch.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch expiring batches: $e');
     }
   }
 }

@@ -47,9 +47,11 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
     _purchasePriceController = TextEditingController(
       text: widget.stockItem?.purchasePrice.toString() ?? '',
     );
-    _lowStockThresholdController = TextEditingController(
-      text: widget.stockItem?.lowStockThreshold.toString() ?? '5',
-    );
+    // Convert low stock threshold from base unit to pek/pcs for display
+    final lowStockInPek = widget.stockItem != null && widget.stockItem!.packageSize > 0
+        ? (widget.stockItem!.lowStockThreshold / widget.stockItem!.packageSize).toStringAsFixed(0)
+        : '5';
+    _lowStockThresholdController = TextEditingController(text: lowStockInPek);
     _notesController = TextEditingController(text: widget.stockItem?.notes ?? '');
     _initialQuantityController = TextEditingController();
     _reasonController = TextEditingController();
@@ -77,12 +79,17 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
     setState(() => _isLoading = true);
 
     try {
+      final packageSize = double.parse(_packageSizeController.text);
+      final lowStockInPek = double.parse(_lowStockThresholdController.text);
+      // Convert from pek/pcs to base unit
+      final lowStockThreshold = lowStockInPek * packageSize;
+      
       final input = StockItemInput(
         name: _nameController.text.trim(),
         unit: _selectedUnit,
-        packageSize: double.parse(_packageSizeController.text),
+        packageSize: packageSize,
         purchasePrice: double.parse(_purchasePriceController.text),
-        lowStockThreshold: double.parse(_lowStockThresholdController.text),
+        lowStockThreshold: lowStockThreshold,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -95,14 +102,15 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
         // Create new item
         final newItem = await _stockRepository.createStockItem(input);
 
-        // If initial quantity provided, add it
-        final initialQty = _initialQuantityController.text.trim();
-        if (initialQty.isNotEmpty && double.parse(initialQty) > 0) {
+        // If initial quantity provided, add it (convert from pek/pcs to base unit)
+        final initialQtyInPek = _initialQuantityController.text.trim();
+        if (initialQtyInPek.isNotEmpty && double.parse(initialQtyInPek) > 0) {
+          final initialQty = double.parse(initialQtyInPek) * packageSize;
           await _stockRepository.recordStockMovement(
             StockMovementInput(
               stockItemId: newItem.id,
               movementType: StockMovementType.purchase,
-              quantityChange: double.parse(initialQty),
+              quantityChange: initialQty,
               reason: _reasonController.text.trim().isEmpty
                   ? 'Initial stock'
                   : _reasonController.text.trim(),
@@ -165,47 +173,124 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
             const SizedBox(height: 16),
 
             // Unit Selection
-            _buildUnitDropdown(),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildUnitDropdown(),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber[900]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Unit = Unit measurement yang digunakan semasa beli/order dari supplier '
+                          '(kg, gram, liter, pcs, etc.)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.amber[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
 
             // Package Size & Purchase Price
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _packageSizeController,
-                    label: 'Package Size',
-                    hint: 'e.g., 500',
-                    icon: Icons.scale,
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Required';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Invalid number';
-                      }
-                      return null;
-                    },
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _packageSizeController,
+                        label: 'Package Size',
+                        hint: 'e.g., 1 atau 500',
+                        icon: Icons.scale,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Invalid number';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _purchasePriceController,
+                        label: 'Purchase Price (RM)',
+                        hint: 'e.g., 8.00',
+                        icon: Icons.attach_money,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Invalid number';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTextField(
-                    controller: _purchasePriceController,
-                    label: 'Purchase Price (RM)',
-                    hint: 'e.g., 21.90',
-                    icon: Icons.attach_money,
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Required';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Invalid number';
-                      }
-                      return null;
-                    },
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Penjelasan:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[900],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '• Package Size = Saiz satu pek/pcs yang dibeli\n'
+                              '  Contoh: 1 untuk 1kg, 500 untuk 500gram\n'
+                              '• Purchase Price = Harga untuk satu pek/pcs\n'
+                              '  Contoh: RM 8.00 untuk 1 pek 1kg\n'
+                              '• Cost per Unit = Auto-calculated (Harga ÷ Saiz)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue[900],
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -219,22 +304,53 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
 
             const SizedBox(height: 16),
 
-            // Low Stock Threshold
-            _buildTextField(
-              controller: _lowStockThresholdController,
-              label: 'Low Stock Alert Threshold',
-              hint: 'e.g., 5',
-              icon: Icons.warning_amber_rounded,
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Required';
-                }
-                if (double.tryParse(value) == null) {
-                  return 'Invalid number';
-                }
-                return null;
-              },
+            // Low Stock Threshold (in pek/pcs)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTextField(
+                  controller: _lowStockThresholdController,
+                  label: 'Low Stock Alert Threshold',
+                  hint: 'e.g., 2 (untuk 2 pek/pcs)',
+                  icon: Icons.warning_amber_rounded,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Required';
+                    }
+                    if (double.tryParse(value) == null || double.parse(value) <= 0) {
+                      return 'Mesti nombor positif';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Masukkan bilangan pek/pcs untuk alert. '
+                          'Contoh: Jika package size = ${_packageSizeController.text.isEmpty ? "500" : _packageSizeController.text} $_selectedUnit, '
+                          'masukkan "2" untuk alert bila tinggal 2 pek.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange[900],
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -270,12 +386,48 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
               ),
               const SizedBox(height: 16),
 
-              _buildTextField(
-                controller: _initialQuantityController,
-                label: 'Initial Quantity',
-                hint: 'e.g., 2000 (for 2000 gram)',
-                icon: Icons.add_box,
-                keyboardType: TextInputType.number,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTextField(
+                    controller: _initialQuantityController,
+                    label: 'Initial Quantity',
+                    hint: 'e.g., 5 (untuk 5 pek/pcs)',
+                    icon: Icons.add_box,
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.green[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            () {
+                              final packageSize = _packageSizeController.text.isEmpty 
+                                  ? 1.0 
+                                  : (double.tryParse(_packageSizeController.text) ?? 1.0);
+                              return 'Masukkan bilangan pek/pcs yang ada. '
+                                  'Contoh: Jika beli 5 pek @ ${packageSize.toStringAsFixed(0)} $_selectedUnit setiap satu, '
+                                  'masukkan: 5 (untuk 5 pek).';
+                            }(),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green[900],
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

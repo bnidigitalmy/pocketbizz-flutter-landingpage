@@ -116,10 +116,16 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
       
       for (var item in insufficientItems) {
         try {
+          // Use packages needed (pek/pcs) instead of exact shortage
+          // This is more practical as users buy in packages, not exact quantities
+          final quantityToBuy = item.packagesNeeded * item.packageSize;
+          
           await widget.cartRepo.addToCart(
             stockItemId: item.stockItemId,
-            shortageQty: item.shortage,
-            notes: 'Untuk produksi ${_productionPlan?.product.name ?? 'Unknown'}',
+            shortageQty: quantityToBuy, // Use rounded up quantity in pek/pcs
+            notes: 'Untuk produksi ${_productionPlan?.product.name ?? 'Unknown'} '
+                   '(Kurang: ${item.shortage.toStringAsFixed(2)} ${item.stockUnit}, '
+                   'Cadangan: ${item.packagesNeeded} pek/pcs)',
             priority: 'high', // Set priority to high for production items
           );
           successCount++;
@@ -506,7 +512,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                   const SizedBox(height: 4),
                   Text('Diperlukan: ${material.quantityNeeded.toStringAsFixed(2)} ${material.usageUnit}'),
                   Text('Stok: ${material.currentStock.toStringAsFixed(2)} ${material.stockUnit}'),
-                  if (!material.isSufficient)
+                  if (!material.isSufficient) ...[
                     Text(
                       'Kurang: ${material.shortage.toStringAsFixed(2)} ${material.stockUnit}',
                       style: const TextStyle(
@@ -514,6 +520,33 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.shopping_bag, size: 16, color: Colors.orange[700]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Cadangan Beli: ${material.packagesNeeded} pek/pcs '
+                              '(${(material.packagesNeeded * material.packageSize).toStringAsFixed(2)} ${material.stockUnit})',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orange[900],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

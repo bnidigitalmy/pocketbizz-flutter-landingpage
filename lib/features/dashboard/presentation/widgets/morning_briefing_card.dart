@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_time_helper.dart';
 
 /// Morning Briefing Card
 /// Personalized greeting based on time of day
 /// Shows motivational message for SME owners
-/// Includes real-time clock
-class MorningBriefingCard extends StatefulWidget {
+class MorningBriefingCard extends StatelessWidget {
   final String userName;
 
   const MorningBriefingCard({
@@ -15,38 +13,7 @@ class MorningBriefingCard extends StatefulWidget {
     required this.userName,
   });
 
-  @override
-  State<MorningBriefingCard> createState() => _MorningBriefingCardState();
-}
-
-class _MorningBriefingCardState extends State<MorningBriefingCard> {
-  late DateTime _currentTime;
-  late int _hour;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateTime();
-    // Update clock every second
-    _startClock();
-  }
-
-  void _updateTime() {
-    setState(() {
-      _currentTime = DateTimeHelper.now();
-      _hour = _currentTime.hour;
-    });
-  }
-
-  void _startClock() {
-    // Update every second
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        _updateTime();
-        _startClock();
-      }
-    });
-  }
+  int get _hour => DateTimeHelper.now().hour;
 
   String _getGreeting() {
     if (_hour < 12) {
@@ -113,7 +80,7 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  widget.userName,
+                  userName,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -154,40 +121,17 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
             ),
           ),
           const SizedBox(width: 16),
-          // Real-time clock widget
+          // Time icon (without clock)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _getTimeIcon(),
-                  color: Colors.white,
-                  size: 32,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  DateFormat('hh:mm:ss', 'ms').format(_currentTime),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-                Text(
-                  DateFormat('a', 'ms').format(_currentTime),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            child: Icon(
+              _getTimeIcon(),
+              color: Colors.white,
+              size: 48,
             ),
           ),
         ],
@@ -195,4 +139,7 @@ class _MorningBriefingCardState extends State<MorningBriefingCard> {
     );
   }
 }
+
+
+
 

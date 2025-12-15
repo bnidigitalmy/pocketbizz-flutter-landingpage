@@ -11,6 +11,8 @@ class MaterialPreview {
   final bool isSufficient;
   final double shortage;
   final double convertedQuantity; // Quantity converted to stock unit
+  final double packageSize; // Package size for purchase suggestion
+  final int packagesNeeded; // Number of pek/pcs needed (rounded up)
 
   MaterialPreview({
     required this.stockItemId,
@@ -22,9 +24,15 @@ class MaterialPreview {
     required this.isSufficient,
     required this.shortage,
     required this.convertedQuantity,
+    required this.packageSize,
+    required this.packagesNeeded,
   });
 
   factory MaterialPreview.fromJson(Map<String, dynamic> json) {
+    final packageSize = (json['packageSize'] as num?)?.toDouble() ?? 1.0;
+    final shortage = (json['shortage'] as num).toDouble();
+    final packagesNeeded = packageSize > 0 ? (shortage / packageSize).ceil() : 0;
+    
     return MaterialPreview(
       stockItemId: json['stockItemId'],
       stockItemName: json['stockItemName'],
@@ -33,8 +41,10 @@ class MaterialPreview {
       currentStock: (json['currentStock'] as num).toDouble(),
       stockUnit: json['stockUnit'],
       isSufficient: json['isSufficient'] ?? false,
-      shortage: (json['shortage'] as num).toDouble(),
+      shortage: shortage,
       convertedQuantity: (json['convertedQuantity'] as num).toDouble(),
+      packageSize: packageSize,
+      packagesNeeded: packagesNeeded,
     );
   }
 
@@ -49,6 +59,8 @@ class MaterialPreview {
       'isSufficient': isSufficient,
       'shortage': shortage,
       'convertedQuantity': convertedQuantity,
+      'packageSize': packageSize,
+      'packagesNeeded': packagesNeeded,
     };
   }
 }

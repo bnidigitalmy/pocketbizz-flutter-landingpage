@@ -250,10 +250,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         });
       }
       
-      // Initialize quantity controllers
+      // Initialize quantity controllers (convert from base unit to pek/pcs)
       for (var item in _cartItems) {
+        final packageSize = item.stockItemPackageSize ?? 1.0;
+        final qtyInPek = packageSize > 0 ? (item.shortageQty / packageSize).toStringAsFixed(0) : item.shortageQty.toStringAsFixed(1);
         _qtyControllers[item.id] = TextEditingController(
-          text: item.shortageQty.toStringAsFixed(1),
+          text: qtyInPek,
         );
       }
     } catch (e) {
@@ -270,15 +272,21 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   double _calculateTotalEstimated() {
     return _cartItems.fold<double>(0.0, (sum, item) {
-      final qtyStr = _qtyControllers[item.id]?.text ?? item.shortageQty.toStringAsFixed(1);
-      final qty = double.tryParse(qtyStr) ?? item.shortageQty;
+      // qtyStr is in pek/pcs
+      final qtyStr = _qtyControllers[item.id]?.text;
+      final qtyInPek = qtyStr != null ? double.tryParse(qtyStr) : null;
       
-      if (item.stockItemPurchasePrice == null || item.stockItemPackageSize == null) {
-        return sum;
+      if (qtyInPek == null || item.stockItemPurchasePrice == null) {
+        // Fallback: use stored shortageQty and calculate packages
+        final packageSize = item.stockItemPackageSize ?? 1.0;
+        final packagesNeeded = packageSize > 0 
+            ? (item.shortageQty / packageSize).ceil()
+            : 1;
+        return sum + (packagesNeeded * (item.stockItemPurchasePrice ?? 0.0));
       }
       
-      final packagesNeeded = (qty / item.stockItemPackageSize!).ceil();
-      return sum + (packagesNeeded * item.stockItemPurchasePrice!);
+      // qtyInPek is already in pek/pcs, so use directly
+      return sum + (qtyInPek * (item.stockItemPurchasePrice ?? 0.0));
     });
   }
 
@@ -307,8 +315,15 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<void> _updateQuantity(String itemId, String newQty) async {
     try {
-      final qty = double.tryParse(newQty);
-      if (qty == null || qty <= 0) return;
+      final qtyInPek = double.tryParse(newQty);
+      if (qtyInPek == null || qtyInPek <= 0) return;
+      
+      // Get item to get package size
+      final item = _cartItems.firstWhere((i) => i.id == itemId);
+      final packageSize = item.stockItemPackageSize ?? 1.0;
+      
+      // Convert from pek/pcs to base unit
+      final qty = qtyInPek * packageSize;
       
       // Use updateCartItem instead of remove/add
       final updatedItem = await _cartRepo.updateCartItem(
@@ -321,8 +336,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         final index = _cartItems.indexWhere((i) => i.id == itemId);
         if (index != -1) {
           _cartItems[index] = updatedItem;
-          // Update controller
-          _qtyControllers[itemId]?.text = qty.toStringAsFixed(1);
+          // Update controller (convert to pek/pcs)
+          final packageSize = updatedItem.stockItemPackageSize ?? 1.0;
+          final qtyInPek = packageSize > 0 
+              ? (qty / packageSize).toStringAsFixed(0)
+              : qty.toStringAsFixed(1);
+          _qtyControllers[itemId]?.text = qtyInPek;
         }
       });
     } catch (e) {
@@ -345,8 +364,8 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       return;
     }
     
-    final qty = double.tryParse(_manualQtyController.text);
-    if (qty == null || qty <= 0) {
+    final qtyInPek = double.tryParse(_manualQtyController.text);
+    if (qtyInPek == null || qtyInPek <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Kuantiti mesti lebih daripada 0'),
@@ -355,6 +374,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       );
       return;
     }
+    
+    // Get stock item untuk package size
+    final stockItem = _allStockItems.firstWhere((s) => s.id == _selectedStockId);
+    final packageSize = stockItem.packageSize;
+    
+    // Convert from pek/pcs to base unit
+    final qty = qtyInPek * packageSize;
     
     try {
       await _cartRepo.addToCart(
@@ -393,8 +419,15 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   Future<void> _quickAddLowStock(StockItem item) async {
     final currentQty = item.currentQuantity;
     final threshold = item.lowStockThreshold;
-    final suggested = (threshold * 2) - currentQty;
-    final qty = suggested > 0 ? suggested : threshold;
+    final shortage = threshold - currentQty;
+    
+    // Calculate packages needed (rounded up)
+    final packagesNeeded = shortage > 0 
+        ? (shortage / item.packageSize).ceil()
+        : 1; // At least 1 pek if no shortage
+    
+    // Convert to base unit
+    final qty = packagesNeeded * item.packageSize;
     
     try {
       await _cartRepo.addToCart(
@@ -439,8 +472,15 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       for (var item in availableItems) {
         final currentQty = item.currentQuantity;
         final threshold = item.lowStockThreshold;
-        final suggested = (threshold * 2) - currentQty;
-        final qty = suggested > 0 ? suggested : threshold;
+        final shortage = threshold - currentQty;
+        
+        // Calculate packages needed (rounded up)
+        final packagesNeeded = shortage > 0 
+            ? (shortage / item.packageSize).ceil()
+            : 1; // At least 1 pek if no shortage
+        
+        // Convert to base unit
+        final qty = packagesNeeded * item.packageSize;
         
         await _cartRepo.addToCart(
           stockItemId: item.id,
@@ -521,11 +561,19 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       return;
     }
     
-    // Update quantities first
+    // Update quantities first (qtyStr is in pek/pcs)
     for (var item in _cartItems) {
       final qtyStr = _qtyControllers[item.id]?.text;
-      if (qtyStr != null && qtyStr != item.shortageQty.toStringAsFixed(1)) {
-        await _updateQuantity(item.id, qtyStr);
+      if (qtyStr != null) {
+        // Convert to base unit for comparison
+        final packageSize = item.stockItemPackageSize ?? 1.0;
+        final qtyInPek = double.tryParse(qtyStr) ?? 0;
+        final qtyInBaseUnit = qtyInPek * packageSize;
+        
+        // Only update if different
+        if ((qtyInBaseUnit - item.shortageQty).abs() > 0.01) {
+          await _updateQuantity(item.id, qtyStr);
+        }
       }
     }
     
@@ -611,9 +659,18 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     
     for (var i = 0; i < _cartItems.length; i++) {
       final item = _cartItems[i];
-      final qtyStr = _qtyControllers[item.id]?.text ?? item.shortageQty.toStringAsFixed(1);
+      // qtyStr is in pek/pcs
+      final qtyStr = _qtyControllers[item.id]?.text;
+      final packageSize = item.stockItemPackageSize ?? 1.0;
+      
+      final qtyInPek = qtyStr != null 
+          ? double.tryParse(qtyStr) 
+          : (packageSize > 0 ? (item.shortageQty / packageSize).ceil() : 1);
+      
+      final qtyInBaseUnit = (qtyInPek ?? 1) * packageSize;
+      
       message += '${i + 1}. ${item.stockItemName}\n';
-      message += '   Kuantiti: $qtyStr ${item.stockItemUnit}\n\n';
+      message += '   Kuantiti: $qtyInPek pek/pcs (${qtyInBaseUnit.toStringAsFixed(1)} ${item.stockItemUnit})\n\n';
     }
     
     message += '\nJumlah: ${_cartItems.length} item';
@@ -1090,8 +1147,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             );
                             final currentQty = freshStockItem.currentQuantity;
                             final threshold = freshStockItem.lowStockThreshold;
-                            final suggested = (threshold * 2) - currentQty;
-                            final qty = suggested > 0 ? suggested : threshold;
+                            final shortage = threshold - currentQty;
+                            
+                            // Calculate packages needed (rounded up)
+                            final packagesNeeded = shortage > 0 
+                                ? (shortage / freshStockItem.packageSize).ceil()
+                                : 1; // At least 1 pek if no shortage
+                            final qty = packagesNeeded * freshStockItem.packageSize;
                             
                             final screenWidth = MediaQuery.of(context).size.width;
                             final isNarrow = screenWidth < 400;
@@ -1101,7 +1163,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                               return ListTile(
                                 title: Text(freshStockItem.name),
                                 subtitle: Text(
-                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
+                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: $packagesNeeded pek/pcs (${qty.toStringAsFixed(1)} ${freshStockItem.unit})',
                                 ),
                                 isThreeLine: true,
                                 trailing: Column(
@@ -1125,19 +1187,19 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       width: 100,
-                                      child: OutlinedButton(
-                                        onPressed: () {
-                                          _selectedStockId = item.id;
-                                          _manualQtyController.text = qty.toStringAsFixed(1);
-                                          _showManualAddDialog();
-                                        },
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        ),
-                                        child: const FittedBox(
-                                          child: Text('Edit', style: TextStyle(fontSize: 12)),
-                                        ),
+                                      child:                                     OutlinedButton(
+                                      onPressed: () {
+                                        _selectedStockId = item.id;
+                                        _manualQtyController.text = packagesNeeded.toStringAsFixed(0);
+                                        _showManualAddDialog();
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       ),
+                                      child: const FittedBox(
+                                        child: Text('Edit', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ),
                                     ),
                                   ],
                                 ),
@@ -1147,7 +1209,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                               return ListTile(
                                 title: Text(freshStockItem.name),
                                 subtitle: Text(
-                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: ${qty.toStringAsFixed(1)} ${freshStockItem.unit}',
+                                  'Stok: ${currentQty.toStringAsFixed(1)} ${freshStockItem.unit} • Cadangan: $packagesNeeded pek/pcs (${qty.toStringAsFixed(1)} ${freshStockItem.unit})',
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -1164,7 +1226,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                                     OutlinedButton(
                                       onPressed: () {
                                         _selectedStockId = item.id;
-                                        _manualQtyController.text = qty.toStringAsFixed(1);
+                                        _manualQtyController.text = packagesNeeded.toStringAsFixed(0);
                                         _showManualAddDialog();
                                       },
                                       child: const Text('Edit'),
@@ -1217,20 +1279,27 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   }
 
   Widget _buildCartItemCard(ShoppingCartItem item) {
+    // Convert from base unit to pek/pcs for display
+    final packageSize = item.stockItemPackageSize ?? 1.0;
+    final qtyInPek = packageSize > 0 
+        ? (item.shortageQty / packageSize).toStringAsFixed(0)
+        : item.shortageQty.toStringAsFixed(1);
+    
     final qtyController = _qtyControllers[item.id] ?? 
-        TextEditingController(text: item.shortageQty.toStringAsFixed(1));
+        TextEditingController(text: qtyInPek);
     _qtyControllers[item.id] = qtyController;
     
     final estimatedCost = () {
+      // qtyController.text is in pek/pcs
       final qtyStr = qtyController.text;
-      final qty = double.tryParse(qtyStr) ?? item.shortageQty;
+      final qtyInPek = double.tryParse(qtyStr);
       
-      if (item.stockItemPurchasePrice == null || item.stockItemPackageSize == null) {
+      if (qtyInPek == null || item.stockItemPurchasePrice == null) {
         return 0.0;
       }
       
-      final packagesNeeded = (qty / item.stockItemPackageSize!).ceil();
-      return packagesNeeded * item.stockItemPurchasePrice!;
+      // qtyInPek is already in pek/pcs, so use directly
+      return qtyInPek * item.stockItemPurchasePrice!;
     }();
 
     return Card(
@@ -1282,13 +1351,24 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Kuantiti',
+                        'Kuantiti (pek/pcs)',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
                         ),
                       ),
                       const SizedBox(height: 4),
+                      // Show base unit quantity below
+                      if (item.stockItemPackageSize != null) ...[
+                        Text(
+                          '(${(double.tryParse(qtyController.text) ?? 0) * item.stockItemPackageSize!} ${item.stockItemUnit})',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       Row(
                         children: [
                           IconButton(
@@ -1296,7 +1376,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             onPressed: () {
                               final current = double.tryParse(qtyController.text) ?? 0;
                               if (current > 0) {
-                                qtyController.text = (current - 1).toStringAsFixed(1);
+                                qtyController.text = (current - 1).toStringAsFixed(0);
                                 _updateQuantity(item.id, qtyController.text);
                               }
                             },
@@ -1307,7 +1387,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             width: 80,
                             child: TextField(
                               controller: qtyController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: false),
                               textAlign: TextAlign.center,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
@@ -1325,7 +1405,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             icon: const Icon(Icons.add),
                             onPressed: () {
                               final current = double.tryParse(qtyController.text) ?? 0;
-                              qtyController.text = (current + 1).toStringAsFixed(1);
+                              qtyController.text = (current + 1).toStringAsFixed(0);
                               _updateQuantity(item.id, qtyController.text);
                             },
                             padding: EdgeInsets.zero,
@@ -1333,7 +1413,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            item.stockItemUnit ?? '',
+                            'pek/pcs',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -1428,13 +1508,35 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _manualQtyController,
-                  decoration: const InputDecoration(
-                    labelText: 'Kuantiti',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                StatefulBuilder(
+                  builder: (context, setDialogState) {
+                    final selectedItem = _selectedStockId != null
+                        ? _allStockItems.firstWhere(
+                            (s) => s.id == _selectedStockId,
+                            orElse: () => _allStockItems.first,
+                          )
+                        : null;
+                    
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _manualQtyController,
+                          decoration: InputDecoration(
+                            labelText: 'Kuantiti',
+                            hintText: 'e.g., 5 (untuk 5 pek/pcs)',
+                            suffixText: 'pek/pcs',
+                            border: const OutlineInputBorder(),
+                            helperText: selectedItem != null
+                                ? 'Masukkan bilangan pek/pcs. Contoh: Jika beli 5 pek @ ${selectedItem.packageSize.toStringAsFixed(0)} ${selectedItem.unit}, masukkan: 5'
+                                : 'Masukkan bilangan pek/pcs yang dibeli',
+                            helperMaxLines: 2,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -1705,21 +1807,28 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                     DataColumn(label: Text('Anggaran', textAlign: TextAlign.right)),
                   ],
                   rows: _cartItems.map((item) {
-                    final qtyStr = _qtyControllers[item.id]?.text ?? item.shortageQty.toStringAsFixed(1);
-                    final qty = double.tryParse(qtyStr) ?? item.shortageQty;
+                    // qtyStr is in pek/pcs
+                    final qtyStr = _qtyControllers[item.id]?.text;
+                    final qtyInPek = qtyStr != null ? double.tryParse(qtyStr) : null;
+                    
+                    // Fallback: convert from base unit to pek/pcs
+                    final packageSize = item.stockItemPackageSize ?? 1.0;
+                    final displayPek = qtyInPek ?? (packageSize > 0 ? (item.shortageQty / packageSize).ceil() : 1);
+                    final displayQty = displayPek * packageSize;
+                    
                     final estimated = () {
-                      if (item.stockItemPurchasePrice == null || item.stockItemPackageSize == null) {
+                      if (item.stockItemPurchasePrice == null) {
                         return 0.0;
                       }
-                      final packagesNeeded = (qty / item.stockItemPackageSize!).ceil();
-                      return packagesNeeded * item.stockItemPurchasePrice!;
+                      // displayPek is already in pek/pcs
+                      return displayPek * item.stockItemPurchasePrice!;
                     }();
                     
                     return DataRow(
                       cells: [
                         DataCell(Text(item.stockItemName ?? 'Unknown')),
                         DataCell(Text(
-                          '${qty.toStringAsFixed(1)} ${item.stockItemUnit}',
+                          '$displayPek pek/pcs\n(${displayQty.toStringAsFixed(1)} ${item.stockItemUnit})',
                           textAlign: TextAlign.right,
                         )),
                         DataCell(Text(

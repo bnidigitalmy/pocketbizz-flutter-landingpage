@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'quick_action_card.dart';
+import '../../../stock/presentation/stock_page.dart';
 
 /// Quick Action Grid
 /// Optimized for daily use by SME owners
@@ -40,7 +41,9 @@ class QuickActionGrid extends StatelessWidget {
               label: 'Stok Gudang',
               icon: Icons.warehouse_rounded,
               color: AppColors.primary,
-              onTap: () => Navigator.of(context).pushNamed('/stock'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const StockPage()),
+              ),
             ),
             QuickActionCard(
               label: 'Rancang Produksi',

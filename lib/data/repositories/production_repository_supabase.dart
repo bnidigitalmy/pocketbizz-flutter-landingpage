@@ -617,6 +617,10 @@ class ProductionRepository {
             ? 0.0
             : convertedQuantity - stockItem.currentQuantity;
 
+        // Calculate packages needed (rounded up to nearest pek/pcs)
+        final packageSize = stockItem.packageSize > 0 ? stockItem.packageSize : 1.0;
+        final packagesNeeded = isSufficient ? 0 : (shortage / packageSize).ceil();
+
         if (!isSufficient) {
           allStockSufficient = false;
         }
@@ -632,6 +636,8 @@ class ProductionRepository {
             isSufficient: isSufficient,
             shortage: shortage,
             convertedQuantity: convertedQuantity,
+            packageSize: packageSize,
+            packagesNeeded: packagesNeeded,
           ),
         );
       }

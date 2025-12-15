@@ -13,6 +13,7 @@ import 'widgets/smart_filters_widget.dart';
 import 'widgets/shopping_list_dialog.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:intl/intl.dart';
 
 /// Stock Management Page - List all stock items
 class StockPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _StockPageState extends State<StockPage> {
   String _searchQuery = '';
   bool _showOnlyLowStock = false;
   bool _isExporting = false;
+  Map<String, Map<String, dynamic>> _batchSummaries = {}; // stockItemId -> summary
   
   // Smart Filters state
   final Map<String, bool> _quickFilters = {
@@ -54,9 +56,27 @@ class _StockPageState extends State<StockPage> {
 
     try {
       final items = await _stockRepository.getAllStockItems();
+      
+      // Load batch summaries for all items
+      final summaries = <String, Map<String, dynamic>>{};
+      for (final item in items) {
+        try {
+          final summary = await _stockRepository.getBatchSummary(item.id);
+          summaries[item.id] = summary;
+        } catch (e) {
+          // Ignore errors for batch summary (might not have batches)
+          summaries[item.id] = {
+            'total_batches': 0,
+            'expired_batches': 0,
+            'earliest_expiry': null,
+          };
+        }
+      }
+      
       setState(() {
         _stockItems = items;
         _filteredItems = items;
+        _batchSummaries = summaries;
         _isLoading = false;
       });
       _applyFilters();
@@ -200,13 +220,81 @@ class _StockPageState extends State<StockPage> {
       }
 
       // Import to database
-      // TODO: Implement bulk import API
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Import API not implemented yet'),
-          ),
-        );
+      setState(() => _isLoading = true);
+      
+      try {
+        final result = await _stockRepository.bulkImportStockItems(data);
+        
+        if (mounted) {
+          setState(() => _isLoading = false);
+          
+          if (result['success'] == true) {
+            final successCount = result['successCount'] as int;
+            final failureCount = result['failureCount'] as int;
+            final errors = result['errors'] as List<String>;
+            
+            // Show result dialog
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Import Results'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('✅ Success: $successCount items'),
+                      Text('❌ Failed: $failureCount items'),
+                      if (errors.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Errors:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        ...errors.take(10).map((error) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            error,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        )),
+                        if (errors.length > 10)
+                          Text('... and ${errors.length - 10} more errors'),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _loadStockItems();
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Import failed: ${result['error']}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error importing: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -762,6 +850,11 @@ class _StockPageState extends State<StockPage> {
                   ),
                 ),
               ],
+
+              // Batch Expiry Alerts
+              if (_batchSummaries.containsKey(item.id)) ...[
+                _buildBatchExpiryAlert(item),
+              ],
             ],
           ),
         ),
@@ -805,6 +898,74 @@ class _StockPageState extends State<StockPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBatchExpiryAlert(StockItem item) {
+    final summary = _batchSummaries[item.id];
+    if (summary == null) return const SizedBox.shrink();
+
+    final expiredCount = summary['expired_batches'] ?? 0;
+    final earliestExpiry = summary['earliest_expiry'] as DateTime?;
+    final totalBatches = summary['total_batches'] ?? 0;
+
+    if (totalBatches == 0) return const SizedBox.shrink();
+
+    final isExpired = earliestExpiry != null && earliestExpiry.isBefore(DateTime.now());
+    final isExpiringSoon = earliestExpiry != null &&
+        !isExpired &&
+        earliestExpiry.difference(DateTime.now()).inDays <= 7;
+
+    if (expiredCount == 0 && !isExpiringSoon) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: expiredCount > 0
+                ? Colors.red.withOpacity(0.1)
+                : Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                expiredCount > 0 ? Icons.error : Icons.event_busy,
+                size: 16,
+                color: expiredCount > 0 ? Colors.red : Colors.orange,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (expiredCount > 0)
+                      Text(
+                        '⚠️ $expiredCount batch expired',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    if (isExpiringSoon && expiredCount == 0)
+                      Text(
+                        '⏰ Expires ${DateFormat('dd MMM').format(earliestExpiry!)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

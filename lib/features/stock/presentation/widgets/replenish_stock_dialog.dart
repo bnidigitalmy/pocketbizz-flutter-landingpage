@@ -49,13 +49,17 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
     setState(() => _isLoading = true);
 
     try {
-      final additionalQty = double.parse(_quantityController.text);
+      // Convert from pek/pcs to base unit
+      final additionalQtyInPek = double.parse(_quantityController.text);
       final newPrice = _priceController.text.isNotEmpty 
           ? double.parse(_priceController.text) 
           : widget.stockItem.purchasePrice;
       final newPackageSize = _packageSizeController.text.isNotEmpty
           ? double.parse(_packageSizeController.text)
           : widget.stockItem.packageSize;
+      
+      // Convert pek/pcs to base unit
+      final additionalQty = additionalQtyInPek * newPackageSize;
 
       final repo = StockRepository(supabase);
       
@@ -65,7 +69,7 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
           stockItemId: widget.stockItem.id,
           movementType: StockMovementType.replenish,
           quantityChange: additionalQty,
-          reason: 'Replenish stock - Added $additionalQty ${widget.stockItem.unit}',
+          reason: 'Replenish stock - Added $additionalQtyInPek pek/pcs (${additionalQty.toStringAsFixed(2)} ${widget.stockItem.unit})',
         ),
       );
 
@@ -106,10 +110,12 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final newQuantity = widget.stockItem.currentQuantity + 
-        (double.tryParse(_quantityController.text) ?? 0);
+    // Convert from pek/pcs to base unit for preview
+    final additionalQtyInPek = double.tryParse(_quantityController.text) ?? 0;
     final newPrice = double.tryParse(_priceController.text) ?? widget.stockItem.purchasePrice;
     final newPackageSize = double.tryParse(_packageSizeController.text) ?? widget.stockItem.packageSize;
+    final additionalQty = additionalQtyInPek * newPackageSize;
+    final newQuantity = widget.stockItem.currentQuantity + additionalQty;
     final newUnitPrice = newPrice / newPackageSize;
 
     return Dialog(
@@ -191,31 +197,63 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                // Quantity Input
-                TextFormField(
-                  controller: _quantityController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'Kuantiti Tambahan *',
-                    hintText: 'Berapa banyak stok ditambah?',
-                    suffixText: widget.stockItem.unit,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                // Quantity Input (in pek/pcs)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _quantityController,
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Kuantiti Tambahan *',
+                        hintText: 'Contoh: 5 (untuk 5 pek/pcs)',
+                        suffixText: 'pek/pcs',
+                        helperText: 'Masukkan bilangan pek/pcs yang dibeli.',
+                        helperMaxLines: 2,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Sila masukkan kuantiti';
+                        }
+                        final qty = double.tryParse(value);
+                        if (qty == null || qty <= 0) {
+                          return 'Kuantiti mesti nombor positif';
+                        }
+                        return null;
+                      },
+                      onChanged: (_) => setState(() {}),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Sila masukkan kuantiti';
-                    }
-                    final qty = double.tryParse(value);
-                    if (qty == null || qty <= 0) {
-                      return 'Kuantiti mesti nombor positif';
-                    }
-                    return null;
-                  },
-                  onChanged: (_) => setState(() {}),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Contoh: Jika beli 5 pek @ ${widget.stockItem.packageSize} ${widget.stockItem.unit} setiap satu, '
+                              'masukkan: 5 (untuk 5 pek).',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[900],
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -276,6 +314,12 @@ class _ReplenishStockDialogState extends State<ReplenishStockDialog> {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        _buildInfoRow(
+                          'Pek/Pcs Ditambah',
+                          '${additionalQtyInPek.toStringAsFixed(0)} pek/pcs',
+                          valueColor: AppColors.success,
+                        ),
+                        const Divider(height: 16),
                         _buildInfoRow(
                           'Stok Baru',
                           '${newQuantity.toStringAsFixed(2)} ${widget.stockItem.unit}',

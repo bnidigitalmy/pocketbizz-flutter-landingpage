@@ -1,6 +1,7 @@
 import '../../core/supabase/supabase_client.dart';
 import '../models/recipe.dart';
 import '../models/recipe_item.dart';
+import '../../core/utils/unit_conversion.dart';
 
 class RecipesRepositorySupabase {
   // ============================================================================
@@ -191,17 +192,37 @@ class RecipesRepositorySupabase {
     // Get stock item cost (calculate from purchase_price and package_size)
     final stockResponse = await supabase
         .from('stock_items')
-        .select('purchase_price, package_size')
+        .select('purchase_price, package_size, unit')
         .eq('id', stockItemId)
         .single();
 
     final purchasePrice = (stockResponse['purchase_price'] as num).toDouble();
     final packageSize = (stockResponse['package_size'] as num).toDouble();
+    final stockUnit = (stockResponse['unit'] as String?) ?? usageUnit;
     
     // Calculate cost per unit: purchase_price / package_size
     // Example: RM21.90 / 500g = RM0.0438 per gram
     final costPerUnit = packageSize > 0 ? purchasePrice / packageSize : 0.0;
-    final totalCost = quantityNeeded * costPerUnit;
+
+    // Convert recipe quantity (usage_unit) into stock unit before costing.
+    // This avoids wrong totals when recipe unit differs (e.g., kg↔gram, liter↔ml, tbsp↔ml).
+    final normalizedUsage = usageUnit.trim();
+    final normalizedStockUnit = stockUnit.trim();
+    if (normalizedUsage.toLowerCase() != normalizedStockUnit.toLowerCase() &&
+        !UnitConversion.canConvert(normalizedUsage, normalizedStockUnit)) {
+      throw Exception(
+        'Unit resepi tidak serasi dengan unit stok. '
+        'Resepi: "$usageUnit", Stok: "$stockUnit". '
+        'Sila tukar unit resepi kepada unit yang serasi (contoh ml↔liter, g↔kg).',
+      );
+    }
+
+    final convertedQty = UnitConversion.convert(
+      quantity: quantityNeeded,
+      fromUnit: normalizedUsage,
+      toUnit: normalizedStockUnit,
+    );
+    final totalCost = convertedQty * costPerUnit;
 
     final response = await supabase
         .from('recipe_items')

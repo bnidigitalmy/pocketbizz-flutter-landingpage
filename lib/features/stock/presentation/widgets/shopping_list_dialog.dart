@@ -29,11 +29,11 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
   void initState() {
     super.initState();
     
-    // Initialize controllers with suggested quantities
+    // Initialize controllers with suggested quantities (in pek/pcs)
     for (final item in widget.selectedItems) {
-      final suggestedQty = _calculateSuggestedQuantity(item);
+      final suggestedQtyInPek = _calculateSuggestedQuantity(item);
       _quantityControllers[item.id] = TextEditingController(
-        text: suggestedQty.toStringAsFixed(2),
+        text: suggestedQtyInPek.toStringAsFixed(0), // pek/pcs (no decimals)
       );
       _notesControllers[item.id] = TextEditingController();
     }
@@ -52,20 +52,21 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
 
   double _calculateSuggestedQuantity(StockItem item) {
     final shortage = item.lowStockThreshold - item.currentQuantity;
-    if (shortage <= 0) return item.packageSize;
+    if (shortage <= 0) return 1.0; // At least 1 pek
 
-    // Round up to nearest package
+    // Round up to nearest package (return in pek/pcs)
     final packagesNeeded = (shortage / item.packageSize).ceil();
-    return packagesNeeded * item.packageSize;
+    return packagesNeeded.toDouble(); // Return pek/pcs count, not base unit
   }
 
   double _calculateEstimatedTotal() {
     double total = 0.0;
     
     for (final item in widget.selectedItems) {
-      final qty = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
-      final packagesNeeded = (qty / item.packageSize).ceil();
-      total += packagesNeeded * item.purchasePrice;
+      // qty is in pek/pcs
+      final qtyInPek = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
+      // qtyInPek is already in pek/pcs, so use directly
+      total += qtyInPek * item.purchasePrice;
     }
     
     return total;
@@ -80,12 +81,14 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
 
     try {
       final items = widget.selectedItems.map((item) {
-        final qty = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
+        // qty is in pek/pcs, convert to base unit
+        final qtyInPek = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
+        final qty = qtyInPek * item.packageSize; // Convert to base unit
         final notes = _notesControllers[item.id]?.text;
 
         return {
           'stockItemId': item.id,
-          'shortageQty': qty,
+          'shortageQty': qty, // Base unit
           if (notes != null && notes.isNotEmpty) 'notes': notes,
         };
       }).toList();
@@ -315,10 +318,11 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
   }
 
   Widget _buildCartItemCard(StockItem item) {
-    final qty = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
-    final packagesNeeded = qty > 0 ? (qty / item.packageSize).ceil() : 0;
-    final cost = packagesNeeded * item.purchasePrice;
-    final suggestedQty = _calculateSuggestedQuantity(item);
+    // qty is in pek/pcs
+    final qtyInPek = double.tryParse(_quantityControllers[item.id]?.text ?? '0') ?? 0;
+    final cost = qtyInPek * item.purchasePrice; // qtyInPek is already in pek/pcs
+    final suggestedQtyInPek = _calculateSuggestedQuantity(item);
+    final qtyInBaseUnit = qtyInPek * item.packageSize;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -381,29 +385,45 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
             ),
             const SizedBox(height: 12),
 
-            // Quantity Input
+            // Quantity Input (in pek/pcs)
             Row(
               children: [
                 Expanded(
                   flex: 3,
-                  child: TextField(
-                    controller: _quantityControllers[item.id],
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'Kuantiti Beli',
-                      hintText: 'Berapa ${item.unit}?',
-                      suffixText: item.unit,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _quantityControllers[item.id],
+                        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                        decoration: InputDecoration(
+                          labelText: 'Kuantiti Beli',
+                          hintText: 'e.g., 5 (untuk 5 pek/pcs)',
+                          suffixText: 'pek/pcs',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          helperText: 'Cadangan: $suggestedQtyInPek pek/pcs (${(suggestedQtyInPek * item.packageSize).toStringAsFixed(1)} ${item.unit})',
+                          helperStyle: const TextStyle(fontSize: 10),
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      helperText: 'Cadangan: ${suggestedQty.toStringAsFixed(2)} ${item.unit}',
-                      helperStyle: const TextStyle(fontSize: 10),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                      if (qtyInPek > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '= ${qtyInBaseUnit.toStringAsFixed(1)} ${item.unit}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -434,9 +454,9 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
                             color: AppColors.success,
                           ),
                         ),
-                        if (packagesNeeded > 0)
+                        if (qtyInPek > 0)
                           Text(
-                            '$packagesNeeded pakej',
+                            '$qtyInPek pek/pcs',
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.grey[600],
