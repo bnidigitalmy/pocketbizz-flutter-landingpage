@@ -1,73 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js_util' as js_util;
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
 
-/// Receipt OCR result from Tesseract.js
-class OcrResult {
-  final bool success;
-  final String? text;
-  final double? confidence;
-  final String? error;
-  final List<OcrLine> lines;
-
-  OcrResult({
-    required this.success,
-    this.text,
-    this.confidence,
-    this.error,
-    this.lines = const [],
-  });
-
-  factory OcrResult.fromJson(Map<String, dynamic> json) {
-    return OcrResult(
-      success: json['success'] as bool,
-      text: json['text'] as String?,
-      confidence: (json['confidence'] as num?)?.toDouble(),
-      error: json['error'] as String?,
-      lines: (json['lines'] as List<dynamic>?)
-              ?.map((l) => OcrLine.fromJson(l as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
-  }
-}
-
-class OcrLine {
-  final String text;
-  final double confidence;
-
-  OcrLine({required this.text, required this.confidence});
-
-  factory OcrLine.fromJson(Map<String, dynamic> json) {
-    return OcrLine(
-      text: json['text'] as String? ?? '',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
-    );
-  }
-}
-
-/// Parsed receipt data
+/// Parsed receipt data from OCR
 class ParsedReceipt {
   double? amount;
   String? date;
   String? merchant;
   List<ReceiptItem> items;
+  String rawText;
 
   ParsedReceipt({
     this.amount,
     this.date,
     this.merchant,
     this.items = const [],
+    this.rawText = '',
   });
 
   factory ParsedReceipt.fromJson(Map<String, dynamic> json) {
@@ -75,6 +30,7 @@ class ParsedReceipt {
       amount: (json['amount'] as num?)?.toDouble(),
       date: json['date'] as String?,
       merchant: json['merchant'] as String?,
+      rawText: json['rawText'] as String? ?? '',
       items: (json['items'] as List<dynamic>?)
               ?.map((i) => ReceiptItem.fromJson(i as Map<String, dynamic>))
               .toList() ??
@@ -97,7 +53,7 @@ class ReceiptItem {
   }
 }
 
-/// Receipt Scan Page - Camera/Gallery capture + OCR + Verify before save
+/// Receipt Scan Page - Camera/Gallery capture + Google Cloud Vision OCR + Verify before save
 class ReceiptScanPage extends StatefulWidget {
   const ReceiptScanPage({super.key});
 
@@ -114,8 +70,8 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _imageDataUrl;
-  OcrResult? _ocrResult;
   ParsedReceipt? _parsedReceipt;
+  String? _ocrError;
 
   // Editable form fields (after OCR)
   final _formKey = GlobalKey<FormState>();
@@ -209,72 +165,60 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     }
   }
 
-  /// Process captured/picked image with OCR
+  /// Process captured/picked image with Google Cloud Vision OCR
   Future<void> _processImage(XFile image) async {
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _ocrError = null;
+    });
 
     try {
-      // Read image as base64 data URL
+      // Read image as base64
       final bytes = await image.readAsBytes();
-      final base64 = base64Encode(bytes);
+      final base64Image = base64Encode(bytes);
       final mimeType = image.mimeType ?? 'image/jpeg';
-      final dataUrl = 'data:$mimeType;base64,$base64';
+      final dataUrl = 'data:$mimeType;base64,$base64Image';
 
       setState(() => _imageDataUrl = dataUrl);
 
-      // Call Tesseract.js OCR via JS interop
-      final ocrResultJson = await _performOcr(dataUrl);
-      final ocrResult = OcrResult.fromJson(jsonDecode(ocrResultJson));
+      // Call Supabase Edge Function for OCR
+      final response = await supabase.functions.invoke(
+        'ocr-receipt',
+        body: {'imageBase64': base64Image},
+      );
 
-      if (ocrResult.success && ocrResult.text != null) {
-        // Parse receipt text to extract structured data
-        final parsedJson = _parseReceiptText(ocrResult.text!);
-        final parsed = ParsedReceipt.fromJson(jsonDecode(parsedJson));
-
-        setState(() {
-          _ocrResult = ocrResult;
-          _parsedReceipt = parsed;
-        });
-
-        // Pre-fill form fields
-        _prefillFormFromParsed(parsed);
-      } else {
-        setState(() {
-          _ocrResult = ocrResult;
-          _parsedReceipt = null;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('OCR gagal: ${ocrResult.error ?? "Tiada teks ditemui"}'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+      if (response.status != 200) {
+        throw Exception('OCR failed: ${response.data?['error'] ?? 'Unknown error'}');
       }
+
+      final data = response.data as Map<String, dynamic>;
+      
+      if (data['success'] != true) {
+        throw Exception(data['error'] ?? 'OCR processing failed');
+      }
+
+      final parsed = ParsedReceipt.fromJson(data['parsed'] as Map<String, dynamic>);
+      
+      setState(() {
+        _parsedReceipt = parsed;
+      });
+
+      // Pre-fill form fields
+      _prefillFormFromParsed(parsed);
+
     } catch (e) {
+      setState(() => _ocrError = e.toString());
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ralat memproses gambar: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Ralat OCR: $e'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
-  }
-
-  /// Call JS performOCR function
-  Future<String> _performOcr(String imageDataUrl) async {
-    final promise = js_util.callMethod(html.window, 'performOCR', [imageDataUrl]);
-    return await js_util.promiseToFuture<String>(promise);
-  }
-
-  /// Call JS parseReceiptText function
-  String _parseReceiptText(String text) {
-    return js_util.callMethod(html.window, 'parseReceiptText', [text]) as String;
   }
 
   /// Pre-fill form fields from parsed receipt
@@ -415,8 +359,8 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   void _resetScan() {
     setState(() {
       _imageDataUrl = null;
-      _ocrResult = null;
       _parsedReceipt = null;
+      _ocrError = null;
       _amountController.clear();
       _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
       _selectedDate = DateTime.now();
@@ -652,7 +596,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sila tunggu sebentar',
+                    'Google Cloud Vision sedang memproses',
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
@@ -678,31 +622,30 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  if (_ocrResult != null)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _ocrResult!.success ? Icons.check_circle : Icons.warning,
-                            color: _ocrResult!.success ? AppColors.success : Colors.orange,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _ocrResult!.success
-                                  ? 'OCR berjaya (${_ocrResult!.confidence?.toStringAsFixed(0) ?? '-'}% yakin)'
-                                  : 'OCR gagal: ${_ocrResult!.error ?? "Unknown"}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: _ocrResult!.success ? AppColors.success : Colors.orange,
-                              ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _ocrError == null ? Icons.check_circle : Icons.warning,
+                          color: _ocrError == null ? AppColors.success : Colors.orange,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _ocrError == null
+                                ? 'OCR berjaya - Google Cloud Vision'
+                                : 'OCR ralat: $_ocrError',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _ocrError == null ? AppColors.success : Colors.orange,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),
@@ -871,7 +814,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             ),
 
             // Raw OCR text (collapsible)
-            if (_ocrResult?.text != null) ...[
+            if (_parsedReceipt?.rawText.isNotEmpty == true) ...[
               const SizedBox(height: 16),
               ExpansionTile(
                 title: const Text(
@@ -889,7 +832,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: SelectableText(
-                      _ocrResult!.text!,
+                      _parsedReceipt!.rawText,
                       style: const TextStyle(
                         fontSize: 12,
                         fontFamily: 'monospace',
@@ -906,4 +849,3 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     );
   }
 }
-
