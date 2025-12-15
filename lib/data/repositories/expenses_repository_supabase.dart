@@ -26,6 +26,7 @@ class ExpensesRepositorySupabase {
     required double amount,
     required DateTime expenseDate,
     String? description,
+    String? receiptImageUrl,
   }) async {
     final userId = supabase.auth.currentUser!.id;
 
@@ -36,11 +37,24 @@ class ExpensesRepositorySupabase {
       'currency': 'MYR',
       'expense_date': DateFormat('yyyy-MM-dd').format(expenseDate),
       'notes': description,
+      if (receiptImageUrl != null) 'receipt_image_url': receiptImageUrl,
     };
 
     final response =
         await supabase.from('expenses').insert(payload).select().single();
 
+    return Expense.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Get a single expense by ID
+  Future<Expense?> getExpenseById(String id) async {
+    final response = await supabase
+        .from('expenses')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    
+    if (response == null) return null;
     return Expense.fromJson(response as Map<String, dynamic>);
   }
 }

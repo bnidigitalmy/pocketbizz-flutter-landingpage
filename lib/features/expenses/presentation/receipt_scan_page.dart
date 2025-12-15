@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/receipt_storage_service.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
 
 /// Parsed receipt data from OCR
@@ -70,6 +72,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _imageDataUrl;
+  Uint8List? _imageBytes; // Store image bytes for upload
   ParsedReceipt? _parsedReceipt;
   String? _ocrError;
 
@@ -179,7 +182,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       final mimeType = image.mimeType ?? 'image/jpeg';
       final dataUrl = 'data:$mimeType;base64,$base64Image';
 
-      setState(() => _imageDataUrl = dataUrl);
+      setState(() {
+        _imageDataUrl = dataUrl;
+        _imageBytes = bytes; // Store for later upload
+      });
 
       // Call Supabase Edge Function for OCR
       final response = await supabase.functions.invoke(
@@ -325,17 +331,33 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         notes = '${_merchantController.text}\n$notes'.trim();
       }
 
+      // Upload receipt image to Supabase Storage if available
+      String? receiptImageUrl;
+      if (_imageBytes != null) {
+        try {
+          receiptImageUrl = await ReceiptStorageService.uploadReceipt(
+            imageBytes: _imageBytes!,
+          );
+        } catch (e) {
+          // Log error but continue - receipt upload is not critical
+          print('⚠️ Failed to upload receipt image: $e');
+        }
+      }
+
       await _repo.createExpense(
         category: _selectedCategory,
         amount: amount,
         expenseDate: _selectedDate,
         description: notes.isEmpty ? null : notes,
+        receiptImageUrl: receiptImageUrl,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Perbelanjaan berjaya disimpan!'),
+          SnackBar(
+            content: Text(receiptImageUrl != null 
+                ? '✅ Perbelanjaan & resit berjaya disimpan!' 
+                : '✅ Perbelanjaan berjaya disimpan!'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -359,6 +381,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   void _resetScan() {
     setState(() {
       _imageDataUrl = null;
+      _imageBytes = null;
       _parsedReceipt = null;
       _ocrError = null;
       _amountController.clear();

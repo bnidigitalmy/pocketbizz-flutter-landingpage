@@ -11,6 +11,7 @@ class Expense {
   final DateTime expenseDate;
   final String? notes;
   final String? ocrReceiptId;
+  final String? receiptImageUrl; // URL to receipt image in Supabase Storage
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -26,6 +27,7 @@ class Expense {
     this.vendorId,
     this.notes,
     this.ocrReceiptId,
+    this.receiptImageUrl,
   });
 
   factory Expense.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class Expense {
           : DateTime.now(),
       notes: json['notes'] as String?,
       ocrReceiptId: json['ocr_receipt_id'] as String?,
+      receiptImageUrl: json['receipt_image_url'] as String?,
       createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -61,6 +64,7 @@ class Expense {
       'expense_date': DateFormat('yyyy-MM-dd').format(expenseDate),
       'notes': notes,
       'ocr_receipt_id': ocrReceiptId,
+      'receipt_image_url': receiptImageUrl,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
