@@ -22,6 +22,7 @@ class ParsedReceipt {
   String? merchant;
   List<ReceiptItem> items;
   String rawText;
+  String category; // Auto-detected category from OCR
 
   ParsedReceipt({
     this.amount,
@@ -29,6 +30,7 @@ class ParsedReceipt {
     this.merchant,
     this.items = const [],
     this.rawText = '',
+    this.category = 'lain',
   });
 
   factory ParsedReceipt.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class ParsedReceipt {
       date: json['date'] as String?,
       merchant: json['merchant'] as String?,
       rawText: json['rawText'] as String? ?? '',
+      category: json['category'] as String? ?? 'lain',
       items: (json['items'] as List<dynamic>?)
               ?.map((i) => ReceiptItem.fromJson(i as Map<String, dynamic>))
               .toList() ??
@@ -333,10 +336,12 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
   /// Pre-fill form fields from parsed receipt
   void _prefillFormFromParsed(ParsedReceipt parsed) {
-    if (parsed.amount != null) {
+    // Auto-fill amount
+    if (parsed.amount != null && parsed.amount! > 0) {
       _amountController.text = parsed.amount!.toStringAsFixed(2);
     }
 
+    // Auto-fill date
     if (parsed.date != null) {
       try {
         final parts = parsed.date!.split(RegExp(r'[\/\-.]'));
@@ -358,12 +363,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       } catch (_) {}
     }
 
-    if (parsed.merchant != null) {
+    // Auto-fill merchant
+    if (parsed.merchant != null && parsed.merchant!.isNotEmpty) {
       _merchantController.text = parsed.merchant!;
     }
 
-    _selectedCategory = _detectCategory(parsed);
+    // Use category from Edge Function (already detected with better logic)
+    _selectedCategory = parsed.category;
 
+    // Auto-fill items as notes
     if (parsed.items.isNotEmpty) {
       final itemsText = parsed.items
           .map((i) => '${i.name}: RM${i.price.toStringAsFixed(2)}')
@@ -554,27 +562,37 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
           ),
 
         // Viewfinder overlay (yellow border that frames the receipt)
+        // Made larger to accommodate long receipts
         if (_isCameraReady)
           Center(
-            child: Container(
-              width: 300,
-              height: 420,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.amber, width: 3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Stack(
-                children: [
-                  // Corner accents (thicker)
-                  _buildCornerAccent(top: 0, left: 0, isTop: true, isLeft: true),
-                  _buildCornerAccent(top: 0, right: 0, isTop: true, isLeft: false),
-                  _buildCornerAccent(bottom: 0, left: 0, isTop: false, isLeft: true),
-                  _buildCornerAccent(bottom: 0, right: 0, isTop: false, isLeft: false),
-                  
-                  // Scanning line animation
-                  _buildScanningLine(),
-                ],
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Use 85% of screen width, max 340px
+                final viewfinderWidth = (MediaQuery.of(context).size.width * 0.85).clamp(280.0, 340.0);
+                // Use 70% of available height, max 520px (for long receipts)
+                final viewfinderHeight = (MediaQuery.of(context).size.height * 0.60).clamp(400.0, 520.0);
+                
+                return Container(
+                  width: viewfinderWidth,
+                  height: viewfinderHeight,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.amber, width: 3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Corner accents (thicker)
+                      _buildCornerAccent(top: 0, left: 0, isTop: true, isLeft: true),
+                      _buildCornerAccent(top: 0, right: 0, isTop: true, isLeft: false),
+                      _buildCornerAccent(bottom: 0, left: 0, isTop: false, isLeft: true),
+                      _buildCornerAccent(bottom: 0, right: 0, isTop: false, isLeft: false),
+                      
+                      // Scanning line animation
+                      _buildScanningLine(maxHeight: viewfinderHeight),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
 
@@ -729,13 +747,13 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   }
 
   /// Build scanning line animation
-  Widget _buildScanningLine() {
+  Widget _buildScanningLine({double maxHeight = 500}) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(seconds: 2),
       builder: (context, value, child) {
         return Positioned(
-          top: value * 400,
+          top: value * (maxHeight - 20), // Use dynamic height
           left: 10,
           right: 10,
           child: Container(
@@ -764,17 +782,23 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
   /// Build dark overlay outside viewfinder
   Widget _buildDarkOverlay() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    // Match viewfinder dimensions
+    final viewfinderWidth = (screenWidth * 0.85).clamp(280.0, 340.0);
+    final viewfinderHeight = (screenHeight * 0.60).clamp(400.0, 520.0);
+    
     return IgnorePointer(
       child: CustomPaint(
         size: Size.infinite,
         painter: _ViewfinderOverlayPainter(
           viewfinderRect: Rect.fromCenter(
             center: Offset(
-              MediaQuery.of(context).size.width / 2,
-              MediaQuery.of(context).size.height / 2 - 40,
+              screenWidth / 2,
+              screenHeight / 2 - 40,
             ),
-            width: 300,
-            height: 420,
+            width: viewfinderWidth,
+            height: viewfinderHeight,
           ),
         ),
       ),
