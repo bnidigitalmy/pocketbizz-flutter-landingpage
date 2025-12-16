@@ -42,7 +42,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_currentIndex],
-      // Bottom navigation with Scan in center (Bank Islam style - prominent center)
+      // Bottom navigation with Scan in center (same level as other icons)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -55,21 +55,15 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         child: SafeArea(
-          child: SizedBox(
-            height: 70,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildNavItem(0, Icons.dashboard, 'Dashboard'),
-                _buildNavItem(1, Icons.event_note, 'Tempahan'),
-                // Center Scan button - elevated above others
-                Transform.translate(
-                  offset: const Offset(0, -12),
-                  child: _buildScanButton(),
-                ),
-                _buildNavItem(2, Icons.inventory, 'Produk'),
-                _buildNavItem(3, Icons.point_of_sale, 'Jualan'),
+                Expanded(child: _buildNavItem(0, Icons.dashboard, 'Dashboard')),
+                Expanded(child: _buildNavItem(1, Icons.event_note, 'Tempahan')),
+                Expanded(child: _buildScanButton()),
+                Expanded(child: _buildNavItem(2, Icons.inventory, 'Produk')),
+                Expanded(child: _buildNavItem(3, Icons.point_of_sale, 'Jualan')),
               ],
             ),
           ),
@@ -443,35 +437,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Build center Scan button - Bank Islam style (prominent center button)
+  /// Build center Scan button (same level as other nav items)
   Widget _buildScanButton() {
-    return GestureDetector(
+    return InkWell(
       onTap: _openReceiptScan,
+      borderRadius: BorderRadius.circular(8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              gradient: AppColors.logoGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
-              Icons.document_scanner_rounded,
+              Icons.document_scanner,
               color: Colors.white,
-              size: 28,
+              size: 22,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           const Text(
             'Scan',
             style: TextStyle(
