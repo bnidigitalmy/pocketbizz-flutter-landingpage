@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -55,7 +59,7 @@ class ReceiptItem {
   }
 }
 
-/// Receipt Scan Page - Camera/Gallery capture + Google Cloud Vision OCR + Verify before save
+/// Receipt Scan Page - Live Camera + Google Cloud Vision OCR
 class ReceiptScanPage extends StatefulWidget {
   const ReceiptScanPage({super.key});
 
@@ -67,12 +71,20 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   final _repo = ExpensesRepositorySupabase();
   final _picker = ImagePicker();
 
+  // Camera elements
+  html.VideoElement? _videoElement;
+  html.MediaStream? _mediaStream;
+  bool _isCameraReady = false;
+  bool _isCameraError = false;
+  String? _cameraErrorMsg;
+  final String _viewId = 'receipt-camera-${DateTime.now().millisecondsSinceEpoch}';
+
   // States
   bool _isCapturing = false;
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _imageDataUrl;
-  Uint8List? _imageBytes; // Store image bytes for upload
+  Uint8List? _imageBytes;
   ParsedReceipt? _parsedReceipt;
   String? _ocrError;
 
@@ -103,10 +115,14 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     );
     _merchantController = TextEditingController();
     _notesController = TextEditingController();
+    
+    // Initialize camera immediately
+    _initCamera();
   }
 
   @override
   void dispose() {
+    _stopCamera();
     _amountController.dispose();
     _dateController.dispose();
     _merchantController.dispose();
@@ -114,19 +130,95 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     super.dispose();
   }
 
-  /// Capture image from camera
-  Future<void> _captureFromCamera() async {
-    setState(() => _isCapturing = true);
+  /// Initialize live camera
+  Future<void> _initCamera() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1200,
-        maxHeight: 1600,
-        imageQuality: 85,
+      // Create video element
+      _videoElement = html.VideoElement()
+        ..autoplay = true
+        ..muted = true
+        ..setAttribute('playsinline', 'true')
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.objectFit = 'cover';
+
+      // Register platform view
+      ui_web.platformViewRegistry.registerViewFactory(
+        _viewId,
+        (int viewId) => _videoElement!,
       );
-      if (image != null) {
-        await _processImage(image);
+
+      // Request camera access (prefer back camera for receipt scanning)
+      _mediaStream = await html.window.navigator.mediaDevices?.getUserMedia({
+        'video': {
+          'facingMode': 'environment', // Back camera
+          'width': {'ideal': 1280},
+          'height': {'ideal': 1920},
+        },
+        'audio': false,
+      });
+
+      if (_mediaStream != null) {
+        _videoElement!.srcObject = _mediaStream;
+        await _videoElement!.play();
+        
+        if (mounted) {
+          setState(() {
+            _isCameraReady = true;
+            _isCameraError = false;
+          });
+        }
       }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCameraError = true;
+          _cameraErrorMsg = e.toString();
+        });
+      }
+    }
+  }
+
+  /// Stop camera
+  void _stopCamera() {
+    _mediaStream?.getTracks().forEach((track) => track.stop());
+    _mediaStream = null;
+    _videoElement?.pause();
+    _videoElement?.srcObject = null;
+  }
+
+  /// Capture frame from live camera
+  Future<void> _captureFromLiveCamera() async {
+    if (_videoElement == null || !_isCameraReady) return;
+
+    setState(() => _isCapturing = true);
+
+    try {
+      // Create canvas to capture frame
+      final canvas = html.CanvasElement(
+        width: _videoElement!.videoWidth,
+        height: _videoElement!.videoHeight,
+      );
+      final ctx = canvas.context2D;
+      ctx.drawImage(_videoElement!, 0, 0);
+
+      // Convert to base64
+      final dataUrl = canvas.toDataUrl('image/jpeg', 0.85);
+      final base64Data = dataUrl.split(',').last;
+      final bytes = base64Decode(base64Data);
+
+      // Stop camera after capture
+      _stopCamera();
+
+      setState(() {
+        _imageDataUrl = dataUrl;
+        _imageBytes = bytes;
+        _isCameraReady = false;
+      });
+
+      // Process with OCR
+      await _processImageBytes(bytes);
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -141,8 +233,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     }
   }
 
-  /// Pick image from gallery
+  /// Pick image from gallery (fallback)
   Future<void> _pickFromGallery() async {
+    _stopCamera(); // Stop camera when switching to gallery
     setState(() => _isCapturing = true);
     try {
       final XFile? image = await _picker.pickImage(
@@ -153,6 +246,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       );
       if (image != null) {
         await _processImage(image);
+      } else {
+        // User cancelled, restart camera
+        _initCamera();
       }
     } catch (e) {
       if (mounted) {
@@ -162,30 +258,38 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             backgroundColor: Colors.red,
           ),
         );
+        _initCamera();
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
   }
 
-  /// Process captured/picked image with Google Cloud Vision OCR
+  /// Process XFile image (from gallery)
   Future<void> _processImage(XFile image) async {
+    final bytes = await image.readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final mimeType = image.mimeType ?? 'image/jpeg';
+    final dataUrl = 'data:$mimeType;base64,$base64Image';
+
+    setState(() {
+      _imageDataUrl = dataUrl;
+      _imageBytes = bytes;
+      _isCameraReady = false;
+    });
+
+    await _processImageBytes(bytes);
+  }
+
+  /// Process image bytes with Google Cloud Vision OCR
+  Future<void> _processImageBytes(Uint8List bytes) async {
     setState(() {
       _isProcessing = true;
       _ocrError = null;
     });
 
     try {
-      // Read image as base64
-      final bytes = await image.readAsBytes();
       final base64Image = base64Encode(bytes);
-      final mimeType = image.mimeType ?? 'image/jpeg';
-      final dataUrl = 'data:$mimeType;base64,$base64Image';
-
-      setState(() {
-        _imageDataUrl = dataUrl;
-        _imageBytes = bytes; // Store for later upload
-      });
 
       // Call Supabase Edge Function for OCR
       final response = await supabase.functions.invoke(
@@ -234,18 +338,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     }
 
     if (parsed.date != null) {
-      // Try to parse the date
       try {
         final parts = parsed.date!.split(RegExp(r'[\/\-.]'));
         if (parts.length == 3) {
           int day, month, year;
           if (parts[0].length == 4) {
-            // YYYY-MM-DD
             year = int.parse(parts[0]);
             month = int.parse(parts[1]);
             day = int.parse(parts[2]);
           } else {
-            // DD/MM/YYYY
             day = int.parse(parts[0]);
             month = int.parse(parts[1]);
             year = int.parse(parts[2]);
@@ -254,19 +355,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
           _selectedDate = DateTime(year, month, day);
           _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
         }
-      } catch (_) {
-        // Keep default date
-      }
+      } catch (_) {}
     }
 
     if (parsed.merchant != null) {
       _merchantController.text = parsed.merchant!;
     }
 
-    // Auto-detect category from merchant/items
     _selectedCategory = _detectCategory(parsed);
 
-    // Build notes from items
     if (parsed.items.isNotEmpty) {
       final itemsText = parsed.items
           .map((i) => '${i.name}: RM${i.price.toStringAsFixed(2)}')
@@ -312,56 +409,57 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         text.contains('econsave') ||
         text.contains('giant') ||
         text.contains('tesco') ||
-        text.contains('aeon')) {
+        text.contains('aeon') ||
+        text.contains('jaya grocer')) {
       return 'bahan';
     }
-
     return 'lain';
   }
 
-  /// Save expense
+  /// Save expense to database
   Future<void> _saveExpense() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
+
     try {
-      final amount = double.parse(_amountController.text);
-      String? notes = _notesController.text.trim();
-      if (_merchantController.text.isNotEmpty) {
-        notes = '${_merchantController.text}\n$notes'.trim();
+      final amount = double.tryParse(_amountController.text) ?? 0;
+      if (amount <= 0) {
+        throw Exception('Jumlah tidak sah');
       }
 
-      // Upload receipt image to Supabase Storage if available
+      // Upload receipt image to storage first
       String? receiptImageUrl;
       if (_imageBytes != null) {
-        try {
-          receiptImageUrl = await ReceiptStorageService.uploadReceipt(
-            imageBytes: _imageBytes!,
-          );
-        } catch (e) {
-          // Log error but continue - receipt upload is not critical
-          print('⚠️ Failed to upload receipt image: $e');
-        }
+        receiptImageUrl = await ReceiptStorageService.uploadReceipt(
+          imageBytes: _imageBytes!,
+        );
+      }
+
+      // Build description from merchant and notes
+      String description = _merchantController.text.isNotEmpty
+          ? _merchantController.text
+          : 'Scan Resit';
+      if (_notesController.text.isNotEmpty) {
+        description = '$description\n${_notesController.text}';
       }
 
       await _repo.createExpense(
-        category: _selectedCategory,
         amount: amount,
+        category: _selectedCategory,
         expenseDate: _selectedDate,
-        description: notes.isEmpty ? null : notes,
+        description: description,
         receiptImageUrl: receiptImageUrl,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(receiptImageUrl != null 
-                ? '✅ Perbelanjaan & resit berjaya disimpan!' 
-                : '✅ Perbelanjaan berjaya disimpan!'),
+          const SnackBar(
+            content: Text('Perbelanjaan berjaya disimpan!'),
             backgroundColor: AppColors.success,
           ),
         );
-        Navigator.pop(context, true); // Return true to indicate success
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -391,6 +489,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _notesController.clear();
       _selectedCategory = 'lain';
     });
+    _initCamera();
   }
 
   @override
@@ -410,122 +509,100 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             ),
         ],
       ),
-      body: _imageDataUrl == null ? _buildCaptureView() : _buildResultView(),
+      body: _imageDataUrl == null ? _buildLiveCameraView() : _buildResultView(),
     );
   }
 
-  /// Camera/Gallery capture view (like Bank Islam scan page)
-  Widget _buildCaptureView() {
+  /// Live camera view with real viewfinder
+  Widget _buildLiveCameraView() {
     return Stack(
       children: [
-        // Dark background with scan frame
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Scan frame indicator
-              Container(
-                width: 280,
-                height: 380,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.amber, width: 3),
-                  borderRadius: BorderRadius.circular(12),
+        // Live camera preview (full screen)
+        if (_isCameraReady)
+          Positioned.fill(
+            child: HtmlElementView(viewType: _viewId),
+          )
+        else if (_isCameraError)
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.videocam_off, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'Gagal akses kamera',
+                  style: TextStyle(color: Colors.white.withOpacity(0.8)),
                 ),
-                child: Stack(
-                  children: [
-                    // Corner accents
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.amber, width: 4),
-                            left: BorderSide(color: Colors.amber, width: 4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.amber, width: 4),
-                            right: BorderSide(color: Colors.amber, width: 4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Colors.amber, width: 4),
-                            left: BorderSide(color: Colors.amber, width: 4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Colors.amber, width: 4),
-                            right: BorderSide(color: Colors.amber, width: 4),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Center icon
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.receipt_long,
-                            size: 64,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Letakkan resit dalam bingkai',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  _cameraErrorMsg ?? '',
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 40),
-              // Instructions
-              Text(
-                'Ambil gambar resit atau pilih dari galeri',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _pickFromGallery,
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Pilih dari Galeri'),
                 ),
-              ),
-            ],
+              ],
+            ),
+          )
+        else
+          const Center(
+            child: CircularProgressIndicator(color: Colors.white),
           ),
-        ),
+
+        // Viewfinder overlay (yellow border that frames the receipt)
+        if (_isCameraReady)
+          Center(
+            child: Container(
+              width: 300,
+              height: 420,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.amber, width: 3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                children: [
+                  // Corner accents (thicker)
+                  _buildCornerAccent(top: 0, left: 0, isTop: true, isLeft: true),
+                  _buildCornerAccent(top: 0, right: 0, isTop: true, isLeft: false),
+                  _buildCornerAccent(bottom: 0, left: 0, isTop: false, isLeft: true),
+                  _buildCornerAccent(bottom: 0, right: 0, isTop: false, isLeft: false),
+                  
+                  // Scanning line animation
+                  _buildScanningLine(),
+                ],
+              ),
+            ),
+          ),
+
+        // Dark overlay outside viewfinder
+        if (_isCameraReady) _buildDarkOverlay(),
+
+        // Instructions text
+        if (_isCameraReady)
+          Positioned(
+            top: 60,
+            left: 0,
+            right: 0,
+            child: Text(
+              'Letakkan resit dalam bingkai kuning',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                shadows: [
+                  Shadow(
+                    blurRadius: 4,
+                    color: Colors.black.withOpacity(0.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
         // Bottom action buttons
         Positioned(
@@ -547,50 +624,160 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Camera capture button (main action)
-                ElevatedButton.icon(
-                  onPressed: _isCapturing ? null : _captureFromCamera,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                // Capture button (large circular)
+                GestureDetector(
+                  onTap: (_isCapturing || !_isCameraReady) ? null : _captureFromLiveCamera,
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                      color: _isCapturing ? Colors.grey : Colors.white.withOpacity(0.3),
                     ),
-                  ),
-                  icon: _isCapturing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Icon(Icons.camera_alt, size: 24),
-                  label: Text(
-                    _isCapturing ? 'Membuka kamera...' : 'Ambil Gambar',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    child: Center(
+                      child: _isCapturing
+                          ? const SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Container(
+                              width: 56,
+                              height: 56,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Gallery button (secondary action - like Maybank style)
+                // Gallery button
                 TextButton.icon(
                   onPressed: _isCapturing ? null : _pickFromGallery,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                  icon: Icon(
+                    Icons.photo_library,
+                    color: Colors.white.withOpacity(0.9),
                   ),
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text(
-                    'Scan Resit dari Galeri',
-                    style: TextStyle(fontSize: 14),
+                  label: Text(
+                    'Pilih dari Galeri',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
+
+        // Processing overlay
+        if (_isProcessing)
+          Container(
+            color: Colors.black.withOpacity(0.7),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 16),
+                  Text(
+                    'Memproses resit...',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  /// Build corner accent for viewfinder
+  Widget _buildCornerAccent({
+    double? top,
+    double? bottom,
+    double? left,
+    double? right,
+    required bool isTop,
+    required bool isLeft,
+  }) {
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          border: Border(
+            top: isTop ? const BorderSide(color: Colors.amber, width: 5) : BorderSide.none,
+            bottom: !isTop ? const BorderSide(color: Colors.amber, width: 5) : BorderSide.none,
+            left: isLeft ? const BorderSide(color: Colors.amber, width: 5) : BorderSide.none,
+            right: !isLeft ? const BorderSide(color: Colors.amber, width: 5) : BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build scanning line animation
+  Widget _buildScanningLine() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(seconds: 2),
+      builder: (context, value, child) {
+        return Positioned(
+          top: value * 400,
+          left: 10,
+          right: 10,
+          child: Container(
+            height: 2,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.amber.withOpacity(0.8),
+                  Colors.amber,
+                  Colors.amber.withOpacity(0.8),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      onEnd: () {
+        if (mounted && _isCameraReady) {
+          setState(() {}); // Restart animation
+        }
+      },
+    );
+  }
+
+  /// Build dark overlay outside viewfinder
+  Widget _buildDarkOverlay() {
+    return IgnorePointer(
+      child: CustomPaint(
+        size: Size.infinite,
+        painter: _ViewfinderOverlayPainter(
+          viewfinderRect: Rect.fromCenter(
+            center: Offset(
+              MediaQuery.of(context).size.width / 2,
+              MediaQuery.of(context).size.height / 2 - 40,
+            ),
+            width: 300,
+            height: 420,
+          ),
+        ),
+      ),
     );
   }
 
@@ -601,274 +788,259 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Processing indicator
-          if (_isProcessing)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Mengimbas resit...',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Google Cloud Vision sedang memproses',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-
           // Image preview
-          if (!_isProcessing && _imageDataUrl != null) ...[
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          if (_imageDataUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.memory(
+                _imageBytes!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.network(
-                      _imageDataUrl!,
+            ),
+          const SizedBox(height: 16),
+
+          // OCR Status
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _ocrError == null
+                  ? AppColors.success.withOpacity(0.1)
+                  : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _ocrError == null ? AppColors.success : Colors.orange,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _ocrError == null ? Icons.check_circle : Icons.warning,
+                  color: _ocrError == null ? AppColors.success : Colors.orange,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _ocrError == null
+                        ? 'OCR berjaya - Google Cloud Vision'
+                        : 'OCR ralat: $_ocrError',
+                    style: TextStyle(
+                      color: _ocrError == null ? AppColors.success : Colors.orange,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Editable form
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Semak & Sahkan Maklumat',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sila semak maklumat yang dikesan dan betulkan jika perlu sebelum simpan.',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Amount field
+                    TextFormField(
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Jumlah (RM)*',
+                        prefixIcon: Icon(Icons.attach_money),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Sila masukkan jumlah';
+                        if (double.tryParse(v) == null) return 'Jumlah tidak sah';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Date field
+                    TextFormField(
+                      controller: _dateController,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tarikh',
+                        prefixIcon: Icon(Icons.calendar_today),
+                        border: OutlineInputBorder(),
+                      ),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _selectedDate = picked;
+                            _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Category dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Kategori',
+                        prefixIcon: Icon(Icons.category),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _categoryLabels.entries.map((e) {
+                        return DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedCategory = v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Merchant field
+                    TextFormField(
+                      controller: _merchantController,
+                      decoration: const InputDecoration(
+                        labelText: 'Peniaga/Kedai',
+                        prefixIcon: Icon(Icons.store),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Notes field
+                    TextFormField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Nota / Item',
+                        prefixIcon: Icon(Icons.notes),
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Save button
+                    SizedBox(
                       width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _saveExpense,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.save),
+                        label: Text(
+                          _isSaving ? 'Menyimpan...' : 'Simpan Perbelanjaan',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _ocrError == null ? Icons.check_circle : Icons.warning,
-                          color: _ocrError == null ? AppColors.success : Colors.orange,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _ocrError == null
-                                ? 'OCR berjaya - Google Cloud Vision'
-                                : 'OCR ralat: $_ocrError',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _ocrError == null ? AppColors.success : Colors.orange,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Verify & Edit form
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.edit_note, color: AppColors.primary),
-                          SizedBox(width: 8),
-                          Text(
-                            'Semak & Sahkan Maklumat',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sila semak maklumat yang dikesan dan betulkan jika perlu sebelum simpan.',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Amount
-                      TextFormField(
-                        controller: _amountController,
-                        decoration: const InputDecoration(
-                          labelText: 'Jumlah (RM)*',
-                          border: OutlineInputBorder(),
-                          prefixText: 'RM ',
-                          prefixIcon: Icon(Icons.attach_money),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        validator: (value) {
-                          final v = double.tryParse(value ?? '');
-                          if (v == null || v <= 0) {
-                            return 'Masukkan jumlah yang sah';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Date
-                      TextFormField(
-                        controller: _dateController,
-                        readOnly: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Tarikh',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now().add(const Duration(days: 1)),
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _selectedDate = picked;
-                              _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Category
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Kategori',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.category),
-                        ),
-                        items: _categoryLabels.entries
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e.key,
-                                child: Text(e.value),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _selectedCategory = value);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Merchant
-                      TextFormField(
-                        controller: _merchantController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nama Kedai/Vendor (optional)',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.store),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Notes / Items
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Penerangan / Item (optional)',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.notes),
-                          alignLabelWithHint: true,
-                        ),
-                        maxLines: 4,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Save button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isSaving ? null : _saveExpense,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: _isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              : const Icon(Icons.save),
-                          label: Text(
-                            _isSaving ? 'Menyimpan...' : 'Simpan Perbelanjaan',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
 
-            // Raw OCR text (collapsible)
-            if (_parsedReceipt?.rawText.isNotEmpty == true) ...[
-              const SizedBox(height: 16),
-              ExpansionTile(
-                title: const Text(
-                  'Teks Resit Asal (OCR)',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                leading: const Icon(Icons.text_snippet, size: 20),
-                childrenPadding: const EdgeInsets.all(12),
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SelectableText(
-                      _parsedReceipt!.rawText,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        height: 1.5,
-                      ),
+          // Raw OCR text (collapsible)
+          if (_parsedReceipt != null && _parsedReceipt!.rawText.isNotEmpty)
+            ExpansionTile(
+              title: const Text(
+                'Teks Resit Asal (OCR)',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    _parsedReceipt!.rawText,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ],
+                ),
+              ],
+            ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
+}
+
+/// Custom painter for dark overlay outside viewfinder
+class _ViewfinderOverlayPainter extends CustomPainter {
+  final Rect viewfinderRect;
+
+  _ViewfinderOverlayPainter({required this.viewfinderRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+
+    // Draw full screen
+    final fullRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    
+    // Create path with hole
+    final path = Path()
+      ..addRect(fullRect)
+      ..addRRect(RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(12)));
+    path.fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
