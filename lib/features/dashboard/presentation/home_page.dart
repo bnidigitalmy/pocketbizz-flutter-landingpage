@@ -42,28 +42,32 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_currentIndex],
-      // Bottom navigation with Scan in center (same level as other icons)
+      // Bottom navigation with Scan in center (Bank Islam style - prominent center)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SizedBox(
+            height: 70,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _buildNavItem(0, Icons.dashboard, 'Dashboard'),
                 _buildNavItem(1, Icons.event_note, 'Tempahan'),
-                // Center Scan button (same level)
-                _buildScanButton(),
+                // Center Scan button - elevated above others
+                Transform.translate(
+                  offset: const Offset(0, -12),
+                  child: _buildScanButton(),
+                ),
                 _buildNavItem(2, Icons.inventory, 'Produk'),
                 _buildNavItem(3, Icons.point_of_sale, 'Jualan'),
               ],
@@ -439,40 +443,44 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Build center Scan button (same level as other nav items)
+  /// Build center Scan button - Bank Islam style (prominent center button)
   Widget _buildScanButton() {
-    return InkWell(
+    return GestureDetector(
       onTap: _openReceiptScan,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.document_scanner,
-                color: Colors.white,
-                size: 20,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: AppColors.logoGradient,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            const SizedBox(height: 2),
-            const Text(
-              'Scan',
-              style: TextStyle(
-                fontSize: 10,
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
+            child: const Icon(
+              Icons.document_scanner_rounded,
+              color: Colors.white,
+              size: 28,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Scan',
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
