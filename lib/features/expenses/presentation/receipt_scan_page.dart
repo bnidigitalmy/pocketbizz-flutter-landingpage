@@ -463,22 +463,37 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
   /// Save expense to database
   Future<void> _saveExpense() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sila isi semua maklumat yang diperlukan'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
 
     try {
-      final amount = double.tryParse(_amountController.text) ?? 0;
+      final amountText = _amountController.text.trim();
+      final amount = double.tryParse(amountText) ?? 0;
+      
       if (amount <= 0) {
-        throw Exception('Jumlah tidak sah');
+        throw Exception('Jumlah tidak sah: $amountText');
       }
 
       // Upload receipt image to storage first
       String? receiptImageUrl;
       if (_imageBytes != null) {
-        receiptImageUrl = await ReceiptStorageService.uploadReceipt(
-          imageBytes: _imageBytes!,
-        );
+        try {
+          receiptImageUrl = await ReceiptStorageService.uploadReceipt(
+            imageBytes: _imageBytes!,
+          );
+        } catch (uploadError) {
+          // Continue without image if upload fails
+          debugPrint('Receipt upload failed: $uploadError');
+        }
       }
 
       // Build description from merchant and notes
@@ -506,12 +521,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         );
         Navigator.of(context).pop(true);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Save expense error: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal menyimpan: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -1075,12 +1093,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                     // Notes field
                     TextFormField(
                       controller: _notesController,
-                      maxLines: 3,
+                      minLines: 3,
+                      maxLines: null, // Expandable - grows as user types or content expands
+                      keyboardType: TextInputType.multiline,
                       decoration: const InputDecoration(
-                        labelText: 'Nota / Item',
+                        labelText: 'Nota / Item (expandable)',
                         prefixIcon: Icon(Icons.notes),
                         border: OutlineInputBorder(),
                         alignLabelWithHint: true,
+                        helperText: 'Tarik untuk expand atau scroll untuk baca semua',
                       ),
                     ),
                     const SizedBox(height: 24),
