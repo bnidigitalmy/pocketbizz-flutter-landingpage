@@ -81,6 +81,12 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   bool _isCameraError = false;
   String? _cameraErrorMsg;
   final String _viewId = 'receipt-camera-${DateTime.now().millisecondsSinceEpoch}';
+  
+  // Zoom controls
+  double _zoomLevel = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 5.0;
+  bool _supportsZoom = false;
 
   // States
   bool _isCapturing = false;
@@ -143,7 +149,8 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         ..setAttribute('playsinline', 'true')
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = 'cover';
+        ..style.objectFit = 'cover'
+        ..style.transformOrigin = 'center center';
 
       // Register platform view
       ui_web.platformViewRegistry.registerViewFactory(
@@ -165,10 +172,14 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         _videoElement!.srcObject = _mediaStream;
         await _videoElement!.play();
         
+        // Check if device supports native zoom (optional, not all browsers support this)
+        _supportsZoom = true; // We'll use CSS transform for universal support
+        
         if (mounted) {
           setState(() {
             _isCameraReady = true;
             _isCameraError = false;
+            _zoomLevel = 1.0;
           });
         }
       }
@@ -181,6 +192,31 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       }
     }
   }
+  
+  /// Apply zoom to camera using CSS transform
+  void _applyZoom(double zoom) {
+    if (_videoElement == null) return;
+    
+    // Clamp zoom level
+    zoom = zoom.clamp(_minZoom, _maxZoom);
+    
+    // Apply CSS transform for zoom effect
+    _videoElement!.style.transform = 'scale($zoom)';
+    
+    setState(() {
+      _zoomLevel = zoom;
+    });
+  }
+  
+  /// Zoom in
+  void _zoomIn() {
+    _applyZoom(_zoomLevel + 0.5);
+  }
+  
+  /// Zoom out
+  void _zoomOut() {
+    _applyZoom(_zoomLevel - 0.5);
+  }
 
   /// Stop camera
   void _stopCamera() {
@@ -188,6 +224,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     _mediaStream = null;
     _videoElement?.pause();
     _videoElement?.srcObject = null;
+    _zoomLevel = 1.0; // Reset zoom
   }
 
   /// Capture frame from live camera
@@ -616,6 +653,81 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                   Shadow(
                     blurRadius: 4,
                     color: Colors.black.withOpacity(0.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // Zoom controls (right side)
+        if (_isCameraReady)
+          Positioned(
+            right: 16,
+            top: MediaQuery.of(context).size.height * 0.3,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Zoom in button
+                  GestureDetector(
+                    onTap: _zoomIn,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _zoomLevel >= _maxZoom 
+                            ? Colors.grey.withOpacity(0.5)
+                            : Colors.white.withOpacity(0.2),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Zoom level indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_zoomLevel.toStringAsFixed(1)}x',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Zoom out button
+                  GestureDetector(
+                    onTap: _zoomOut,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _zoomLevel <= _minZoom 
+                            ? Colors.grey.withOpacity(0.5)
+                            : Colors.white.withOpacity(0.2),
+                      ),
+                      child: const Icon(
+                        Icons.remove,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ],
               ),
