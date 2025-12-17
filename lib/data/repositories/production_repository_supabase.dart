@@ -220,7 +220,84 @@ class ProductionRepository {
     }
   }
 
+  /// Update notes only (safe - doesn't affect stock)
+  Future<ProductionBatch> updateBatchNotes(String id, String? notes) async {
+    try {
+      final response = await _supabase
+          .from('production_batches')
+          .update({
+            'notes': notes,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+      return ProductionBatch.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to update batch notes: $e');
+    }
+  }
+
+  /// Delete batch with stock reversal (use carefully!)
+  /// This will reverse all stock deductions made during production
+  Future<void> deleteBatchWithStockReversal(String id) async {
+    try {
+      // Get batch first
+      final batch = await getBatchById(id);
+      if (batch == null) {
+        throw Exception('Batch not found');
+      }
+
+      // Get all ingredient usage records for this batch
+      final usageResponse = await _supabase
+          .from('production_ingredient_usage')
+          .select('*')
+          .eq('production_batch_id', id);
+
+      final usageRecords = usageResponse as List;
+
+      // Reverse stock for each ingredient
+      for (final usage in usageRecords) {
+        final stockItemId = usage['stock_item_id'] as String;
+        final quantityUsed = (usage['quantity_used'] as num).toDouble();
+
+        // Add stock back using record_stock_movement function
+        // Note: quantity_change is positive to add stock back
+        await _supabase.rpc('record_stock_movement', params: {
+          'p_stock_item_id': stockItemId,
+          'p_movement_type': 'adjustment',
+          'p_quantity_change': quantityUsed, // Positive = add back
+          'p_reason': 'Production batch deleted - stock reversal',
+          'p_reference_id': id,
+          'p_reference_type': 'production_batch',
+          'p_created_by': _supabase.auth.currentUser?.id,
+        });
+      }
+
+      // Delete ingredient usage records (cascade should handle this, but explicit is better)
+      await _supabase
+          .from('production_ingredient_usage')
+          .delete()
+          .eq('production_batch_id', id);
+
+      // Delete stock movements related to this batch
+      await _supabase
+          .from('stock_movements')
+          .delete()
+          .eq('reference_id', id)
+          .eq('reference_type', 'production_batch');
+
+      // Finally, delete the batch
+      await _supabase.from('production_batches').delete().eq('id', id);
+    } catch (e) {
+      throw Exception('Failed to delete production batch with stock reversal: $e');
+    }
+  }
+
   /// Delete batch (hard delete - use carefully!)
+  /// NOTE: This doesn't reverse stock - use deleteBatchWithStockReversal instead
+  @Deprecated('Use deleteBatchWithStockReversal for proper stock reversal')
   Future<void> deleteBatch(String id) async {
     try {
       await _supabase.from('production_batches').delete().eq('id', id);

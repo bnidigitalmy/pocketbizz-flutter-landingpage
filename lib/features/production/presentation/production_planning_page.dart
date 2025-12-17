@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
+import '../../../core/utils/admin_helper.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/shopping_cart_repository_supabase.dart';
@@ -376,6 +377,8 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
 
   Widget _buildBatchCard(ProductionBatch batch) {
     final expiryStatus = _getExpiryStatus(batch.expiryDate);
+    final isAdmin = AdminHelper.isAdmin();
+    final canEdit = batch.canBeEdited(isAdmin: isAdmin);
     
     // Find product to get image
     final product = _products.firstWhere(
@@ -467,12 +470,53 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        batch.productName ?? 'Unknown',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              batch.productName ?? 'Unknown',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          // Edit/Delete buttons (if allowed)
+                          if (canEdit)
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, size: 20),
+                              onSelected: (value) {
+                                if (value == 'edit_notes') {
+                                  _showEditNotesDialog(batch);
+                                } else if (value == 'delete') {
+                                  _showDeleteConfirmDialog(batch);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit_notes',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit_note, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Edit Nota'),
+                                    ],
+                                  ),
+                                ),
+                                if (canEdit) // Only show delete if can edit
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete, size: 18, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Padam', style: TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Wrap(
@@ -565,6 +609,179 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _showEditNotesDialog(ProductionBatch batch) async {
+    final notesController = TextEditingController(text: batch.notes ?? '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Nota'),
+        content: TextField(
+          controller: notesController,
+          decoration: const InputDecoration(
+            hintText: 'Masukkan nota...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      try {
+        await _productionRepo.updateBatchNotes(
+          batch.id,
+          notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nota berjaya dikemaskini'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          _loadData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal kemaskini nota: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _showDeleteConfirmDialog(ProductionBatch batch) async {
+    final isAdmin = AdminHelper.isAdmin();
+    final hoursSinceCreation = DateTime.now().difference(batch.createdAt).inHours;
+    final canDelete = isAdmin || hoursSinceCreation < 24;
+
+    if (!canDelete) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rekod produksi hanya boleh dipadam dalam tempoh 24 jam selepas dicipta, atau oleh admin'),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Padam Rekod Produksi?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Produk: ${batch.productName}'),
+            const SizedBox(height: 8),
+            Text('Kuantiti: ${batch.quantity} unit'),
+            const SizedBox(height: 8),
+            Text('Kos: RM ${batch.totalCost.toStringAsFixed(2)}'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '⚠️ PERINGATAN:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Tindakan ini akan:',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  Text('• Memadam rekod produksi', style: TextStyle(fontSize: 12)),
+                  Text('• Membalikkan semua potongan stok bahan', style: TextStyle(fontSize: 12)),
+                  Text('• Memadam rekod penggunaan bahan', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            if (batch.hasBeenUsed) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red),
+                ),
+                child: const Text(
+                  '⚠️ Rekod ini telah digunakan dalam jualan. Memadam mungkin mempengaruhi laporan.',
+                  style: TextStyle(fontSize: 12, color: Colors.red),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Padam'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await _productionRepo.deleteBatchWithStockReversal(batch.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rekod produksi berjaya dipadam. Stok telah dibalikkan.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          _loadData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal padam rekod: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
   }
 }
 

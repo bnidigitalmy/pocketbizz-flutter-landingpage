@@ -979,33 +979,39 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // Notes/Description (expandable)
-                    const Text(
-                      'Penerangan / Nota',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: SelectableText(
-                        expense.notes ?? 'Tiada penerangan',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
+                    // Structured Receipt Data (if available)
+                    if (expense.receiptData != null) ...[
+                      _buildStructuredReceiptData(expense.receiptData!, expense),
+                      const SizedBox(height: 20),
+                    ] else if (expense.notes != null && expense.notes!.isNotEmpty) ...[
+                      // Fallback to notes if no structured data
+                      const Text(
+                        'Penerangan / Nota',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: SelectableText(
+                          expense.notes!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     
                     // Receipt Image
                     if (expense.receiptImageUrl != null) ...[
@@ -1068,6 +1074,201 @@ class _ExpensesPageState extends State<ExpensesPage> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildStructuredReceiptData(ReceiptData receiptData, Expense expense) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Merchant
+        if (receiptData.merchant != null && receiptData.merchant!.isNotEmpty) ...[
+          _buildDetailRow(
+            icon: Icons.store,
+            label: 'Kedai / Merchant',
+            value: receiptData.merchant!,
+            valueColor: AppColors.primary,
+          ),
+          const SizedBox(height: 12),
+        ],
+        
+        // Receipt Date (if different from expense date)
+        if (receiptData.date != null && receiptData.date!.isNotEmpty) ...[
+          _buildDetailRow(
+            icon: Icons.calendar_today,
+            label: 'Tarikh Resit',
+            value: receiptData.date!,
+          ),
+          const SizedBox(height: 12),
+        ],
+        
+        // Items List
+        if (receiptData.items.isNotEmpty) ...[
+          const Text(
+            'Item Resit',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              children: [
+                ...receiptData.items.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final isLast = index == receiptData.items.length - 1;
+                  
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: isLast ? null : Border(
+                        bottom: BorderSide(color: Colors.grey[200]!, width: 1),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.name,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (item.quantity != null && item.quantity! > 1) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Kuantiti: ${item.quantity!.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'RM ${item.price.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                
+                // Summary totals
+                if (receiptData.subtotal != null || receiptData.tax != null || receiptData.total != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        if (receiptData.subtotal != null)
+                          _buildReceiptTotalRow('Subtotal', receiptData.subtotal!),
+                        if (receiptData.tax != null)
+                          _buildReceiptTotalRow('Cukai', receiptData.tax!),
+                        if (receiptData.total != null) ...[
+                          const SizedBox(height: 4),
+                          const Divider(),
+                          const SizedBox(height: 4),
+                          _buildReceiptTotalRow('Jumlah', receiptData.total!, isTotal: true),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        
+        // Raw notes (if exists and different from structured data)
+        if (expense.notes != null && expense.notes!.isNotEmpty && 
+            !expense.notes!.contains(receiptData.merchant ?? '')) ...[
+          const Text(
+            'Nota Tambahan',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: SelectableText(
+              expense.notes!,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildReceiptTotalRow(String label, double amount, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 14 : 12,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? AppColors.primary : Colors.grey[700],
+            ),
+          ),
+          Text(
+            'RM ${amount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 13,
+              fontWeight: FontWeight.bold,
+              color: isTotal ? AppColors.success : Colors.grey[700],
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
     );
   }
 

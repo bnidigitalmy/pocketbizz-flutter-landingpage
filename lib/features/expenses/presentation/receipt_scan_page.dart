@@ -14,13 +14,14 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/receipt_storage_service.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
+import '../../../data/models/expense.dart';
 
 /// Parsed receipt data from OCR
 class ParsedReceipt {
   double? amount;
   String? date;
   String? merchant;
-  List<ReceiptItem> items;
+  List<ParsedReceiptItem> items;
   String rawText;
   String category; // Auto-detected category from OCR
 
@@ -41,21 +42,22 @@ class ParsedReceipt {
       rawText: json['rawText'] as String? ?? '',
       category: json['category'] as String? ?? 'lain',
       items: (json['items'] as List<dynamic>?)
-              ?.map((i) => ReceiptItem.fromJson(i as Map<String, dynamic>))
+              ?.map((i) => ParsedReceiptItem.fromJson(i as Map<String, dynamic>))
               .toList() ??
           [],
     );
   }
 }
 
-class ReceiptItem {
+/// Receipt item from OCR parsing (temporary, will be converted to ReceiptItem)
+class ParsedReceiptItem {
   final String name;
   final double price;
 
-  ReceiptItem({required this.name, required this.price});
+  ParsedReceiptItem({required this.name, required this.price});
 
-  factory ReceiptItem.fromJson(Map<String, dynamic> json) {
-    return ReceiptItem(
+  factory ParsedReceiptItem.fromJson(Map<String, dynamic> json) {
+    return ParsedReceiptItem(
       name: json['name'] as String? ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0,
     );
@@ -546,12 +548,30 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         description = '$description\n${_notesController.text}';
       }
 
+      // Build structured receipt data from parsed receipt
+      ReceiptData? receiptData;
+      if (_parsedReceipt != null) {
+        final merchantText = _merchantController.text.trim();
+        receiptData = ReceiptData(
+          merchant: _parsedReceipt!.merchant ?? (merchantText.isEmpty ? null : merchantText),
+          date: _parsedReceipt!.date ?? DateFormat('yyyy-MM-dd').format(_selectedDate),
+          items: _parsedReceipt!.items
+              .map((item) => ReceiptItem(
+                    name: item.name,
+                    price: item.price,
+                  ))
+              .toList(),
+          total: amount,
+        );
+      }
+
       await _repo.createExpense(
         amount: amount,
         category: _selectedCategory,
         expenseDate: _selectedDate,
         description: description,
         receiptImageUrl: receiptImageUrl,
+        receiptData: receiptData,
       );
 
       if (mounted) {

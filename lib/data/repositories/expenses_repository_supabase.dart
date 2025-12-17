@@ -27,6 +27,7 @@ class ExpensesRepositorySupabase {
     required DateTime expenseDate,
     String? description,
     String? receiptImageUrl,
+    ReceiptData? receiptData,
   }) async {
     final userId = supabase.auth.currentUser!.id;
 
@@ -38,6 +39,7 @@ class ExpensesRepositorySupabase {
       'expense_date': DateFormat('yyyy-MM-dd').format(expenseDate),
       'notes': description,
       if (receiptImageUrl != null) 'receipt_image_url': receiptImageUrl,
+      if (receiptData != null) 'receipt_data': receiptData.toJson(),
     };
 
     final response =

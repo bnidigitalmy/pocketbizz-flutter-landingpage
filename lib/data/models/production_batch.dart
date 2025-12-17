@@ -49,6 +49,16 @@ class ProductionBatch {
   double get usagePercentage => 
       quantity > 0 ? ((quantity - remainingQty) / quantity) * 100 : 0;
 
+  /// Check if batch can be edited/deleted (within 24 hours or admin)
+  bool canBeEdited({required bool isAdmin}) {
+    final now = DateTime.now();
+    final hoursSinceCreation = now.difference(createdAt).inHours;
+    return isAdmin || hoursSinceCreation < 24;
+  }
+
+  /// Check if batch has been used in sales (remaining < quantity)
+  bool get hasBeenUsed => remainingQty < quantity;
+
   factory ProductionBatch.fromJson(Map<String, dynamic> json) {
     return ProductionBatch(
       id: json['id'] as String,

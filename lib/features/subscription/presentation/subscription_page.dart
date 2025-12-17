@@ -673,34 +673,17 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Stack vertically on mobile (width < 600), horizontally on larger screens
-            if (constraints.maxWidth < 600) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLimitItem('Produk', _planLimits!.products),
-                  const SizedBox(height: 12),
-                  _buildLimitItem('Stok', _planLimits!.stockItems),
-                  const SizedBox(height: 12),
-                  _buildLimitItem('Transaksi', _planLimits!.transactions),
-                ],
-              );
-            } else {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildLimitItem('Produk', _planLimits!.products)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildLimitItem('Stok', _planLimits!.stockItems)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildLimitItem('Transaksi', _planLimits!.transactions)),
-                ],
-              );
-            }
-          },
+        const SizedBox(height: 8),
+        // Horizontal layout untuk semua screen - lebih compact
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildLimitItem('Produk', _planLimits!.products)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildLimitItem('Stok', _planLimits!.stockItems)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildLimitItem('Transaksi', _planLimits!.transactions)),
+          ],
         ),
         // Show warning if approaching limits
         if (isApproachingLimit && !_planLimits!.products.isUnlimited) ...[
@@ -743,7 +726,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           children: [
             Icon(
               _getLimitIcon(label),
-              size: 16,
+              size: 14,
               color: AppColors.textSecondary,
             ),
             const SizedBox(width: 4),
@@ -751,7 +734,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               child: Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -759,18 +742,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           '${limit.current} / ${limit.displayMax}',
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         LinearProgressIndicator(
           value: limit.usagePercentage / 100,
           backgroundColor: Colors.grey[200],
+          minHeight: 4, // Make progress bar thinner
           valueColor: AlwaysStoppedAnimation<Color>(
             limit.usagePercentage > 80 ? AppColors.warning : AppColors.primary,
           ),
@@ -967,22 +951,15 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             ),
           ),
         const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Single column on mobile (width < 600), 2 columns on larger screens
-            final crossAxisCount = constraints.maxWidth < 600 ? 1 : 2;
-            final childAspectRatio = constraints.maxWidth < 600 ? 1.2 : 0.85;
-            
-            return GridView.count(
-              crossAxisCount: crossAxisCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: childAspectRatio,
-              children: _plans.map((plan) => _buildPackageCard(plan)).toList(),
-            );
-          },
+        // Grid 2x2 untuk semua screen sizes (lebih cantik dan mudah untuk comparison)
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.75, // Adjusted untuk 2x2 grid
+          children: _plans.map((plan) => _buildPackageCard(plan)).toList(),
         ),
         const SizedBox(height: 16),
         Container(
@@ -1035,7 +1012,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final isExtending = _currentSubscription != null && 
                         (_currentSubscription!.status == SubscriptionStatus.active ||
                          _currentSubscription!.status == SubscriptionStatus.grace);
+    // Allow extend untuk semua plans (kecuali current plan) kalau subscription active/grace
     final canExtend = isExtending && !isCurrentPlan;
+    // Untuk extend, semua plan boleh dipilih (kecuali current)
+    final canSelectPlan = canUpgrade || (isExtending && !isCurrentPlan);
     final isPopular = plan.durationMonths == 6;
     
     // Enhanced styling for current plan
@@ -1095,7 +1075,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           ),
         ),
         child: InkWell(
-          onTap: _processingPayment || (!canUpgrade && !canExtend) || isCurrentPlan 
+          onTap: _processingPayment || !canSelectPlan || isCurrentPlan 
             ? null 
             : () => _handlePayment(plan.durationMonths, isExtend: isExtending),
           borderRadius: BorderRadius.circular(12),
@@ -1316,7 +1296,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     ],
                   ),
                 )
-              else if (canUpgrade || canExtend)
+              else if (canSelectPlan)
                 ElevatedButton(
                   onPressed: _processingPayment 
                       ? null 
