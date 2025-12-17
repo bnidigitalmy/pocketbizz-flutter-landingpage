@@ -1,13 +1,16 @@
 {
     "name": "PocketBizz - Sistem Operasi SME & F&B",
     "short_name": "PocketBizz",
-    "start_url": ".",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#14B8A6",
     "theme_color": "#14B8A6",
     "description": "Sistem operasi lengkap untuk SME & F&B Malaysia. Urus stok, pengeluaran, jualan, konsainan, vendor claims & laporan dalam satu platform.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "dir": "ltr",
+    "lang": "ms",
     "icons": [
         {
             "src": "icons/Icon-192.png",

@@ -20,24 +20,47 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="PocketBizz - Sistem operasi lengkap untuk SME & F&B Malaysia. Urus stok, pengeluaran, jualan, konsainan, vendor claims & laporan dalam satu platform.">
   
-  <!-- Viewport for iOS PWA keyboard fix -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+  <!-- Viewport for iOS PWA - simplified to prevent hang -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-touch-fullscreen" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="PocketBizz">
+  <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>PocketBizz - Sistem Operasi SME & F&B</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Prevent iOS Safari from blocking -->
+  <script>
+    // iOS Safari PWA fixes - prevent hang
+    (function() {
+      'use strict';
+      // Prevent iOS Safari hang by handling errors gracefully
+      if (typeof window !== 'undefined') {
+        // Prevent unhandled errors from hanging the app
+        window.addEventListener('error', function(e) {
+          console.error('Global error caught:', e.error);
+          return true; // Prevent default error handling
+        }, true);
+        
+        // Prevent unhandled promise rejections from hanging the app
+        window.addEventListener('unhandledrejection', function(e) {
+          console.error('Unhandled promise rejection:', e.reason);
+          e.preventDefault(); // Prevent default browser error handling
+        });
+      }
+    })();
+  </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -47,18 +48,47 @@ import 'features/subscription/presentation/admin/widgets/admin_layout.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize locale data for date formatting
-  await initializeDateFormatting('ms_MY', null);
+  try {
+    // Initialize locale data for date formatting (non-blocking with timeout)
+    await initializeDateFormatting('ms_MY', null).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        print('Warning: Locale initialization timeout (ms_MY)');
+      },
+    );
+  } catch (e) {
+    print('Error initializing ms_MY locale: $e');
+  }
   
   // Initialize timezone data for Malaysia timezone
   DateTimeHelper.initialize();
-  await initializeDateFormatting('en_US', null);
+  
+  try {
+    await initializeDateFormatting('en_US', null).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        print('Warning: Locale initialization timeout (en_US)');
+      },
+    );
+  } catch (e) {
+    print('Error initializing en_US locale: $e');
+  }
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: 'https://gxllowlurizrkvpdircw.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs',
-  );
+  // Initialize Supabase with error handling to prevent hang
+  try {
+    await Supabase.initialize(
+      url: 'https://gxllowlurizrkvpdircw.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs',
+    ).timeout(
+      const Duration(seconds: 10),
+    );
+  } on TimeoutException {
+    print('Warning: Supabase initialization timeout - continuing anyway');
+    // Continue anyway - Supabase might still work
+  } catch (e) {
+    print('Error initializing Supabase: $e');
+    // Continue anyway - app should still load
+  }
 
   runApp(
     const ProviderScope(
