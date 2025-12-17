@@ -11,6 +11,10 @@ import '../../vendors/presentation/vendors_page.dart';
 import '../../production/presentation/production_planning_page.dart';
 import '../../finished_products/presentation/finished_products_page.dart';
 import '../../products/presentation/test_image_upload_page.dart';
+import '../../feedback/presentation/submit_feedback_page.dart';
+import '../../feedback/presentation/my_feedback_page.dart';
+import '../../feedback/presentation/community_links_page.dart';
+import '../../feedback/presentation/admin/admin_feedback_page.dart';
 import 'dashboard_page_optimized.dart';
 
 class HomePage extends StatefulWidget {
@@ -356,6 +360,43 @@ class _HomePageState extends State<HomePage> {
             //   },
             // ),
             const Divider(),
+            
+            // Support & Community (Expandable)
+            ExpansionTile(
+              leading: const Icon(Icons.support_agent, color: Colors.blue),
+              title: const Text('Sokongan & Komuniti'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.feedback, color: Colors.blue, size: 20),
+                  title: const Text('Feedback Saya'),
+                  subtitle: const Text('Lihat status feedback anda', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/feedback/my');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add_comment, color: Colors.green, size: 20),
+                  title: const Text('Hantar Feedback'),
+                  subtitle: const Text('Laporkan masalah atau cadangkan ciri', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/feedback/submit');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.group, color: Colors.purple, size: 20),
+                  title: const Text('Komuniti PocketBizz'),
+                  subtitle: const Text('Sertai Facebook/Telegram group', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/community');
+                  },
+                ),
+              ],
+            ),
+            const Divider(),
+            
             // Admin Section (only visible to admins)
             if (AdminHelper.isAdmin()) ...[
               const Padding(
@@ -377,6 +418,24 @@ class _HomePageState extends State<HomePage> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/admin/subscriptions');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.feedback_outlined, color: Colors.orange),
+                title: const Text('Pengurusan Feedback'),
+                subtitle: const Text('Urus semua feedback dari users', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/feedback');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.campaign, color: Colors.blue),
+                title: const Text('Pengurusan Announcements'),
+                subtitle: const Text('Hebahan kepada semua users', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/announcements');
                 },
               ),
               const Divider(),

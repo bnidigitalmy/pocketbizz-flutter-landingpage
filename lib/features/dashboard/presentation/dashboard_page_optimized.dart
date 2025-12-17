@@ -25,6 +25,8 @@ import '../../subscription/services/subscription_service.dart';
 import '../../subscription/data/models/subscription.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
+import '../../../data/repositories/announcements_repository_supabase.dart';
+import '../../announcements/presentation/notifications_page.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -45,12 +47,14 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final _reportsRepo = ReportsRepositorySupabase();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
   final _businessProfileRepo = BusinessProfileRepository();
+  final _announcementsRepo = AnnouncementsRepositorySupabase();
 
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _todayStats;
   List<SalesByChannel> _salesByChannel = [];
   Subscription? _subscription;
   BusinessProfile? _businessProfile;
+  int _unreadNotifications = 0;
   bool _loading = true;
 
   @override
@@ -98,12 +102,18 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         ...pendingTasks,
       };
 
+      final subscription = results[4] as Subscription?;
+      
+      // Load unread notifications after subscription is loaded
+      final unreadCount = await _loadUnreadNotifications(subscription);
+
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
         _todayStats = mergedTodayStats;
         _salesByChannel = results[3] as List<SalesByChannel>;
-        _subscription = results[4] as Subscription?;
+        _subscription = subscription;
         _businessProfile = results[5] as BusinessProfile?;
+        _unreadNotifications = unreadCount;
         _loading = false;
       });
     } catch (e) {
@@ -278,6 +288,30 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     }
   }
 
+  Future<int> _loadUnreadNotifications(Subscription? subscription) async {
+    try {
+      // Get subscription status for targeting
+      String? subscriptionStatus;
+      if (subscription != null) {
+        if (subscription.isOnTrial) {
+          subscriptionStatus = 'trial';
+        } else if (subscription.status == SubscriptionStatus.active) {
+          subscriptionStatus = 'active';
+        } else if (subscription.status == SubscriptionStatus.expired) {
+          subscriptionStatus = 'expired';
+        } else if (subscription.status == SubscriptionStatus.grace) {
+          subscriptionStatus = 'grace';
+        }
+      }
+      
+      return await _announcementsRepo.getUnreadCount(
+        subscriptionStatus: subscriptionStatus,
+      );
+    } catch (e) {
+      return 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
@@ -314,11 +348,43 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
-            onPressed: () {
-              // TODO: Navigate to notifications
-            },
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationsPage()),
+                  ).then((_) => _loadAllData()); // Refresh after returning
+                },
+              ),
+              if (_unreadNotifications > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadNotifications > 99 ? '99+' : '$_unreadNotifications',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 8),
         ],

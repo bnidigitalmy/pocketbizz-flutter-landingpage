@@ -44,6 +44,12 @@ import 'features/documents/presentation/documents_page.dart';
 import 'features/subscription/presentation/subscription_page.dart';
 import 'features/subscription/presentation/payment_success_page.dart';
 import 'features/subscription/presentation/admin/widgets/admin_layout.dart';
+import 'features/feedback/presentation/submit_feedback_page.dart';
+import 'features/feedback/presentation/my_feedback_page.dart';
+import 'features/feedback/presentation/community_links_page.dart';
+import 'features/feedback/presentation/admin/admin_feedback_page.dart';
+import 'features/announcements/presentation/notifications_page.dart';
+import 'features/announcements/presentation/admin/admin_announcements_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -164,6 +170,12 @@ class PocketBizzApp extends StatelessWidget {
         '/admin/dashboard': (context) => const AdminLayout(initialRoute: '/admin/dashboard'),
         '/admin/subscriptions': (context) => const AdminLayout(initialRoute: '/admin/subscriptions'),
         '/admin/users': (context) => const AdminLayout(initialRoute: '/admin/users'),
+        '/feedback/submit': (context) => const SubmitFeedbackPage(),
+        '/feedback/my': (context) => const MyFeedbackPage(),
+        '/community': (context) => const CommunityLinksPage(),
+        '/admin/feedback': (context) => const AdminFeedbackPage(),
+        '/notifications': (context) => const NotificationsPage(),
+        '/admin/announcements': (context) => const AdminAnnouncementsPage(),
       },
     );
   }
