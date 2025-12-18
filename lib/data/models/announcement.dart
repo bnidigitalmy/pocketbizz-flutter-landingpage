@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'announcement_media.dart';
 
 /// Announcement Model
 /// Represents broadcast messages to all users
@@ -20,6 +21,9 @@ class Announcement {
   final String? actionUrl;
   final String? actionLabel;
   
+  // Media attachments
+  final List<AnnouncementMedia> media;
+  
   // Metadata
   final String? createdBy;
   final DateTime createdAt;
@@ -39,6 +43,7 @@ class Announcement {
     this.showUntil,
     this.actionUrl,
     this.actionLabel,
+    this.media = const [],
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -46,6 +51,16 @@ class Announcement {
   });
 
   factory Announcement.fromJson(Map<String, dynamic> json) {
+    // Parse media array
+    List<AnnouncementMedia> mediaList = [];
+    if (json['media'] != null) {
+      if (json['media'] is List) {
+        mediaList = (json['media'] as List)
+            .map((item) => AnnouncementMedia.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+    }
+
     return Announcement(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -59,6 +74,7 @@ class Announcement {
           : null,
       actionUrl: json['action_url'] as String?,
       actionLabel: json['action_label'] as String?,
+      media: mediaList,
       createdBy: json['created_by'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -78,6 +94,7 @@ class Announcement {
       'show_until': showUntil?.toIso8601String(),
       'action_url': actionUrl,
       'action_label': actionLabel,
+      'media': media.map((m) => m.toJson()).toList(),
       'created_by': createdBy,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -96,6 +113,7 @@ class Announcement {
       'show_until': showUntil?.toIso8601String(),
       'action_url': actionUrl,
       'action_label': actionLabel,
+      'media': media.map((m) => m.toJson()).toList(),
     };
   }
 

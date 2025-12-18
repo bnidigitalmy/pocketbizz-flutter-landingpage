@@ -1,5 +1,6 @@
 import '../../core/supabase/supabase_client.dart';
 import '../models/announcement.dart';
+import '../models/announcement_media.dart';
 
 /// Announcements Repository for managing broadcast messages
 class AnnouncementsRepositorySupabase {
@@ -94,6 +95,7 @@ class AnnouncementsRepositorySupabase {
     DateTime? showUntil,
     String? actionUrl,
     String? actionLabel,
+    List<AnnouncementMedia>? media,
   }) async {
     final userId = supabase.auth.currentUser!.id;
 
@@ -108,6 +110,9 @@ class AnnouncementsRepositorySupabase {
       if (showUntil != null) 'show_until': showUntil.toIso8601String(),
       if (actionUrl != null) 'action_url': actionUrl,
       if (actionLabel != null) 'action_label': actionLabel,
+      'media': media != null
+          ? media.map((m) => m.toJson()).toList()
+          : [],
     };
 
     final response = await supabase
@@ -136,6 +141,7 @@ class AnnouncementsRepositorySupabase {
     DateTime? showUntil,
     String? actionUrl,
     String? actionLabel,
+    List<AnnouncementMedia>? media,
   }) async {
     final updateData = <String, dynamic>{
       'updated_at': DateTime.now().toIso8601String(),
@@ -154,6 +160,9 @@ class AnnouncementsRepositorySupabase {
     }
     if (actionUrl != null) updateData['action_url'] = actionUrl;
     if (actionLabel != null) updateData['action_label'] = actionLabel;
+    if (media != null) {
+      updateData['media'] = media.map((m) => m.toJson()).toList();
+    }
 
     final response = await supabase
         .from('announcements')
@@ -199,6 +208,79 @@ class AnnouncementsRepositorySupabase {
         rethrow;
       }
     }
+  }
+
+  /// Get viewed announcements history for current user
+  Future<List<Announcement>> getViewedAnnouncements({
+    String? subscriptionStatus,
+    int? limit,
+  }) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Determine target audience based on subscription status
+    final targetAudiences = ['all'];
+    if (subscriptionStatus != null) {
+      targetAudiences.add(subscriptionStatus);
+    }
+
+    // Get viewed announcement IDs for this user
+    var viewsQuery = supabase
+        .from('announcement_views')
+        .select('announcement_id, viewed_at')
+        .eq('user_id', userId)
+        .order('viewed_at', ascending: false);
+    
+    if (limit != null) {
+      viewsQuery = viewsQuery.limit(limit);
+    }
+    
+    final viewsResponse = await viewsQuery;
+    final views = (viewsResponse as List).cast<Map<String, dynamic>>();
+    
+    if (views.isEmpty) return [];
+
+    final viewedIds = views.map((v) => v['announcement_id'] as String).toList();
+    final viewedAtMap = Map<String, DateTime>.fromEntries(
+      views.map((v) => MapEntry(
+        v['announcement_id'] as String,
+        DateTime.parse(v['viewed_at'] as String),
+      )),
+    );
+
+    // Get announcements that were viewed
+    var query = supabase
+        .from('announcements')
+        .select()
+        .inFilter('id', viewedIds);
+    
+    // Filter by target audience if needed
+    if (!targetAudiences.contains('all') && targetAudiences.length > 1) {
+      final orConditions = targetAudiences
+          .map((audience) => 'target_audience.eq.$audience')
+          .join(',');
+      query = query.or(orConditions);
+    } else if (!targetAudiences.contains('all') && targetAudiences.length == 1) {
+      query = query.eq('target_audience', targetAudiences.first);
+    }
+    
+    final response = await query.order('created_at', ascending: false);
+    final data = (response as List).cast<Map<String, dynamic>>();
+    
+    // Map to model and include viewed status
+    return data.map((json) {
+      final announcementJson = Map<String, dynamic>.from(json);
+      announcementJson['is_viewed'] = true;
+      final announcement = Announcement.fromJson(announcementJson);
+      return announcement;
+    }).toList()
+      ..sort((a, b) {
+        // Sort by viewed_at date (most recently viewed first)
+        final aViewedAt = viewedAtMap[a.id];
+        final bViewedAt = viewedAtMap[b.id];
+        if (aViewedAt == null || bViewedAt == null) return 0;
+        return bViewedAt.compareTo(aViewedAt);
+      });
   }
 
   /// Get unread announcements count for current user

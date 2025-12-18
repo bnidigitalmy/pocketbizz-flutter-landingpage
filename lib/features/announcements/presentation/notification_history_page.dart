@@ -5,17 +5,16 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/models/announcement.dart';
 import '../../../data/repositories/announcements_repository_supabase.dart';
-import 'notification_history_page.dart';
 
-/// User notification center page to view announcements
-class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+/// Notification history page to view previously viewed announcements
+class NotificationHistoryPage extends StatefulWidget {
+  const NotificationHistoryPage({super.key});
 
   @override
-  State<NotificationsPage> createState() => _NotificationsPageState();
+  State<NotificationHistoryPage> createState() => _NotificationHistoryPageState();
 }
 
-class _NotificationsPageState extends State<NotificationsPage> {
+class _NotificationHistoryPageState extends State<NotificationHistoryPage> {
   final _repo = AnnouncementsRepositorySupabase();
   bool _isLoading = true;
   List<Announcement> _announcements = [];
@@ -23,14 +22,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _loadAnnouncements();
+    _loadHistory();
   }
 
-  Future<void> _loadAnnouncements() async {
+  Future<void> _loadHistory() async {
     setState(() => _isLoading = true);
     try {
-      // TODO: Get user's subscription status from subscription repository
-      final announcements = await _repo.getActiveAnnouncements();
+      final announcements = await _repo.getViewedAnnouncements();
       setState(() {
         _announcements = announcements;
         _isLoading = false;
@@ -39,24 +37,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal memuatkan announcements: ${e.toString()}'),
+            content: Text('Gagal memuatkan sejarah notifikasi: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _markAsViewed(Announcement announcement) async {
-    try {
-      await _repo.markAsViewed(announcement.id);
-      // Remove from list after viewing
-      setState(() {
-        _announcements.removeWhere((a) => a.id == announcement.id);
-      });
-    } catch (e) {
-      print('Error marking as viewed: $e');
     }
   }
 
@@ -78,32 +64,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
         }
       }
     }
-    await _markAsViewed(announcement);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifikasi'),
+        title: const Text('Sejarah Notifikasi'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationHistoryPage(),
-                ),
-              );
-            },
-            tooltip: 'Sejarah Notifikasi',
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadAnnouncements,
+            onPressed: _loadHistory,
             tooltip: 'Muat semula',
           ),
         ],
@@ -113,7 +86,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           : _announcements.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(
-                  onRefresh: _loadAnnouncements,
+                  onRefresh: _loadHistory,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _announcements.length,
@@ -130,15 +103,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_none, size: 80, color: Colors.grey[400]),
+          Icon(Icons.history, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'Tiada notifikasi baru',
+            'Tiada sejarah notifikasi',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600]),
           ),
           const SizedBox(height: 8),
           Text(
-            'Semua notifikasi telah dibaca',
+            'Notifikasi yang telah dibaca akan muncul di sini',
             style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
@@ -208,18 +181,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ],
                       ),
                     ),
-                    if (announcement.priority == 'urgent')
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Mendesak',
-                          style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'Dibaca',
+                            style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -549,10 +528,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _markAsViewed(announcement);
-            },
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('Tutup'),
           ),
         ],
@@ -560,4 +536,3 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 }
-

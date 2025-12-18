@@ -120,6 +120,7 @@ class SubscriptionRepositorySupabase {
       final currentSub = await getUserSubscription();
       final currentSubId = currentSub?.id;
 
+      // Query subscriptions with plan details
       final response = await _supabase
           .from('subscriptions')
           .select('''
@@ -131,18 +132,41 @@ class SubscriptionRepositorySupabase {
           ''')
           .eq('user_id', userId)
           .order('created_at', ascending: false);
+      
+      if (response == null || (response is List && response.isEmpty)) {
+        return [];
+      }
 
       final subscriptions = (response as List).map((json) {
-        final data = json as Map<String, dynamic>;
-        final planData = data['subscription_plans'] as Map<String, dynamic>?;
-        
-        if (planData != null) {
-          data['plan_name'] = planData['name'] as String? ?? 'PocketBizz Pro';
-          data['duration_months'] = planData['duration_months'] as int? ?? 1;
-        }
+        try {
+          final data = json as Map<String, dynamic>;
+          
+          // Handle nested relation - subscription_plans might be Map or List
+          dynamic planDataRaw = data['subscription_plans'];
+          Map<String, dynamic>? planData;
+          
+          if (planDataRaw is Map<String, dynamic>) {
+            planData = planDataRaw;
+          } else if (planDataRaw is List && planDataRaw.isNotEmpty) {
+            planData = planDataRaw[0] as Map<String, dynamic>?;
+          }
+          
+          if (planData != null) {
+            data['plan_name'] = planData['name'] as String? ?? 'PocketBizz Pro';
+            data['duration_months'] = planData['duration_months'] as int? ?? 1;
+          } else {
+            // Fallback values if plan data not found
+            data['plan_name'] = 'PocketBizz Pro';
+            data['duration_months'] = data['duration_months'] as int? ?? 1;
+          }
 
-        return Subscription.fromJson(data);
-      }).toList();
+          return Subscription.fromJson(data);
+        } catch (e) {
+          print('Error parsing subscription history item: $e');
+          // Return null and filter out later
+          return null;
+        }
+      }).whereType<Subscription>().toList();
 
       // Filter out current subscription and active/trial subscriptions
       final filtered = subscriptions.where((sub) {
@@ -1023,9 +1047,18 @@ class SubscriptionRepositorySupabase {
           .limit(50); // Limit to last 50 payments
 
       return (response as List)
-          .map((json) => SubscriptionPayment.fromJson(json as Map<String, dynamic>))
+          .map((json) {
+            try {
+              return SubscriptionPayment.fromJson(json as Map<String, dynamic>);
+            } catch (e) {
+              print('Error parsing payment history item: $e');
+              return null;
+            }
+          })
+          .whereType<SubscriptionPayment>()
           .toList();
     } catch (e) {
+      print('Error fetching payment history: $e');
       throw Exception('Failed to fetch payment history: $e');
     }
   }
@@ -1082,6 +1115,14 @@ class SubscriptionRepositorySupabase {
       final nowIso = now.toIso8601String();
       final newOrderId = 'PBZ-${const Uuid().v4()}';
       final selectedGateway = paymentGateway ?? payment.paymentGateway;
+
+      // Check retry limit (max 5 attempts)
+      if (payment.retryCount >= 5) {
+        throw Exception(
+          'Maximum retry attempts (5) reached. '
+          'Please contact support for assistance.'
+        );
+      }
 
       // Update previous payment with retry tracking
       await _supabase.from('subscription_payments').update({
@@ -1229,7 +1270,10 @@ class SubscriptionRepositorySupabase {
     final newTotal = isEarlyAdopterFlag ? plan.getPriceForEarlyAdopter() : plan.totalPrice;
 
     final remainingDays = _remainingPaidDays(current);
-    final perDayCurrent = current.totalAmount / (current.durationMonths * 30);
+    // Calculate actual subscription duration (calendar-based, not fixed 30 days)
+    final startDate = current.startedAt ?? current.createdAt;
+    final totalDays = current.expiresAt.difference(startDate).inDays;
+    final perDayCurrent = totalDays > 0 ? current.totalAmount / totalDays : current.totalAmount;
     final credit = (perDayCurrent * remainingDays).clamp(0, current.totalAmount);
     final amountDue = (newTotal - credit).clamp(0, double.maxFinite);
 

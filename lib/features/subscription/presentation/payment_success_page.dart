@@ -785,6 +785,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
 
     final isFailed = _status == _PaymentStatus.failed;
     final showSuccess = _active != null && _status == _PaymentStatus.success;
+    final pollingTimedOut = _elapsedMs >= 30000 && _active == null && !isFailed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -810,6 +811,43 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
             child: const Text('Ke Dashboard'),
           ),
         ] else ...[
+          // Show manual "Check Status" button if polling timed out
+          if (pollingTimedOut) ...[
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  await _confirmPaymentIfNeeded();
+                  await _pollSubscription();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Gagal semak status: $e'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                }
+              },
+              icon: const Icon(Icons.refresh),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              label: const Text('Semak Status Pembayaran'),
+            ),
+            const SizedBox(height: 12),
+          ],
           ElevatedButton(
             onPressed: () => _navigateTo('/subscription'),
             style: ElevatedButton.styleFrom(
@@ -818,7 +856,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
               side: showSuccess ? null : BorderSide(color: AppColors.primary),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            child: Text(showSuccess ? 'Lihat Subscription' : 'Semak Status'),
+            child: Text(showSuccess ? 'Lihat Subscription' : 'Ke Halaman Subscription'),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -836,16 +874,30 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   }
 
   Widget _buildHelpText() {
+    final pollingTimedOut = _elapsedMs >= 30000 && _active == null && _status != _PaymentStatus.failed;
+    
     return Column(
       children: [
-        Text(
-          'Jika akaun anda tidak diaktifkan dalam 5 minit, sila hubungi support.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[500],
+        if (pollingTimedOut)
+          Text(
+            'Nota: Jika pembayaran telah dibuat tetapi status masih belum dikemaskini, sila tekan butang "Semak Status Pembayaran" di atas.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.orange[700],
+              fontWeight: FontWeight.w500,
+            ),
+          )
+        else
+          Text(
+            'Jika akaun anda tidak diaktifkan dalam 5 minit, sila hubungi support.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[500],
+            ),
           ),
-        ),
+        if (!pollingTimedOut) const SizedBox(height: 8),
         const SizedBox(height: 8),
         Text(
           'Ref: ${_orderNumber ?? 'N/A'}',

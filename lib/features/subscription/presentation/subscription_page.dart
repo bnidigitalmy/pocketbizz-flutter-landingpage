@@ -99,10 +99,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          // Initialize empty lists on error to prevent crashes
+          _subscriptionHistory = _subscriptionHistory.isNotEmpty ? _subscriptionHistory : [];
+          _paymentHistory = _paymentHistory.isNotEmpty ? _paymentHistory : [];
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading subscription: $e')),
         );
+        print('Error loading subscription data: $e');
       }
     }
   }
@@ -1219,8 +1225,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   builder: (context) {
                     final currentExpiry = _currentSubscription!.expiresAt;
                     final remainingDays = _currentSubscription!.daysRemaining;
-                    final newDurationDays = plan.durationMonths * 30;
-                    final newExpiry = currentExpiry.add(Duration(days: newDurationDays));
+                    // Calculate actual days using calendar months (not fixed 30 days)
+                    final tempYear = currentExpiry.year + (currentExpiry.month + plan.durationMonths - 1) ~/ 12;
+                    final tempMonth = ((currentExpiry.month + plan.durationMonths - 1) % 12) + 1;
+                    final daysInNewMonth = DateTime(tempYear, tempMonth + 1, 0).day;
+                    final adjustedDay = currentExpiry.day > daysInNewMonth ? daysInNewMonth : currentExpiry.day;
+                    final newExpiry = DateTime(tempYear, tempMonth, adjustedDay);
+                    final newDurationDays = newExpiry.difference(currentExpiry).inDays;
                     final totalDays = remainingDays + newDurationDays;
                     
                     return Container(
@@ -1235,6 +1246,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'Tarikh baru: ${DateTimeHelper.formatDate(newExpiry)}',
@@ -1243,14 +1255,28 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               fontWeight: FontWeight.w600,
                               color: AppColors.info,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            'Jumlah hari: $remainingDays + $newDurationDays = $totalDays hari',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: AppColors.textSecondary,
+                          Text.rich(
+                            TextSpan(
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textSecondary,
+                              ),
+                              children: [
+                                const TextSpan(text: 'Jumlah hari: '),
+                                TextSpan(text: '$remainingDays + $newDurationDays'),
+                                const TextSpan(text: '\n= '),
+                                TextSpan(
+                                  text: '$totalDays hari',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ],
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),

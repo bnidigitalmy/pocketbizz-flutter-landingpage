@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/admin_helper.dart';
 import '../../../../core/utils/date_time_helper.dart';
+import '../../../../core/services/announcement_media_service.dart';
 import '../../../../data/models/announcement.dart';
+import '../../../../data/models/announcement_media.dart';
 import '../../../../data/repositories/announcements_repository_supabase.dart';
 
 /// Admin page to manage announcements
@@ -50,11 +54,14 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController();
     final messageController = TextEditingController();
+    final mediaService = AnnouncementMediaService();
     String selectedType = 'info';
     String selectedPriority = 'normal';
     String selectedTarget = 'all';
     bool isActive = true;
     DateTime? showUntil;
+    List<AnnouncementMedia> mediaList = [];
+    bool isUploadingMedia = false;
 
     showDialog(
       context: context,
@@ -171,6 +178,188 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                       setDialogState(() => isActive = value ?? true);
                     },
                   ),
+                  const SizedBox(height: 16),
+                  // Media upload section
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Lampiran Media',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final image = await mediaService.pickImage();
+                                    if (image != null) {
+                                      // Generate temporary ID for upload
+                                      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+                                      final uploadedMedia = await mediaService.uploadImage(image, tempId);
+                                      setDialogState(() {
+                                        mediaList.add(uploadedMedia);
+                                        isUploadingMedia = false;
+                                      });
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload gambar: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.image, size: 18),
+                          label: const Text('Gambar'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final video = await mediaService.pickVideo();
+                                    if (video != null) {
+                                      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+                                      final uploadedMedia = await mediaService.uploadVideo(video, tempId);
+                                      setDialogState(() {
+                                        mediaList.add(uploadedMedia);
+                                        isUploadingMedia = false;
+                                      });
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload video: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.video_library, size: 18),
+                          label: const Text('Video'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final result = await mediaService.pickFile(
+                                      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
+                                    );
+                                    if (result != null && result.files.isNotEmpty) {
+                                      final platformFile = result.files.single;
+                                      // For web, bytes is available; for mobile, path is available
+                                      final isValidFile = platformFile.bytes != null || platformFile.path != null;
+                                      if (isValidFile) {
+                                        final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+                                        final uploadedMedia = await mediaService.uploadFile(platformFile, tempId);
+                                        setDialogState(() {
+                                          mediaList.add(uploadedMedia);
+                                          isUploadingMedia = false;
+                                        });
+                                      } else {
+                                        setDialogState(() => isUploadingMedia = false);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Text('Fail tidak valid atau tidak boleh diakses'),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload fail: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.attach_file, size: 18),
+                          label: const Text('Fail'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isUploadingMedia) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
+                  if (mediaList.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    ...mediaList.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final media = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              media.isImage
+                                  ? Icons.image
+                                  : media.isVideo
+                                      ? Icons.video_library
+                                      : Icons.attach_file,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                media.filename,
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                              onPressed: () {
+                                setDialogState(() {
+                                  mediaList.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
                 ],
               ),
             ),
@@ -181,40 +370,44 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
               child: const Text('Batal'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  try {
-                    await _repo.createAnnouncement(
-                      title: titleController.text.trim(),
-                      message: messageController.text.trim(),
-                      type: selectedType,
-                      priority: selectedPriority,
-                      targetAudience: selectedTarget,
-                      isActive: isActive,
-                      showUntil: showUntil,
-                    );
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                      _loadAnnouncements();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Announcement telah ditambah dan dihebahkan'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Gagal menambah announcement: ${e.toString()}'),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  }
-                }
-              },
+              onPressed: isUploadingMedia
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        try {
+                          // Re-upload media with actual announcement ID after creation
+                          final announcement = await _repo.createAnnouncement(
+                            title: titleController.text.trim(),
+                            message: messageController.text.trim(),
+                            type: selectedType,
+                            priority: selectedPriority,
+                            targetAudience: selectedTarget,
+                            isActive: isActive,
+                            showUntil: showUntil,
+                            media: mediaList,
+                          );
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            _loadAnnouncements();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Announcement telah ditambah dan dihebahkan'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal menambah announcement: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -342,6 +535,27 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
             ),
             const SizedBox(height: 8),
             Text(announcement.message),
+            if (announcement.media.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: announcement.media.map((media) {
+                  return Chip(
+                    avatar: Icon(
+                      media.isImage
+                          ? Icons.image
+                          : media.isVideo
+                              ? Icons.video_library
+                              : Icons.attach_file,
+                      size: 16,
+                    ),
+                    label: Text(media.filename, style: const TextStyle(fontSize: 11)),
+                    backgroundColor: Colors.blue[50],
+                  );
+                }).toList(),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
