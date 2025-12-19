@@ -3,10 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/stock_item.dart';
 import '../models/stock_movement.dart';
 import '../models/stock_item_batch.dart';
+import '../../core/utils/rate_limit_mixin.dart';
+import '../../core/utils/rate_limiter.dart';
 import '../../features/subscription/data/repositories/subscription_repository_supabase.dart';
 
-/// Stock Repository for managing stock items and movements
-class StockRepository {
+/// Stock Repository for managing stock items and movements with rate limiting
+class StockRepository with RateLimitMixin {
   final SupabaseClient _supabase;
 
   StockRepository(this._supabase);
@@ -15,30 +17,35 @@ class StockRepository {
   // STOCK ITEMS CRUD
   // ============================================================================
 
-  /// Get all stock items for current user with pagination
+  /// Get all stock items for current user with pagination and rate limiting
   Future<List<StockItem>> getAllStockItems({
     bool includeArchived = false,
     int limit = 100,
     int offset = 0,
   }) async {
-    try {
-      dynamic query = _supabase
-          .from('stock_items')
-          .select();
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        try {
+          dynamic query = _supabase
+              .from('stock_items')
+              .select();
 
-      if (!includeArchived) {
-        query = query.eq('is_archived', false);
-      }
+          if (!includeArchived) {
+            query = query.eq('is_archived', false);
+          }
 
-      query = query
-          .order('name', ascending: true)
-          .range(offset, offset + limit - 1); // Add pagination
+          query = query
+              .order('name', ascending: true)
+              .range(offset, offset + limit - 1); // Add pagination
 
-      final response = await query;
-      return (response as List).map((json) => StockItem.fromJson(json)).toList();
-    } catch (e) {
-      throw Exception('Failed to fetch stock items: $e');
-    }
+          final response = await query;
+          return (response as List).map((json) => StockItem.fromJson(json)).toList();
+        } catch (e) {
+          throw Exception('Failed to fetch stock items: $e');
+        }
+      },
+    );
   }
 
   /// Get low stock items (quantity <= threshold)
@@ -110,8 +117,11 @@ class StockRepository {
     }
   }
 
-  /// Create new stock item
+  /// Create new stock item with rate limiting
   Future<StockItem> createStockItem(StockItemInput input) async {
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) {
@@ -140,10 +150,12 @@ class StockRepository {
           .select()
           .single();
 
-      return StockItem.fromJson(response);
-    } catch (e) {
-      throw Exception('Failed to create stock item: $e');
-    }
+        return StockItem.fromJson(response);
+      } catch (e) {
+        throw Exception('Failed to create stock item: $e');
+      }
+    },
+    );
   }
 
   /// Update stock item
@@ -195,24 +207,29 @@ class StockRepository {
   // STOCK MOVEMENTS
   // ============================================================================
 
-  /// Record a stock movement (uses DB function for consistency)
+  /// Record a stock movement (uses DB function for consistency) with rate limiting
   /// This is the THREAD-SAFE way to update stock quantities
   Future<String> recordStockMovement(StockMovementInput input) async {
-    try {
-      final userId = _supabase.auth.currentUser?.id;
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        try {
+          final userId = _supabase.auth.currentUser?.id;
 
-      final params = {
-        ...input.toJson(),
-        'p_created_by': userId,
-      };
+          final params = {
+            ...input.toJson(),
+            'p_created_by': userId,
+          };
 
-      final response = await _supabase.rpc('record_stock_movement', params: params);
+          final response = await _supabase.rpc('record_stock_movement', params: params);
 
-      // Response is the movement ID
-      return response as String;
-    } catch (e) {
-      throw Exception('Failed to record stock movement: $e');
-    }
+          // Response is the movement ID
+          return response as String;
+        } catch (e) {
+          throw Exception('Failed to record stock movement: $e');
+        }
+      },
+    );
   }
 
   /// Get stock movements for a specific stock item

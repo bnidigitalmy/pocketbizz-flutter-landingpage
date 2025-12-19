@@ -98,6 +98,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   Uint8List? _imageBytes;
   ParsedReceipt? _parsedReceipt;
   String? _ocrError;
+  String? _storagePathFromOCR; // Storage path returned by OCR Edge Function
 
   // Editable form fields (after OCR)
   final _formKey = GlobalKey<FormState>();
@@ -375,10 +376,13 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     try {
       final base64Image = base64Encode(bytes);
 
-      // Call Supabase Edge Function for OCR
+      // Call Supabase Edge Function for OCR (with image upload option)
       final response = await supabase.functions.invoke(
         'OCR-Cloud-Vision',
-        body: {'imageBase64': base64Image},
+        body: {
+          'imageBase64': base64Image,
+          'uploadImage': true, // Request Edge Function to upload image
+        },
       );
 
       if (response.status != 200) {
@@ -393,8 +397,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
       final parsed = ParsedReceipt.fromJson(data['parsed'] as Map<String, dynamic>);
       
+      // Check if Edge Function uploaded image and returned storage path
+      final storagePathFromOCR = data['storagePath'] as String?;
+      if (storagePathFromOCR != null) {
+        debugPrint('✅ Image uploaded by OCR Edge Function: $storagePathFromOCR');
+      }
+      
       setState(() {
         _parsedReceipt = parsed;
+        _storagePathFromOCR = storagePathFromOCR; // Store for use when saving
       });
 
       // Pre-fill form fields
@@ -527,16 +538,33 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         throw Exception('Jumlah tidak sah: $amountText');
       }
 
-      // Upload receipt image to storage first
+      // Use storage path from OCR Edge Function if available, otherwise upload manually
       String? receiptImageUrl;
-      if (_imageBytes != null) {
+      
+      if (_storagePathFromOCR != null) {
+        // Edge Function already uploaded the image
+        receiptImageUrl = _storagePathFromOCR;
+        debugPrint('✅ Using storage path from OCR Edge Function: $receiptImageUrl');
+      } else if (_imageBytes != null) {
+        // Fallback: Upload manually if Edge Function didn't upload
         try {
           receiptImageUrl = await ReceiptStorageService.uploadReceipt(
             imageBytes: _imageBytes!,
           );
+          debugPrint('✅ Receipt image uploaded manually: $receiptImageUrl');
         } catch (uploadError) {
-          // Continue without image if upload fails
-          debugPrint('Receipt upload failed: $uploadError');
+          // Show error to user but allow them to continue without image
+          debugPrint('❌ Receipt upload failed: $uploadError');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Amaran: Gagal upload gambar resit. Rekod akan disimpan tanpa gambar. Error: ${uploadError.toString()}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          // Continue without image - expense will be saved without receipt URL
         }
       }
 
@@ -570,7 +598,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         );
       }
 
-      await _repo.createExpense(
+      // Log receipt URL before saving
+      debugPrint('📝 Saving expense with receiptImageUrl: $receiptImageUrl');
+      
+      final savedExpense = await _repo.createExpense(
         amount: amount,
         category: _selectedCategory,
         expenseDate: _selectedDate,
@@ -579,11 +610,20 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         receiptData: receiptData,
       );
 
+      // Verify receipt URL was saved
+      debugPrint('✅ Expense saved with ID: ${savedExpense.id}');
+      debugPrint('📸 Receipt URL in saved expense: ${savedExpense.receiptImageUrl}');
+
       if (mounted) {
+        final message = receiptImageUrl != null
+            ? 'Perbelanjaan berjaya disimpan dengan gambar resit!'
+            : 'Perbelanjaan berjaya disimpan (tanpa gambar resit)';
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perbelanjaan berjaya disimpan!'),
-            backgroundColor: AppColors.success,
+          SnackBar(
+            content: Text(message),
+            backgroundColor: receiptImageUrl != null ? AppColors.success : Colors.orange,
+            duration: const Duration(seconds: 3),
           ),
         );
         Navigator.of(context).pop(true);
@@ -612,6 +652,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _imageBytes = null;
       _parsedReceipt = null;
       _ocrError = null;
+      _storagePathFromOCR = null; // Reset storage path
       _amountController.clear();
       _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
       _selectedDate = DateTime.now();

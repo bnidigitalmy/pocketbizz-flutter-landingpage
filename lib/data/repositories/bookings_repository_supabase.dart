@@ -1,4 +1,6 @@
 import '../../core/supabase/supabase_client.dart';
+import '../../core/utils/rate_limit_mixin.dart';
+import '../../core/utils/rate_limiter.dart';
 
 /// Booking model
 class Booking {
@@ -120,8 +122,8 @@ class BookingItem {
   }
 }
 
-/// Bookings repository using Supabase
-class BookingsRepositorySupabase {
+/// Bookings repository using Supabase with rate limiting
+class BookingsRepositorySupabase with RateLimitMixin {
   /// Get booking prefix from business_profile (optional user prefix)
   /// Returns format: "USER_PREFIX-BKG" or "BKG" if no user prefix
   Future<String> _getBookingPrefix(String userId) async {
@@ -245,7 +247,7 @@ class BookingsRepositorySupabase {
     }
   }
 
-  /// Create a new booking
+  /// Create a new booking with rate limiting
   Future<Booking> createBooking({
     required String customerName,
     required String customerPhone,
@@ -261,7 +263,10 @@ class BookingsRepositorySupabase {
     double? discountValue,
     double? depositAmount,
   }) async {
-    // Calculate totals
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        // Calculate totals
     final itemsTotal = items.fold<double>(
       0,
       (sum, item) => sum + (item['quantity'] * item['unit_price']),
@@ -357,96 +362,123 @@ class BookingsRepositorySupabase {
 
     await supabase.from('booking_items').insert(bookingItems);
 
-    // Return booking with items
-    return getBooking(finalBooking.id);
+        // Return booking with items
+        return getBooking(finalBooking.id);
+      },
+    );
   }
 
-  /// Get booking by ID with items
+  /// Get booking by ID with items and rate limiting
   Future<Booking> getBooking(String bookingId) async {
-    final data = await supabase
-        .from('bookings')
-        .select('*, booking_items(*)')
-        .eq('id', bookingId)
-        .single();
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        final data = await supabase
+            .from('bookings')
+            .select('*, booking_items(*)')
+            .eq('id', bookingId)
+            .single();
 
-    return Booking.fromJson(data);
+        return Booking.fromJson(data);
+      },
+    );
   }
 
-  /// List all bookings
+  /// List all bookings with rate limiting
   Future<List<Booking>> listBookings({
     String? status,
     int limit = 50,
   }) async {
-    var query = supabase
-        .from('bookings')
-        .select('*, booking_items(*)');
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        var query = supabase
+            .from('bookings')
+            .select('*, booking_items(*)');
 
-    // Apply status filter if provided
-    if (status != null && status.isNotEmpty) {
-      query = query.eq('status', status);
-    }
+        // Apply status filter if provided
+        if (status != null && status.isNotEmpty) {
+          query = query.eq('status', status);
+        }
 
-    // Execute query with order and limit
-    final data = await query
-        .order('created_at', ascending: false)
-        .limit(limit);
+        // Execute query with order and limit
+        final data = await query
+            .order('created_at', ascending: false)
+            .limit(limit);
 
-    return (data as List).map((json) => Booking.fromJson(json)).toList();
+        return (data as List).map((json) => Booking.fromJson(json)).toList();
+      },
+    );
   }
 
-  /// Update booking status
+  /// Update booking status with rate limiting
   Future<Booking> updateBookingStatus({
     required String bookingId,
     required String status,
   }) async {
-    final data = await supabase
-        .from('bookings')
-        .update({
-          'status': status,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', bookingId)
-        .select('*, booking_items(*)')
-        .single();
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        final data = await supabase
+            .from('bookings')
+            .update({
+              'status': status,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', bookingId)
+            .select('*, booking_items(*)')
+            .single();
 
-    return Booking.fromJson(data);
+        return Booking.fromJson(data);
+      },
+    );
   }
 
-  /// Delete booking
+  /// Delete booking with rate limiting
   Future<void> deleteBooking(String bookingId) async {
-    await supabase.from('bookings').delete().eq('id', bookingId);
+    await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        await supabase.from('bookings').delete().eq('id', bookingId);
+      },
+    );
   }
 
-  /// Get booking statistics
+  /// Get booking statistics with rate limiting
   Future<Map<String, dynamic>> getStatistics() async {
-    final bookings = await supabase
-        .from('bookings')
-        .select('status, total_amount');
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        final bookings = await supabase
+            .from('bookings')
+            .select('status, total_amount');
 
-    final stats = {
-      'total_bookings': bookings.length,
-      'pending': 0,
-      'confirmed': 0,
-      'completed': 0,
-      'cancelled': 0,
-      'total_revenue': 0.0,
-    };
+        final stats = {
+          'total_bookings': bookings.length,
+          'pending': 0,
+          'confirmed': 0,
+          'completed': 0,
+          'cancelled': 0,
+          'total_revenue': 0.0,
+        };
 
-    for (final booking in bookings) {
-      final status = booking['status'] as String;
-      stats[status] = (stats[status] as int) + 1;
-      
-      if (status == 'completed') {
-        stats['total_revenue'] = 
-            (stats['total_revenue'] as double) + 
-            (booking['total_amount'] as num).toDouble();
-      }
-    }
+        for (final booking in bookings) {
+          final status = booking['status'] as String;
+          stats[status] = (stats[status] as int) + 1;
+          
+          if (status == 'completed') {
+            stats['total_revenue'] = 
+                (stats['total_revenue'] as double) + 
+                (booking['total_amount'] as num).toDouble();
+          }
+        }
 
-    return stats;
+        return stats;
+      },
+    );
   }
 
-  /// Record a payment for a booking
+  /// Record a payment for a booking with rate limiting
   Future<Map<String, dynamic>> recordPayment({
     required String bookingId,
     required double amount,
@@ -454,7 +486,10 @@ class BookingsRepositorySupabase {
     String? paymentReference,
     String? notes,
   }) async {
-    final userId = supabase.auth.currentUser?.id;
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
       throw Exception('User not authenticated');
     }
@@ -488,26 +523,33 @@ class BookingsRepositorySupabase {
         .select()
         .single();
 
-    // Get updated booking with new total_paid
-    final updatedBooking = await getBooking(bookingId);
+        // Get updated booking with new total_paid
+        final updatedBooking = await getBooking(bookingId);
 
-    return {
-      'payment': paymentData,
-      'booking': updatedBooking,
-      'remaining_balance': updatedBooking.totalAmount - updatedBooking.totalPaid,
-    };
+        return {
+          'payment': paymentData,
+          'booking': updatedBooking,
+          'remaining_balance': updatedBooking.totalAmount - updatedBooking.totalPaid,
+        };
+      },
+    );
   }
 
-  /// Get payment history for a booking
+  /// Get payment history for a booking with rate limiting
   Future<List<Map<String, dynamic>>> getPaymentHistory(String bookingId) async {
-    final payments = await supabase
-        .from('booking_payments')
-        .select('*')
-        .eq('booking_id', bookingId)
-        .order('payment_date', ascending: false)
-        .order('payment_time', ascending: false);
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        final payments = await supabase
+            .from('booking_payments')
+            .select('*')
+            .eq('booking_id', bookingId)
+            .order('payment_date', ascending: false)
+            .order('payment_time', ascending: false);
 
-    return (payments as List).map((p) => p as Map<String, dynamic>).toList();
+        return (payments as List).map((p) => p as Map<String, dynamic>).toList();
+      },
+    );
   }
 }
 

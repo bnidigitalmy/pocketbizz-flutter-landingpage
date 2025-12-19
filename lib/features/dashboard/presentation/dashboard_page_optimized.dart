@@ -152,10 +152,10 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         endDate: yesterdayEnd,
       );
 
-      // Get today's completed bookings
+      // Get today's completed bookings (optimized: only fetch what we need)
       final todayBookings = await _bookingsRepo.listBookings(
         status: 'completed',
-        limit: 10000,
+        limit: 100, // Reduced from 10000 - only need recent bookings
       );
       final todayBookingsInRange = todayBookings.where((booking) {
         final bookingDate = booking.createdAt;
@@ -163,10 +163,10 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
             bookingDate.isBefore(todayEnd);
       }).toList();
 
-      // Get yesterday's completed bookings
+      // Get yesterday's completed bookings (optimized: only fetch what we need)
       final yesterdayBookings = await _bookingsRepo.listBookings(
         status: 'completed',
-        limit: 10000,
+        limit: 100, // Reduced from 10000 - only need recent bookings
       );
       final yesterdayBookingsInRange = yesterdayBookings.where((booking) {
         final bookingDate = booking.createdAt;
@@ -174,12 +174,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
             bookingDate.isBefore(yesterdayEnd);
       }).toList();
 
-      // Get today's consignment revenue (settled claims)
+      // Get today's consignment revenue (settled claims) - optimized limit
       final todayClaimsResponse = await _claimsRepo.listClaims(
         fromDate: todayStart,
         toDate: todayEnd,
         status: ClaimStatus.settled,
-        limit: 10000,
+        limit: 100, // Reduced from 10000 - only need today's claims
       );
       final todaySettledClaims = (todayClaimsResponse['data'] as List)
           .cast<ConsignmentClaim>()
@@ -190,12 +190,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         (sum, claim) => sum + claim.netAmount,
       );
 
-      // Get yesterday's consignment revenue
+      // Get yesterday's consignment revenue - optimized limit
       final yesterdayClaimsResponse = await _claimsRepo.listClaims(
         fromDate: yesterdayStart,
         toDate: yesterdayEnd,
         status: ClaimStatus.settled,
-        limit: 10000,
+        limit: 100, // Reduced from 10000 - only need yesterday's claims
       );
       final yesterdaySettledClaims = (yesterdayClaimsResponse['data'] as List)
           .cast<ConsignmentClaim>()

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Link - PocketBizz</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {font-family: Arial, sans-serif !important;}
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                <!-- Main Container -->
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; width: 100%;">
+                    
+                    <!-- Header with Logo/Branding -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #14B8A6 0%, #3B82F6 100%); border-radius: 12px 12px 0 0;">
+                            <!-- Logo Image - REPLACE URL WITH YOUR ACTUAL LOGO URL -->
+                            <!-- See LOGO_SETUP_INSTRUCTIONS.md for setup guide -->
+                            <img src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/public-assets/fa1a249e-4a40-4f62-8d64-8383879753b2/2025/Logo%20Pocketbizz%20Favicon%20504x504.png" 
+                                 alt="PocketBizz Logo" 
+                                 width="80" 
+                                 height="80" 
+                                 style="width: 80px; height: 80px; margin: 0 auto 16px; display: block; border-radius: 12px; background-color: rgba(255,255,255,0.1); padding: 8px; object-fit: contain;">
+                            
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                                PocketBizz
+                            </h1>
+                            <p style="margin: 8px 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 400;">
+                                Your Business Management System
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <h2 style="margin: 0 0 20px; color: #1a1a1a; font-size: 24px; font-weight: 600; line-height: 1.4;">
+                                Magic Link to Log In
+                            </h2>
+                            
+                            <p style="margin: 0 0 24px; color: #4a4a4a; font-size: 16px; line-height: 1.6;">
+                                You've requested a magic link to log in to your PocketBizz account. ✨
+                            </p>
+                            
+                            <p style="margin: 0 0 32px; color: #4a4a4a; font-size: 16px; line-height: 1.6;">
+                                Click the button below to log in without entering your password:
+                            </p>
+                            
+                            <!-- CTA Button -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding: 0 0 32px;">
+                                        <a href="{{ .ConfirmationURL }}" 
+                                           style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #14B8A6 0%, #3B82F6 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3); transition: all 0.3s ease;">
+                                            Log In to PocketBizz
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Alternative Link -->
+                            <p style="margin: 0 0 32px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                Or copy and paste this link into your browser:
+                            </p>
+                            
+                            <p style="margin: 0 0 32px; padding: 16px; background-color: #f9fafb; border-radius: 8px; word-break: break-all; color: #4b5563; font-size: 13px; font-family: 'Courier New', monospace; line-height: 1.6;">
+                                {{ .ConfirmationURL }}
+                            </p>
+                            
+                            <!-- Info Box -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; margin-bottom: 32px;">
+                                <tr>
+                                    <td style="padding: 16px;">
+                                        <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                                            <strong>🔒 Security:</strong> This link can only be used once and will expire in <strong>1 hour</strong>. Do not share this link with anyone.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Security Warning -->
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fee2e2; border-left: 4px solid #ef4444; border-radius: 8px; margin-bottom: 32px;">
+                                <tr>
+                                    <td style="padding: 16px;">
+                                        <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.6;">
+                                            <strong>⚠️ Important:</strong> If you didn't request this link, please ignore this email. Your account is safe and will not be accessed without your permission.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Closing -->
+                            <p style="margin: 0 0 16px; color: #4a4a4a; font-size: 16px; line-height: 1.6;">
+                                Welcome back to PocketBizz!
+                            </p>
+                            
+                            <p style="margin: 0; color: #4a4a4a; font-size: 16px; line-height: 1.6;">
+                                Thank you,<br>
+                                <strong style="color: #14B8A6;">The PocketBizz Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 32px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 16px;">
+                                        <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                            <strong style="color: #1f2937;">PocketBizz</strong><br>
+                                            Easy & Efficient Business Management System
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                                        <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
+                                            This is an automated email. Please do not reply.<br>
+                                            © 2025 PocketBizz. All rights reserved.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                
+                <!-- Spacer -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 20px;">
+                    <tr>
+                        <td align="center" style="padding: 0 20px;">
+                            <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
+                                Have questions? Contact us at <a href="mailto:support@pocketbizz.com" style="color: #14B8A6; text-decoration: none;">support@pocketbizz.com</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+

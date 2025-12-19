@@ -1,4 +1,6 @@
 import '../../core/supabase/supabase_client.dart';
+import '../../core/utils/rate_limit_mixin.dart';
+import '../../core/utils/rate_limiter.dart';
 import 'production_repository_supabase.dart';
 import '../../features/subscription/data/repositories/subscription_repository_supabase.dart';
 
@@ -89,9 +91,9 @@ class SaleItem {
   }
 }
 
-/// Sales repository using Supabase
-class SalesRepositorySupabase {
-  /// Create a new sale
+/// Sales repository using Supabase with rate limiting
+class SalesRepositorySupabase with RateLimitMixin {
+  /// Create a new sale with rate limiting
   Future<Sale> createSale({
     String? customerName,
     String channel = 'walk-in',
@@ -100,102 +102,127 @@ class SalesRepositorySupabase {
     String? notes,
     String? deliveryAddress,
   }) async {
-    // Check subscription limits before creating sale
-    final subscriptionRepo = SubscriptionRepositorySupabase();
-    final limits = await subscriptionRepo.getPlanLimits();
-    if (limits.transactions.current >= limits.transactions.max && !limits.transactions.isUnlimited) {
-      throw Exception(
-        'Had transaksi telah dicapai (${limits.transactions.current}/${limits.transactions.max}). '
-        'Sila naik taraf langganan anda untuk menambah lebih banyak transaksi.'
-      );
-    }
+    return await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        // Check subscription limits before creating sale
+        final subscriptionRepo = SubscriptionRepositorySupabase();
+        final limits = await subscriptionRepo.getPlanLimits();
+        if (limits.transactions.current >= limits.transactions.max && !limits.transactions.isUnlimited) {
+          throw Exception(
+            'Had transaksi telah dicapai (${limits.transactions.current}/${limits.transactions.max}). '
+            'Sila naik taraf langganan anda untuk menambah lebih banyak transaksi.'
+          );
+        }
 
-    // Atomic DB transaction: create sale + deduct FIFO in one RPC
-    final saleId = await supabase.rpc(
-      'create_sale_and_deduct_fifo',
-      params: {
-        'p_customer_name': customerName,
-        'p_channel': channel,
-        'p_items': items,
-        'p_discount_amount': discountAmount ?? 0,
-        'p_notes': notes,
-        'p_delivery_address': deliveryAddress,
+        // Atomic DB transaction: create sale + deduct FIFO in one RPC
+        final saleId = await supabase.rpc(
+          'create_sale_and_deduct_fifo',
+          params: {
+            'p_customer_name': customerName,
+            'p_channel': channel,
+            'p_items': items,
+            'p_discount_amount': discountAmount ?? 0,
+            'p_notes': notes,
+            'p_delivery_address': deliveryAddress,
+          },
+        ) as String;
+
+        return getSale(saleId);
       },
-    ) as String;
-
-    return getSale(saleId);
+    );
   }
 
-  /// Get sale by ID with items
+  /// Get sale by ID with items and rate limiting
   Future<Sale> getSale(String saleId) async {
-    final data = await supabase
-        .from('sales')
-        .select('*, sale_items(*)')
-        .eq('id', saleId)
-        .single();
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        final data = await supabase
+            .from('sales')
+            .select('*, sale_items(*)')
+            .eq('id', saleId)
+            .single();
 
-    return Sale.fromJson(data);
+        return Sale.fromJson(data);
+      },
+    );
   }
 
-  /// List all sales
+  /// List all sales with rate limiting
   Future<List<Sale>> listSales({
     String? channel,
     DateTime? startDate,
     DateTime? endDate,
     int limit = 100,
   }) async {
-    var query = supabase
-        .from('sales')
-        .select('*, sale_items(*)');
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        var query = supabase
+            .from('sales')
+            .select('*, sale_items(*)');
 
-    // Apply filters
-    if (channel != null && channel.isNotEmpty) {
-      query = query.eq('channel', channel);
-    }
+        // Apply filters
+        if (channel != null && channel.isNotEmpty) {
+          query = query.eq('channel', channel);
+        }
 
-    if (startDate != null) {
-      query = query.gte('created_at', startDate.toIso8601String());
-    }
+        if (startDate != null) {
+          query = query.gte('created_at', startDate.toIso8601String());
+        }
 
-    if (endDate != null) {
-      query = query.lte('created_at', endDate.toIso8601String());
-    }
+        if (endDate != null) {
+          query = query.lte('created_at', endDate.toIso8601String());
+        }
 
-    // Execute query with order and limit
-    final data = await query
-        .order('created_at', ascending: false)
-        .limit(limit);
+        // Execute query with order and limit
+        final data = await query
+            .order('created_at', ascending: false)
+            .limit(limit);
 
-    return (data as List).map((json) => Sale.fromJson(json)).toList();
-  }
-
-  /// Get today's sales summary
-  Future<Map<String, dynamic>> getTodaySummary() async {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
-    final sales = await supabase
-        .from('sales')
-        .select('final_amount')
-        .gte('created_at', startOfDay.toIso8601String())
-        .lt('created_at', endOfDay.toIso8601String());
-
-    final totalSales = sales.fold<double>(
-      0,
-      (sum, sale) => sum + (sale['final_amount'] as num).toDouble(),
+        return (data as List).map((json) => Sale.fromJson(json)).toList();
+      },
     );
-
-    return {
-      'total_sales': totalSales,
-      'transaction_count': sales.length,
-      'date': today,
-    };
   }
 
-  /// Delete sale
+  /// Get today's sales summary with rate limiting
+  Future<Map<String, dynamic>> getTodaySummary() async {
+    return await executeWithRateLimit(
+      type: RateLimitType.read,
+      operation: () async {
+        final today = DateTime.now();
+        final startOfDay = DateTime(today.year, today.month, today.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+
+        final sales = await supabase
+            .from('sales')
+            .select('final_amount')
+            .gte('created_at', startOfDay.toIso8601String())
+            .lt('created_at', endOfDay.toIso8601String());
+
+        final totalSales = sales.fold<double>(
+          0,
+          (sum, sale) => sum + (sale['final_amount'] as num).toDouble(),
+        );
+
+        return {
+          'total_sales': totalSales,
+          'transaction_count': sales.length,
+          'date': today,
+        };
+      },
+    );
+  }
+
+  /// Delete sale with rate limiting
   Future<void> deleteSale(String saleId) async {
-    await supabase.from('sales').delete().eq('id', saleId);
+    await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        await supabase.from('sales').delete().eq('id', saleId);
+      },
+    );
   }
 }
 

@@ -1,10 +1,18 @@
 // Supabase Edge Function: OCR Receipt using Google Cloud Vision
 // Accepts base64 image and returns extracted text + parsed receipt data
+// Also uploads image to Supabase Storage and returns storage path
 // Optimized for Malaysian receipts (bakery, grocery, petrol, etc.)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.0";
 
 const GOOGLE_CLOUD_API_KEY = Deno.env.get("GOOGLE_CLOUD_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Initialize Supabase client with service role for storage upload
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const RECEIPTS_BUCKET = "receipts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +57,30 @@ serve(async (req) => {
       throw new Error("GOOGLE_CLOUD_API_KEY not configured");
     }
 
-    const { imageBase64 } = await req.json();
+    // Get user ID from Authorization header (JWT token)
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    
+    if (authHeader) {
+      try {
+        // Extract user ID from JWT token payload
+        const token = authHeader.replace("Bearer ", "");
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          userId = payload.sub || payload.user_id || null;
+          console.log("Extracted user ID from token:", userId);
+        }
+      } catch (e) {
+        console.warn("Could not extract user ID from token:", e);
+      }
+    }
+    
+    if (!userId && uploadImage) {
+      console.warn("No user ID found - image upload will be skipped");
+    }
+
+    const { imageBase64, uploadImage = true } = await req.json();
     
     if (!imageBase64) {
       return new Response(
@@ -100,11 +131,46 @@ serve(async (req) => {
     // Parse the receipt text with improved Malaysian receipt patterns
     const parsed = parseReceiptText(rawText);
 
+    // Upload image to storage if requested and user ID available
+    let storagePath: string | null = null;
+    if (uploadImage && userId) {
+      try {
+        const timestamp = Date.now();
+        const now = new Date();
+        const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const fileName = `receipt-${timestamp}.jpg`;
+        const storagePathFull = `${userId}/${datePath}/${fileName}`;
+        
+        // Convert base64 to Uint8Array
+        const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(RECEIPTS_BUCKET)
+          .upload(storagePathFull, imageBytes, {
+            contentType: "image/jpeg",
+            upsert: false,
+          });
+        
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          // Don't fail OCR if upload fails - just log it
+        } else {
+          storagePath = `${RECEIPTS_BUCKET}/${storagePathFull}`;
+          console.log("✅ Image uploaded to storage:", storagePath);
+        }
+      } catch (uploadErr) {
+        console.error("Failed to upload image:", uploadErr);
+        // Continue without storage path - OCR still succeeded
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         rawText,
         parsed,
+        storagePath, // Return storage path if uploaded
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

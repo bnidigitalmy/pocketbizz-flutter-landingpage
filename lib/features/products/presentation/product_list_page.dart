@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
@@ -30,6 +31,9 @@ class _ProductListPageState extends State<ProductListPage> {
   String? _selectedCategory;
   String _sortBy = 'name'; // name, price_high, price_low, stock_low
   
+  // Search debouncing
+  Timer? _searchDebounce;
+  
   // Summary stats
   int _totalProducts = 0;
   int _lowStockCount = 0;
@@ -44,15 +48,21 @@ class _ProductListPageState extends State<ProductListPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text.toLowerCase();
-      _applyFilters();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase();
+          _applyFilters();
+        });
+      }
     });
   }
 
@@ -62,27 +72,31 @@ class _ProductListPageState extends State<ProductListPage> {
     try {
       final products = await _repo.listProducts();
       
-      // Load stock for all products
-      final stockMap = <String, double>{};
-      for (final product in products) {
+      // Load stock for all products IN PARALLEL (much faster!)
+      final stockFutures = products.map((product) async {
         try {
           final stock = await _productionRepo.getTotalRemainingForProduct(product.id);
-          stockMap[product.id] = stock;
+          return MapEntry(product.id, stock);
         } catch (e) {
-          stockMap[product.id] = 0.0;
+          return MapEntry(product.id, 0.0);
         }
-      }
-
-      setState(() {
-        _allProducts = products;
-        _stockCache = stockMap;
-        _loading = false;
-        _calculateSummary();
-        _applyFilters();
       });
-    } catch (e) {
-      setState(() => _loading = false);
+      
+      final stockResults = await Future.wait(stockFutures);
+      final stockMap = Map<String, double>.fromEntries(stockResults);
+
       if (mounted) {
+        setState(() {
+          _allProducts = products;
+          _stockCache = stockMap;
+          _loading = false;
+          _calculateSummary();
+          _applyFilters();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ralat memuatkan produk: $e'),

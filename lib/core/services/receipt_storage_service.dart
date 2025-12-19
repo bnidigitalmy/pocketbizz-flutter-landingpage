@@ -47,7 +47,6 @@ class ReceiptStorageService {
           throw Exception('User not authenticated. Please login first.');
         }
         
-        final encodedPath = Uri.encodeComponent(storagePath);
         // Get Supabase URL from environment (required)
         final supabaseUrl = dotenv.env['SUPABASE_URL'];
         final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
@@ -56,7 +55,14 @@ class ReceiptStorageService {
           throw Exception('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env file');
         }
         
-        final storageUrl = '$supabaseUrl/storage/v1/object/$_bucketName/$encodedPath';
+        // Encode path properly for URL (each segment separately)
+        final pathSegments = storagePath.split('/');
+        final encodedSegments = pathSegments.map((s) => Uri.encodeComponent(s)).join('/');
+        final storageUrl = '$supabaseUrl/storage/v1/object/$_bucketName/$encodedSegments';
+        
+        print('📤 Uploading receipt to: $storageUrl');
+        print('   Storage path: $storagePath');
+        print('   File size: ${imageBytes.length} bytes');
         
         // Upload using HTTP PUT
         final response = await http.put(
@@ -70,7 +76,9 @@ class ReceiptStorageService {
           body: imageBytes,
         );
         
+        print('📥 Upload response: ${response.statusCode}');
         if (response.statusCode != 200 && response.statusCode != 201) {
+          print('❌ Upload error response: ${response.body}');
           throw Exception('Upload failed: ${response.statusCode} - ${response.body}');
         }
       } else {

@@ -170,7 +170,8 @@ class _ClaimsPageState extends State<ClaimsPage> {
 
   Future<void> _loadDeliveries() async {
     try {
-      final result = await _deliveriesRepo.getAllDeliveries(limit: 1000, offset: 0);
+      // Optimized: Only load recent deliveries (last 100)
+      final result = await _deliveriesRepo.getAllDeliveries(limit: 100, offset: 0);
       if (mounted) {
         setState(() => _deliveries = result['data'] as List<Delivery>);
       }

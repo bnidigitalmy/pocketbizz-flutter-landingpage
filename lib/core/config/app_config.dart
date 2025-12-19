@@ -9,10 +9,20 @@ class AppConfig {
   
   /// Google OAuth Client ID for Web Application
   /// Format: xxxxxx-xxxxx.apps.googleusercontent.com
-  /// Falls back to hardcoded value if not in environment variables
+  /// Environment variable is REQUIRED for production
+  /// Note: Client IDs are public by design (OAuth standard), but using env vars is best practice
   static String get googleOAuthClientId {
-    return dotenv.env['GOOGLE_OAUTH_CLIENT_ID'] ?? 
-           '214368454746-pvb44rkgman7elikd61q37673mlrdnuf.apps.googleusercontent.com';
+    final clientId = dotenv.env['GOOGLE_OAUTH_CLIENT_ID'];
+    if (clientId == null) {
+      throw Exception(
+        '❌ CRITICAL: Missing GOOGLE_OAUTH_CLIENT_ID environment variable!\n'
+        'Please create a .env file with:\n'
+        '  GOOGLE_OAUTH_CLIENT_ID=your_google_oauth_client_id\n'
+        '\n'
+        'For production, this must be set via environment variables.'
+      );
+    }
+    return clientId;
   }
   
   // Note: Client Secret is NOT needed for client-side OAuth flows

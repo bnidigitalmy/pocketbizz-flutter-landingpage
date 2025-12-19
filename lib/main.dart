@@ -91,12 +91,21 @@ Future<void> main() async {
 
   // Initialize Supabase with error handling to prevent hang
   try {
-    // Try to use environment variables first, fallback to hardcoded for development
-    final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? 'https://gxllowlurizrkvpdircw.supabase.co';
-    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
+    // Environment variables are REQUIRED for production
+    // No hardcoded fallback - ensures security best practices
+    final supabaseUrl = dotenv.env['SUPABASE_URL'];
+    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
     
-    if (dotenv.env['SUPABASE_URL'] == null || dotenv.env['SUPABASE_ANON_KEY'] == null) {
-      print('⚠️ Warning: Using hardcoded Supabase credentials. Please create .env file for production!');
+    if (supabaseUrl == null || supabaseAnonKey == null) {
+      throw Exception(
+        '❌ CRITICAL: Missing required environment variables!\n'
+        'Please create a .env file with:\n'
+        '  SUPABASE_URL=your_supabase_url\n'
+        '  SUPABASE_ANON_KEY=your_supabase_anon_key\n'
+        '\n'
+        'For production, these must be set via environment variables.\n'
+        'Hardcoded credentials have been removed for security.'
+      );
     }
     
     await Supabase.initialize(
@@ -110,7 +119,11 @@ Future<void> main() async {
     // Continue anyway - Supabase might still work
   } catch (e) {
     print('Error initializing Supabase: $e');
-    // Continue anyway - app should still load
+    // Re-throw if it's a missing env var error
+    if (e.toString().contains('CRITICAL')) {
+      rethrow;
+    }
+    // Continue anyway for other errors - app should still load
   }
 
   runApp(
