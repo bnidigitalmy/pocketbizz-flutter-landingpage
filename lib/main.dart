@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -91,10 +92,17 @@ Future<void> main() async {
 
   // Initialize Supabase with error handling to prevent hang
   try {
-    // Environment variables are REQUIRED for production
-    // No hardcoded fallback - ensures security best practices
-    final supabaseUrl = dotenv.env['SUPABASE_URL'];
-    final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+    // For web builds, .env file is not available, so use fallback
+    // Anon key is public by design (OAuth standard), safe to include in client
+    String? supabaseUrl = dotenv.env['SUPABASE_URL'];
+    String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+    
+    // Fallback for web production builds (where .env is not available)
+    if (kIsWeb && (supabaseUrl == null || supabaseAnonKey == null)) {
+      print('⚠️ Web build: Using production Supabase credentials');
+      supabaseUrl = supabaseUrl ?? 'https://gxllowlurizrkvpdircw.supabase.co';
+      supabaseAnonKey = supabaseAnonKey ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
+    }
     
     if (supabaseUrl == null || supabaseAnonKey == null) {
       throw Exception(
@@ -103,8 +111,8 @@ Future<void> main() async {
         '  SUPABASE_URL=your_supabase_url\n'
         '  SUPABASE_ANON_KEY=your_supabase_anon_key\n'
         '\n'
-        'For production, these must be set via environment variables.\n'
-        'Hardcoded credentials have been removed for security.'
+        'For production web builds, credentials are embedded in code.\n'
+        'For local development, use .env file.'
       );
     }
     
@@ -119,11 +127,11 @@ Future<void> main() async {
     // Continue anyway - Supabase might still work
   } catch (e) {
     print('Error initializing Supabase: $e');
-    // Re-throw if it's a missing env var error
-    if (e.toString().contains('CRITICAL')) {
+    // Don't rethrow for web - allow app to continue
+    // App will show error in UI if Supabase is needed
+    if (!kIsWeb && e.toString().contains('CRITICAL')) {
       rethrow;
     }
-    // Continue anyway for other errors - app should still load
   }
 
   runApp(
