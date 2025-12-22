@@ -192,7 +192,7 @@ function parseReceiptText(text: string): ParsedReceipt {
     amount: null,
     date: null,
     merchant: null,
-    items: [],
+    items: [], // Keep empty - not extracting items anymore
     rawText: text,
     category: "lain",
   };
@@ -312,14 +312,14 @@ function parseReceiptText(text: string): ParsedReceipt {
     }
   }
 
-  // ===== EXTRACT MERCHANT NAME =====
-  // Common Malaysian merchant patterns
+  // ===== EXTRACT MERCHANT/VENDOR/SUPPLIER NAME =====
+  // Enhanced patterns for Malaysian merchants/suppliers/kedai
   const merchantPatterns = [
-    /(?:BAKERY|KEDAI|RESTORAN|RESTAURANT|CAFÉ|CAFE|MART|STORE|SHOP|SDN\.?\s*BHD|ENTERPRISE)/i,
+    /(?:BAKERY|KEDAI|RESTORAN|RESTAURANT|CAFÉ|CAFE|MART|STORE|SHOP|SDN\.?\s*BHD|ENTERPRISE|SUPPLIER|VENDOR|PEMBEKAL)/i,
   ];
   
-  // Look for merchant in first 10 lines
-  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+  // Look for merchant in first 15 lines (more lines for better detection)
+  for (let i = 0; i < Math.min(lines.length, 15); i++) {
     const line = lines[i];
     
     // Skip lines that are clearly not merchant names
@@ -327,11 +327,11 @@ function parseReceiptText(text: string): ParsedReceipt {
       /^\d+[\/\-.]/.test(line) ||  // Dates
       /^\d{1,2}:\d{2}/.test(line) ||  // Times
       /^RM\s*\d/.test(line) ||  // Amounts
-      /^NO\.|^TEL|^FAX|^GST|^SST|^REG/i.test(line) ||  // Labels
+      /^NO\.|^TEL|^FAX|^GST|^SST|^REG|^INVOICE\s*NO/i.test(line) ||  // Labels
       /^\d+$/.test(line) ||  // Pure numbers
-      /^CASH\s*BILL|^TAX\s*INVOICE/i.test(line) ||  // Document types
+      /^CASH\s*BILL|^TAX\s*INVOICE|^RECEIPT|^RESIT/i.test(line) ||  // Document types
       line.length < 3 ||
-      line.length > 60
+      line.length > 80
     ) {
       continue;
     }
@@ -346,95 +346,20 @@ function parseReceiptText(text: string): ParsedReceipt {
     
     if (result.merchant) break;
     
-    // If no pattern matched, use first reasonable line as merchant
-    if (i < 3 && line.length > 5 && /[A-Za-z]/.test(line)) {
+    // If no pattern matched, use first reasonable line as merchant (more lenient)
+    if (i < 5 && line.length > 4 && /[A-Za-z]/.test(line)) {
       // Check it's not a common header word
-      if (!/^(CASH|BILL|RECEIPT|RESIT|TAX|INVOICE)/i.test(line)) {
+      if (!/^(CASH|BILL|RECEIPT|RESIT|TAX|INVOICE|TOTAL|JUMLAH|SUBTOTAL|DATE|TARIKH|TIME|MASA)/i.test(line)) {
         result.merchant = line.replace(/\s+/g, ' ').trim();
         break;
       }
     }
   }
 
-  // ===== EXTRACT ITEMS =====
-  // Look for patterns: ITEM_NAME followed by PRICE
-  const itemsFound: Array<{ name: string; price: number }> = [];
-  
-  // More flexible patterns for Malaysian receipts
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Skip header/total lines early
-    if (/^(TOTAL|JUMLAH|SUBTOTAL|CASH|TUNAI|CHANGE|BAKI|ROUNDING|SST|GST|TAX|DISCOUNT|DISKAUN|QTY|ITEM|UNIT|PRICE|DESCRIPTION|CODE)/i.test(line)) {
-      continue;
-    }
-    
-    // Pattern 1: Item and price on same line (ITEM NAME    XX.XX or ITEM NAME RM XX.XX)
-    // More flexible: allow single space or multiple spaces, with or without RM
-    const sameLineMatch = line.match(/^(.+?)\s+(?:RM\s*)?(\d+[.,]\d{2,4})$/);
-    if (sameLineMatch) {
-      const name = sameLineMatch[1].trim();
-      const price = parseFloat(parseFloat(sameLineMatch[2].replace(",", ".")).toFixed(2));
-      
-      if (isValidItemName(name) && price > 0 && price < 10000) {
-        itemsFound.push({ name, price });
-        continue;
-      }
-    }
-
-    // Pattern 2: Item name on current line, price on next line
-    if (isValidItemName(line) && i + 1 < lines.length) {
-      const nextLine = lines[i + 1];
-      const priceMatch = nextLine.match(/^(?:RM\s*)?(\d+[.,]\d{2,4})$/);
-      if (priceMatch) {
-        const price = parseFloat(parseFloat(priceMatch[1].replace(",", ".")).toFixed(2));
-        if (price > 0 && price < 10000) {
-          itemsFound.push({ name: line, price });
-          i++; // Skip next line since we used it
-          continue;
-        }
-      }
-    }
-
-    // Pattern 3: Product code + name + price (e.g., "123456 PRODUCT NAME  25.00")
-    const codeItemMatch = line.match(/^\d+\s+(.+?)\s+(?:RM\s*)?(\d+[.,]\d{2,4})$/);
-    if (codeItemMatch) {
-      const name = codeItemMatch[1].trim();
-      const price = parseFloat(parseFloat(codeItemMatch[2].replace(",", ".")).toFixed(2));
-      
-      if (isValidItemName(name) && price > 0 && price < 10000) {
-        itemsFound.push({ name, price });
-        continue;
-      }
-    }
-
-    // Pattern 4: Qty x Item Name = Price (e.g., "2 x ROTI CANAI  10.00")
-    const qtyItemMatch = line.match(/^(\d+)\s*x\s+(.+?)\s*=\s*(?:RM\s*)?(\d+[.,]\d{2,4})$/i);
-    if (qtyItemMatch) {
-      const name = qtyItemMatch[2].trim();
-      const price = parseFloat(parseFloat(qtyItemMatch[3].replace(",", ".")).toFixed(2));
-      
-      if (isValidItemName(name) && price > 0 && price < 10000) {
-        itemsFound.push({ name, price });
-        continue;
-      }
-    }
-
-    // Pattern 5: Item name with price at end (more flexible spacing)
-    // Matches: "ITEM NAME 25.00" or "ITEM NAME RM25.00"
-    const flexibleMatch = line.match(/^(.+?)\s+(?:RM\s*)?(\d+[.,]\d{2,4})\s*$/);
-    if (flexibleMatch) {
-      const name = flexibleMatch[1].trim();
-      const price = parseFloat(parseFloat(flexibleMatch[2].replace(",", ".")).toFixed(2));
-      
-      // Additional validation: name should have at least one letter
-      if (isValidItemName(name) && /[A-Za-z]/.test(name) && price > 0 && price < 10000) {
-        itemsFound.push({ name, price });
-      }
-    }
-  }
-
-  result.items = itemsFound;
+  // ===== ITEMS EXTRACTION REMOVED =====
+  // User only needs: merchant, date, category, amount
+  // Items extraction removed for simplicity
+  result.items = [];
 
   // ===== AUTO-DETECT CATEGORY =====
   result.category = detectCategory(fullTextLower, result.merchant || "");

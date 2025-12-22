@@ -9,16 +9,11 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/receipt_storage_service.dart';
-import '../../../core/services/document_storage_service.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
 import '../../../data/models/expense.dart';
-import 'widgets/document_cropper_widget.dart';
 
 /// Parsed receipt data from OCR
 class ParsedReceipt {
@@ -100,12 +95,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   bool _isSaving = false;
   String? _imageDataUrl;
   Uint8List? _imageBytes;
-  Uint8List? _croppedImageBytes; // Cropped document image
-  Uint8List? _pdfBytes; // Generated PDF bytes
   ParsedReceipt? _parsedReceipt;
   String? _ocrError;
   String? _storagePathFromOCR; // Storage path returned by OCR Edge Function
-  bool _showCropper = false; // Show cropping widget after capture
 
   // Editable form fields (after OCR)
   final _formKey = GlobalKey<FormState>();
@@ -174,7 +166,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         ..setAttribute('playsinline', 'true')
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = 'cover'
+        ..style.objectFit = 'contain' // Changed from 'cover' to 'contain' - show full camera view without zoom
         ..style.transformOrigin = 'center center';
 
       // Register platform view
@@ -194,12 +186,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         // This is fine, we'll catch the error from getUserMedia
       }
 
-      // Request camera access (prefer back camera for receipt scanning)
+      // Request camera access - let browser choose best resolution
+      // Don't force aspect ratio constraint - let camera use its native aspect ratio
+      // This prevents zoom/crop issues
       _mediaStream = await html.window.navigator.mediaDevices!.getUserMedia({
         'video': {
           'facingMode': 'environment', // Back camera
-          'width': {'ideal': 1280},
-          'height': {'ideal': 1920},
+          'width': {'ideal': 1920}, // High quality
+          'height': {'ideal': 1080}, // High quality
+          // Don't force aspectRatio - let camera use native ratio
         },
         'audio': false,
       });
@@ -280,22 +275,35 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   }
 
   /// Capture frame from live camera
+  /// Captures exactly what user sees on screen (no zoom/crop)
   Future<void> _captureFromLiveCamera() async {
     if (_videoElement == null || !_isCameraReady) return;
 
     setState(() => _isCapturing = true);
 
     try {
-      // Create canvas to capture frame
+      // Get actual video dimensions (what camera is capturing)
+      final videoWidth = _videoElement!.videoWidth;
+      final videoHeight = _videoElement!.videoHeight;
+      
+      if (videoWidth == 0 || videoHeight == 0) {
+        throw Exception('Camera dimensions not available');
+      }
+
+      // Create canvas with actual video dimensions
+      // This captures the full camera view (what user sees with objectFit: contain)
       final canvas = html.CanvasElement(
-        width: _videoElement!.videoWidth,
-        height: _videoElement!.videoHeight,
+        width: videoWidth,
+        height: videoHeight,
       );
       final ctx = canvas.context2D;
-      ctx.drawImage(_videoElement!, 0, 0);
+      
+      // Draw the video frame directly - this captures what user sees
+      // drawImage signature: drawImage(image, dx, dy, [dWidth, dHeight])
+      ctx.drawImageScaled(_videoElement!, 0, 0, videoWidth, videoHeight);
 
-      // Convert to base64
-      final dataUrl = canvas.toDataUrl('image/jpeg', 0.85);
+      // Convert to base64 with high quality (0.90 for better OCR accuracy)
+      final dataUrl = canvas.toDataUrl('image/jpeg', 0.90);
       final base64Data = dataUrl.split(',').last;
       final bytes = base64Decode(base64Data);
 
@@ -306,10 +314,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         _imageDataUrl = dataUrl;
         _imageBytes = bytes;
         _isCameraReady = false;
-        _showCropper = true; // Show cropping widget
       });
 
-      // Don't process OCR yet - wait for user to crop document
+      // Process OCR immediately with original image
+      await _processImageBytes(bytes);
 
     } catch (e) {
       if (mounted) {
@@ -368,48 +376,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _imageDataUrl = dataUrl;
       _imageBytes = bytes;
       _isCameraReady = false;
-      _showCropper = true; // Show cropping widget
     });
 
-    // Don't process OCR yet - wait for user to crop document
-  }
-
-  /// Handle cropped image dari DocumentCropperWidget
-  Future<void> _onImageCropped(Uint8List croppedBytes) async {
-    setState(() {
-      _croppedImageBytes = croppedBytes;
-      _showCropper = false;
-    });
-
-    // Process OCR dari cropped image
-    await _processImageBytes(croppedBytes);
-  }
-
-  /// Generate PDF dari cropped image
-  Future<Uint8List> _generatePdfFromImage(Uint8List imageBytes) async {
-    try {
-      final pdf = pw.Document();
-      
-      // Convert image bytes to PDF image
-      final pdfImage = pw.MemoryImage(imageBytes);
-      
-      // Get image dimensions untuk maintain aspect ratio
-      // Note: pdf package akan auto-scale, tapi kita maintain aspect ratio
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return pw.Center(
-              child: pw.Image(pdfImage, fit: pw.BoxFit.contain),
-            );
-          },
-        ),
-      );
-
-      return await pdf.save();
-    } catch (e) {
-      throw Exception('Failed to generate PDF: $e');
-    }
+    // Process OCR immediately with original image
+    await _processImageBytes(bytes);
   }
 
   /// Process image bytes with Google Cloud Vision OCR
@@ -509,22 +479,18 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     // Use category from Edge Function (already detected with better logic)
     _selectedCategory = parsed.category;
 
-    // Auto-fill items as notes
-    if (parsed.items.isNotEmpty) {
-      final itemsText = parsed.items
-          .map((i) => '${i.name}: RM${i.price.toStringAsFixed(2)}')
-          .join('\n');
-      _notesController.text = itemsText;
-    }
-
     setState(() {});
   }
 
-  /// Auto-detect category from receipt content
+  /// Auto-detect category from receipt content (fallback if OCR doesn't detect)
   String _detectCategory(ParsedReceipt parsed) {
+    // Use merchant and raw text for category detection (items no longer extracted)
+    final rawTextSample = parsed.rawText.length > 500 
+        ? parsed.rawText.substring(0, 500)
+        : parsed.rawText;
     final text = [
       parsed.merchant ?? '',
-      ...parsed.items.map((i) => i.name),
+      rawTextSample,
     ].join(' ').toLowerCase();
 
     if (text.contains('petrol') ||
@@ -584,39 +550,30 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         throw Exception('Jumlah tidak sah: $amountText');
       }
 
-      // Generate PDF dari cropped image
-      String? documentPdfUrl;
-      String? documentImageUrl;
+      // Upload original image to Supabase Storage
+      String? receiptImageUrl;
       
-      if (_croppedImageBytes != null) {
+      if (_imageBytes != null) {
         try {
-          // Generate PDF
-          _pdfBytes = await _generatePdfFromImage(_croppedImageBytes!);
-          
-          // Upload PDF ke Supabase Storage
-          // Upload PDF document using DocumentStorageService (supports PDF MIME type)
-          final pdfFileName = 'receipt-${DateTime.now().millisecondsSinceEpoch}.pdf';
-          final pdfUploadResult = await DocumentStorageService.uploadDocument(
-            pdfBytes: _pdfBytes!,
-            fileName: pdfFileName,
-            documentType: 'receipt',
-            relatedEntityType: 'expense',
-          );
-          documentPdfUrl = pdfUploadResult['url'];
-          debugPrint('✅ PDF uploaded: $documentPdfUrl');
-          
-          // Upload cropped image using ReceiptStorageService (for images)
-          documentImageUrl = await ReceiptStorageService.uploadReceipt(
-            imageBytes: _croppedImageBytes!,
-            fileName: 'receipt-${DateTime.now().millisecondsSinceEpoch}.jpg',
-          );
-          debugPrint('✅ Cropped image uploaded: $documentImageUrl');
+          // Use storage path from OCR if available, otherwise upload now
+          if (_storagePathFromOCR != null) {
+            // OCR Edge Function already uploaded the image
+            receiptImageUrl = _storagePathFromOCR;
+            debugPrint('✅ Using image uploaded by OCR: $receiptImageUrl');
+          } else {
+            // Upload original image using ReceiptStorageService
+            receiptImageUrl = await ReceiptStorageService.uploadReceipt(
+              imageBytes: _imageBytes!,
+              fileName: 'receipt-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            );
+            debugPrint('✅ Original image uploaded: $receiptImageUrl');
+          }
         } catch (uploadError) {
-          debugPrint('❌ Document upload failed: $uploadError');
+          debugPrint('❌ Image upload failed: $uploadError');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Amaran: Gagal upload dokumen. Rekod akan disimpan tanpa dokumen. Error: ${uploadError.toString()}'),
+                content: Text('Amaran: Gagal upload gambar. Rekod akan disimpan tanpa gambar. Error: ${uploadError.toString()}'),
                 backgroundColor: Colors.orange,
                 duration: const Duration(seconds: 5),
               ),
@@ -624,9 +581,6 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
           }
         }
       }
-      
-      // Legacy: Keep receiptImageUrl untuk backward compatibility
-      String? receiptImageUrl = documentImageUrl;
 
       // Build description from merchant and notes
       String description = _merchantController.text.isNotEmpty
@@ -636,24 +590,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         description = '$description\n${_notesController.text}';
       }
 
-      // Build structured receipt data from parsed receipt
+      // Build structured receipt data from parsed receipt (simplified - no items)
       ReceiptData? receiptData;
       if (_parsedReceipt != null) {
         final merchantText = _merchantController.text.trim();
         
-        // Filter out items with empty or invalid names
-        final validItems = _parsedReceipt!.items
-            .where((item) => item.name.trim().isNotEmpty && item.name.trim().length >= 2)
-            .map((item) => ReceiptItem(
-                  name: item.name.trim(),
-                  price: item.price,
-                ))
-            .toList();
-        
         receiptData = ReceiptData(
           merchant: _parsedReceipt!.merchant ?? (merchantText.isEmpty ? null : merchantText),
           date: _parsedReceipt!.date ?? DateFormat('yyyy-MM-dd').format(_selectedDate),
-          items: validItems,
+          items: [], // Items extraction removed - only extract 4 fields: merchant, date, category, amount
           total: amount,
         );
       }
@@ -666,9 +611,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         category: _selectedCategory,
         expenseDate: _selectedDate,
         description: description,
-        receiptImageUrl: receiptImageUrl, // Legacy field
-        documentImageUrl: documentImageUrl, // New: cropped image
-        documentPdfUrl: documentPdfUrl, // New: PDF
+        receiptImageUrl: receiptImageUrl, // Original image
         receiptData: receiptData,
       );
 
@@ -677,16 +620,14 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       debugPrint('📸 Receipt URL in saved expense: ${savedExpense.receiptImageUrl}');
 
       if (mounted) {
-        final message = documentPdfUrl != null
-            ? 'Perbelanjaan berjaya disimpan dengan dokumen PDF!'
-            : documentImageUrl != null
-                ? 'Perbelanjaan berjaya disimpan dengan gambar resit!'
-                : 'Perbelanjaan berjaya disimpan (tanpa dokumen)';
+        final message = receiptImageUrl != null
+            ? 'Perbelanjaan berjaya disimpan dengan gambar resit!'
+            : 'Perbelanjaan berjaya disimpan (tanpa gambar)';
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: documentPdfUrl != null ? AppColors.success : Colors.orange,
+            backgroundColor: receiptImageUrl != null ? AppColors.success : Colors.orange,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -714,12 +655,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     setState(() {
       _imageDataUrl = null;
       _imageBytes = null;
-      _croppedImageBytes = null;
-      _pdfBytes = null;
       _parsedReceipt = null;
       _ocrError = null;
       _storagePathFromOCR = null;
-      _showCropper = false;
       _amountController.clear();
       _dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
       _selectedDate = DateTime.now();
@@ -749,13 +687,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       ),
       body: _imageDataUrl == null
           ? _buildLiveCameraView()
-          : _showCropper
-              ? DocumentCropperWidget(
-                  imageBytes: _imageBytes!,
-                  imageDataUrl: _imageDataUrl,
-                  onCropped: _onImageCropped,
-                )
-              : _buildResultView(),
+          : _buildResultView(),
     );
   }
 
@@ -816,15 +748,45 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
           ),
 
         // Viewfinder overlay (yellow border that frames the receipt)
-        // Made larger to accommodate long receipts
-        if (_isCameraReady)
+        // Match actual camera aspect ratio to prevent zoom/crop issues
+        if (_isCameraReady && _videoElement != null)
           Center(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Use 85% of screen width, max 340px
-                final viewfinderWidth = (MediaQuery.of(context).size.width * 0.85).clamp(280.0, 340.0);
-                // Use 70% of available height, max 520px (for long receipts)
-                final viewfinderHeight = (MediaQuery.of(context).size.height * 0.60).clamp(400.0, 520.0);
+                // Get actual camera aspect ratio from video element
+                final videoWidth = _videoElement!.videoWidth.toDouble();
+                final videoHeight = _videoElement!.videoHeight.toDouble();
+                final cameraAspectRatio = videoWidth > 0 && videoHeight > 0 
+                    ? videoWidth / videoHeight 
+                    : 16 / 9; // Fallback to 16:9
+                
+                // Calculate viewfinder size based on camera aspect ratio
+                // Use 90% of screen width for better receipt visibility
+                final screenWidth = MediaQuery.of(context).size.width;
+                final screenHeight = MediaQuery.of(context).size.height;
+                final maxWidth = screenWidth * 0.90;
+                final maxHeight = screenHeight * 0.75;
+                
+                double viewfinderWidth, viewfinderHeight;
+                
+                // Calculate based on camera aspect ratio
+                if (cameraAspectRatio > 1) {
+                  // Landscape camera
+                  viewfinderWidth = maxWidth;
+                  viewfinderHeight = maxWidth / cameraAspectRatio;
+                  if (viewfinderHeight > maxHeight) {
+                    viewfinderHeight = maxHeight;
+                    viewfinderWidth = maxHeight * cameraAspectRatio;
+                  }
+                } else {
+                  // Portrait camera
+                  viewfinderHeight = maxHeight;
+                  viewfinderWidth = maxHeight * cameraAspectRatio;
+                  if (viewfinderWidth > maxWidth) {
+                    viewfinderWidth = maxWidth;
+                    viewfinderHeight = maxWidth / cameraAspectRatio;
+                  }
+                }
                 
                 return Container(
                   width: viewfinderWidth,
@@ -1111,11 +1073,38 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
   /// Build dark overlay outside viewfinder
   Widget _buildDarkOverlay() {
+    if (_videoElement == null) return const SizedBox.shrink();
+    
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    // Match viewfinder dimensions
-    final viewfinderWidth = (screenWidth * 0.85).clamp(280.0, 340.0);
-    final viewfinderHeight = (screenHeight * 0.60).clamp(400.0, 520.0);
+    
+    // Match viewfinder dimensions (same calculation as viewfinder)
+    final videoWidth = _videoElement!.videoWidth.toDouble();
+    final videoHeight = _videoElement!.videoHeight.toDouble();
+    final cameraAspectRatio = videoWidth > 0 && videoHeight > 0 
+        ? videoWidth / videoHeight 
+        : 16 / 9;
+    
+    final maxWidth = screenWidth * 0.90;
+    final maxHeight = screenHeight * 0.75;
+    
+    double viewfinderWidth, viewfinderHeight;
+    
+    if (cameraAspectRatio > 1) {
+      viewfinderWidth = maxWidth;
+      viewfinderHeight = maxWidth / cameraAspectRatio;
+      if (viewfinderHeight > maxHeight) {
+        viewfinderHeight = maxHeight;
+        viewfinderWidth = maxHeight * cameraAspectRatio;
+      }
+    } else {
+      viewfinderHeight = maxHeight;
+      viewfinderWidth = maxHeight * cameraAspectRatio;
+      if (viewfinderWidth > maxWidth) {
+        viewfinderWidth = maxWidth;
+        viewfinderHeight = maxWidth / cameraAspectRatio;
+      }
+    }
     
     return IgnorePointer(
       child: CustomPaint(
