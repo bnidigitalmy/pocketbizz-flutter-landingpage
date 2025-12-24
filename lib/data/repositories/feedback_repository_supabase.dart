@@ -109,14 +109,15 @@ class FeedbackRepositorySupabase {
   /// Send notification to user when feedback status is updated
   Future<void> _sendNotificationToUser(FeedbackRequest feedback) async {
     try {
-      // Create notification log entry
-      await supabase.from('notification_logs').insert({
-        'user_id': feedback.businessOwnerId,
-        'channel': 'in_app',
-        'type': 'feedback_status_update',
-        'status': 'sent',
-        'subject': 'Status Feedback Anda Telah Dikemaskini',
-        'payload': {
+      // Use insert_notification_log function to insert notification for another user
+      // This function has SECURITY DEFINER to bypass RLS for system notifications
+      await supabase.rpc('insert_notification_log', {
+        'p_user_id': feedback.businessOwnerId,
+        'p_channel': 'in_app',
+        'p_type': 'feedback_status_update',
+        'p_status': 'sent',
+        'p_subject': 'Status Feedback Anda Telah Dikemaskini',
+        'p_payload': {
           'feedback_id': feedback.id,
           'feedback_title': feedback.title,
           'status': feedback.status,
