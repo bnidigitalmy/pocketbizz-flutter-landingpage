@@ -14,6 +14,9 @@ import '../../../core/utils/booking_pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
 import '../../../core/services/document_storage_service.dart';
 import 'create_booking_page_enhanced.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Optimized Tempahan Page
 /// Full-featured tempahan management with PDF and WhatsApp sharing
@@ -38,6 +41,30 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
     super.initState();
     _loadBookings();
     _loadBusinessProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _bookings.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.bookings,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.bookings : TooltipContent.bookingsEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   Future<void> _loadBusinessProfile() async {

@@ -16,6 +16,9 @@ import 'phone_input_dialog.dart';
 // import 'claim_details_dialog.dart'; // Commented out - will create later if needed
 import 'create_consignment_claim_page.dart';
 import 'create_consignment_payment_page.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Claims Page - Consignment System
 /// User (Consignor) buat tuntutan bayaran dari Vendor (Consignee)
@@ -70,6 +73,30 @@ class _ClaimsPageState extends State<ClaimsPage> {
   void initState() {
     super.initState();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _claims.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.claims,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.claims : TooltipContent.claimsEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   @override

@@ -14,6 +14,9 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Upgraded Shopping List Page
 /// Full-featured shopping cart with PO creation, print, and WhatsApp share
@@ -80,6 +83,30 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     _checkAutoPO();
     _setupRealtimeSubscriptions();
     // Removed periodic refresh - hanya guna real-time subscription
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _cartItems.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.shoppingList,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.shoppingList : TooltipContent.shoppingListEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
 

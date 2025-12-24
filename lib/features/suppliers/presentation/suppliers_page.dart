@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/suppliers_repository_supabase.dart';
 import '../../../data/models/supplier.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Suppliers Page
 /// Manage suppliers (pembekal bahan/ingredients) for Purchase Orders
@@ -26,6 +29,30 @@ class _SuppliersPageState extends State<SuppliersPage> {
   void initState() {
     super.initState();
     _loadSuppliers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _suppliers.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.suppliers,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.suppliers : TooltipContent.suppliersEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   Future<void> _loadSuppliers() async {

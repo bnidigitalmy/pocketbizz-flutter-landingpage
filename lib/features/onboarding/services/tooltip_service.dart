@@ -49,4 +49,5 @@ class TooltipKeys {
   static const String production = 'production';
   static const String recipes = 'recipes';
   static const String planner = 'planner';
+  static const String deliveries = 'deliveries';
 }

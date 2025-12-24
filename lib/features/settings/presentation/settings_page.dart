@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/services/image_upload_service.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Settings Page
 /// Manage business profile and user profile
@@ -525,6 +526,16 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           ),
           const SizedBox(height: 16),
           _buildPasswordForm(),
+
+          const SizedBox(height: 32),
+
+          _buildSectionHeader(
+            'Tetapan Aplikasi',
+            Icons.settings_rounded,
+            'Urus tetapan aplikasi dan tutorial',
+          ),
+          const SizedBox(height: 16),
+          _buildAppSettings(),
         ],
       ),
     );
@@ -1236,6 +1247,155 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
         ],
       ),
     );
+  }
+
+  Widget _buildAppSettings() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.help_outline, size: 20, color: AppColors.primary),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Tutorial Tooltips',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tooltips tutorial akan muncul secara automatik apabila anda pertama kali masuk setiap modul.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Nota: Selepas reset, tooltips akan muncul semula apabila anda masuk setiap modul, walaupun anda sudah ada data/produk dalam akaun. Tooltips untuk empty state hanya akan muncul jika modul tersebut tiada data.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue[700],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _resetTooltips,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: AppColors.primary),
+                foregroundColor: AppColors.primary,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.refresh_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Reset Semua Tooltips',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _resetTooltips() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Tooltips?'),
+        content: const Text(
+          'Adakah anda pasti mahu reset semua tooltips? Tooltips akan muncul sekali lagi apabila anda masuk setiap modul.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final tooltipService = TooltipService();
+      await tooltipService.resetAllTooltips();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Tooltips berjaya direset! Tooltips akan muncul semula apabila anda masuk setiap modul.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat reset tooltips: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

@@ -14,6 +14,9 @@ import 'widgets/shopping_list_dialog.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Stock Management Page - List all stock items
 class StockPage extends StatefulWidget {
@@ -49,6 +52,30 @@ class _StockPageState extends State<StockPage> {
     super.initState();
     _stockRepository = StockRepository(supabase);
     _loadStockItems();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _stockItems.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.inventory,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.inventory : TooltipContent.inventoryEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   Future<void> _loadStockItems() async {

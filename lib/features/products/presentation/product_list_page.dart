@@ -9,6 +9,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'edit_product_page.dart';
 import 'add_product_with_recipe_page.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -44,6 +47,30 @@ class _ProductListPageState extends State<ProductListPage> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _loadProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _allProducts.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      hasData ? TooltipKeys.products : TooltipKeys.products,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.products : TooltipContent.productsEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   @override

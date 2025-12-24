@@ -8,6 +8,9 @@ import '../../../core/utils/date_time_helper.dart';
 import '../../../data/models/expense.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
 import 'receipt_scan_page.dart';
+import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
+import '../../onboarding/data/tooltip_content.dart';
+import '../../onboarding/services/tooltip_service.dart';
 
 /// Expenses Page - Friendly UX for busy non-technical users.
 ///
@@ -55,6 +58,30 @@ class _ExpensesPageState extends State<ExpensesPage> {
       text: DateFormat('yyyy-MM-dd').format(_formDate),
     );
     _loadExpenses();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowTooltip();
+    });
+  }
+
+  Future<void> _checkAndShowTooltip() async {
+    final hasData = _expenses.isNotEmpty;
+    
+    final shouldShow = await TooltipHelper.shouldShowTooltip(
+      context,
+      TooltipKeys.expenses,
+      checkEmptyState: !hasData,
+      emptyStateChecker: () => !hasData,
+    );
+    
+    if (shouldShow && mounted) {
+      final content = hasData ? TooltipContent.expenses : TooltipContent.expensesEmpty;
+      await TooltipHelper.showTooltip(
+        context,
+        content.moduleKey,
+        content.title,
+        content.message,
+      );
+    }
   }
 
   @override
