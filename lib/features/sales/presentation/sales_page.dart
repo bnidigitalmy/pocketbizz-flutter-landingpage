@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Sales Page - Enhanced UI with summary cards and channel filters
 class SalesPage extends StatefulWidget {
@@ -24,30 +21,6 @@ class _SalesPageState extends State<SalesPage> {
   void initState() {
     super.initState();
     _loadSales();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _sales.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      hasData ? TooltipKeys.sales : TooltipKeys.sales,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.sales : TooltipContent.salesEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   Future<void> _loadSales() async {

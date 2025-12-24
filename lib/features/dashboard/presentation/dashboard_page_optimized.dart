@@ -27,9 +27,6 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../data/repositories/announcements_repository_supabase.dart';
 import '../../announcements/presentation/notifications_page.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -73,25 +70,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadAllData();
-        _checkAndShowTooltip();
       }
     });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.dashboard,
-    );
-    
-    if (shouldShow && mounted) {
-      await TooltipHelper.showTooltip(
-        context,
-        TooltipContent.dashboard.moduleKey,
-        TooltipContent.dashboard.title,
-        TooltipContent.dashboard.message,
-      );
-    }
   }
 
   Future<void> _loadAllData() async {

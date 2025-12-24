@@ -5,9 +5,6 @@ import '../../../data/models/vendor.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import 'commission_dialog.dart';
 import 'vendor_detail_page.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Vendors Page (Consignment System)
 /// Manage Consignees (kedai yang jual produk untuk user)
@@ -49,29 +46,7 @@ class _VendorsPageState extends State<VendorsPage> {
     super.initState();
     _loadVendors();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
     });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _vendors.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.vendors,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.vendors : TooltipContent.vendorsEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   @override

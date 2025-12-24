@@ -16,9 +16,6 @@ import 'delivery_form_dialog.dart';
 import 'edit_rejection_dialog.dart';
 import 'payment_status_dialog.dart';
 import 'invoice_dialog.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Deliveries Page - Consignment System
 /// Manage deliveries to Consignees (vendors)
@@ -68,41 +65,10 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     super.initState();
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
     });
   }
 
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _deliveries.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.deliveries,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.deliveries : TooltipContent.deliveriesEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    try {
-      await Future.wait([
-        _loadDeliveries(reset: true),
-        _loadVendors(),
-        _loadProducts(),
-        _loadBusinessProfile(),
-      ]);
-    } catch (e) {
+ catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

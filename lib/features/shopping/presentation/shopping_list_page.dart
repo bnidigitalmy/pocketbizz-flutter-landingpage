@@ -14,9 +14,6 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Upgraded Shopping List Page
 /// Full-featured shopping cart with PO creation, print, and WhatsApp share
@@ -84,48 +81,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     _setupRealtimeSubscriptions();
     // Removed periodic refresh - hanya guna real-time subscription
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
     });
   }
 
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _cartItems.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.shoppingList,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.shoppingList : TooltipContent.shoppingListEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
-  }
 
-
-  // Setup real-time subscriptions for stock updates
-  void _setupRealtimeSubscriptions() {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      // Subscribe to stock_items table changes for current user only
-      _stockSubscription = supabase
-          .from('stock_items')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            // Stock items updated - refresh data with debounce
-            if (mounted) {
-              _debouncedRefresh();
-            }
           });
 
       // Subscribe to purchase_orders table to detect when PO is received

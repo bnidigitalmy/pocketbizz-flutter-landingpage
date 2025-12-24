@@ -4,9 +4,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/planner_task.dart';
 import '../../../data/repositories/planner_tasks_repository_supabase.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 class PlannerPage extends StatefulWidget {
   const PlannerPage({super.key});
@@ -60,7 +57,6 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
       });
       
       // Check tooltip after data loaded
-      _checkAndShowTooltip();
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -70,68 +66,7 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
     }
   }
 
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _today.isNotEmpty || _upcoming.isNotEmpty || _overdue.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.planner,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.planner : TooltipContent.plannerEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
-  }
 
-  Future<void> _addManualTask() async {
-    final titleController = TextEditingController();
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Tambah Tugasan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Tajuk tugasan',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.calendar_today),
-                      label: Text(
-                        selectedDate == null
-                            ? 'Pilih tarikh'
-                            : DateFormat('d MMM yyyy', 'ms_MY').format(selectedDate!),
-                      ),
-                      onPressed: () async {
-                        final now = DateTime.now();
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: now,
-                          firstDate: now.subtract(const Duration(days: 1)),
-                          lastDate: now.add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setState(() => selectedDate = picked);
-                        }
                       },
                     ),
                   ),
