@@ -111,7 +111,7 @@ class FeedbackRepositorySupabase {
     try {
       // Use insert_notification_log function to insert notification for another user
       // This function has SECURITY DEFINER to bypass RLS for system notifications
-      await supabase.rpc('insert_notification_log', {
+      await supabase.rpc('insert_notification_log', params: {
         'p_user_id': feedback.businessOwnerId,
         'p_channel': 'in_app',
         'p_type': 'feedback_status_update',
