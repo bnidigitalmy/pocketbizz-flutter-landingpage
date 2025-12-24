@@ -12,9 +12,6 @@ import '../utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
 import '../../../core/services/document_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Reports Page - Phase 1: Foundation
 /// Shows Profit/Loss, Top Products, Top Vendors, and Monthly Trends
@@ -64,30 +61,6 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     
     _loadAllData();
     
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _profitLoss != null || _topProducts.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.reports,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.reports : TooltipContent.reportsEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   @override

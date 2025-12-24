@@ -8,9 +8,6 @@ import '../../../data/repositories/stock_repository_supabase.dart' as stock_repo
 import '../../../data/models/recipe.dart';
 import '../../../data/models/recipe_item.dart';
 import '../../../data/models/stock_item.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Enhanced Recipe Builder Page
 /// User-friendly recipe management with search, edit, and stock info
@@ -49,30 +46,6 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     _stockRepo = stock_repo.StockRepository(supabase);
     _searchController.addListener(_onSearchChanged);
     _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _recipeItems.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.recipes,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.recipes : TooltipContent.recipesEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   @override

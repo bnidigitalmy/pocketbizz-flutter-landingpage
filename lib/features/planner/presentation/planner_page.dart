@@ -4,9 +4,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/planner_task.dart';
 import '../../../data/repositories/planner_tasks_repository_supabase.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 class PlannerPage extends StatefulWidget {
   const PlannerPage({super.key});
@@ -58,35 +55,11 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
         _auto = results[3];
         _loading = false;
       });
-      
-      // Check tooltip after data loaded
-      _checkAndShowTooltip();
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Gagal muat Planner')),
-      );
-    }
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _today.isNotEmpty || _upcoming.isNotEmpty || _overdue.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.planner,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.planner : TooltipContent.plannerEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
       );
     }
   }

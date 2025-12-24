@@ -13,9 +13,6 @@ import '../../../data/models/production_batch.dart';
 import '../../../data/models/product.dart';
 import 'widgets/production_planning_dialog.dart';
 import 'widgets/bulk_production_planning_dialog.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Production Planning Page - 3-Step Production Planning with Preview
 class ProductionPlanningPage extends StatefulWidget {
@@ -47,30 +44,6 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
     // Initialize admin cache early so isAdminSync() works
     AdminHelper.initializeCache();
     _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _batches.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.production,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.production : TooltipContent.productionEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   Future<void> _loadData() async {

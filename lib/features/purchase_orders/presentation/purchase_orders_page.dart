@@ -19,9 +19,6 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
 import '../../../core/services/document_storage_service.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 // Conditional import for web
 import 'dart:html' as html if (dart.library.html) 'dart:html';
@@ -77,30 +74,6 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   void initState() {
     super.initState();
     _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
-  }
-
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _purchaseOrders.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.purchaseOrders,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.purchaseOrders : TooltipContent.purchaseOrdersEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
   }
 
   Future<void> _loadData() async {

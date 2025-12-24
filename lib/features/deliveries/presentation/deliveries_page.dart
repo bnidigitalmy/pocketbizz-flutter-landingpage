@@ -67,31 +67,8 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
   void initState() {
     super.initState();
     _loadData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndShowTooltip();
-    });
   }
 
-  Future<void> _checkAndShowTooltip() async {
-    final hasData = _deliveries.isNotEmpty;
-    
-    final shouldShow = await TooltipHelper.shouldShowTooltip(
-      context,
-      TooltipKeys.deliveries,
-      checkEmptyState: !hasData,
-      emptyStateChecker: () => !hasData,
-    );
-    
-    if (shouldShow && mounted) {
-      final content = hasData ? TooltipContent.deliveries : TooltipContent.deliveriesEmpty;
-      await TooltipHelper.showTooltip(
-        context,
-        content.moduleKey,
-        content.title,
-        content.message,
-      );
-    }
-  }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
