@@ -26,11 +26,18 @@ class _SuppliersPageState extends State<SuppliersPage> {
   void initState() {
     super.initState();
     _loadSuppliers();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-    });
   }
 
-);
+  Future<void> _loadSuppliers() async {
+    setState(() => _loading = true);
+    try {
+      final suppliers = await _repo.getAllSuppliers();
+      if (mounted) {
+        setState(() {
+          _suppliers = suppliers;
+          _loading = false;
+        });
+      }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
