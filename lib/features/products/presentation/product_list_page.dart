@@ -1,3 +1,18 @@
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Product List Page - Cost Display Logic
+ * - Uses costPerUnit (includes packaging) for accurate cost display
+ * - Fallback to costPrice if costPerUnit is null
+ * - Profit calculation uses costPerUnit for consistency
+ * - Cost display matches recipe page (with packaging difference clarified)
+ */
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
@@ -7,7 +22,6 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
-import 'edit_product_page.dart';
 import 'add_product_with_recipe_page.dart';
 
 class ProductListPage extends StatefulWidget {
@@ -30,6 +44,7 @@ class _ProductListPageState extends State<ProductListPage> {
   String _searchQuery = '';
   String? _selectedCategory;
   String _sortBy = 'name'; // name, price_high, price_low, stock_low
+  bool _showDisabledProducts = false; // Toggle to show/hide disabled products
   
   // Search debouncing
   Timer? _searchDebounce;
@@ -70,7 +85,7 @@ class _ProductListPageState extends State<ProductListPage> {
     setState(() => _loading = true);
 
     try {
-      final products = await _repo.listProducts();
+      final products = await _repo.listProducts(includeInactive: _showDisabledProducts);
       
       // Load stock for all products IN PARALLEL (much faster!)
       final stockFutures = products.map((product) async {
@@ -367,6 +382,46 @@ class _ProductListPageState extends State<ProductListPage> {
             _buildSortDropdown(),
           ],
         ),
+        const SizedBox(height: 12),
+        // Toggle to show/hide disabled products
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showDisabledProducts = !_showDisabledProducts;
+            });
+            _loadProducts();
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _showDisabledProducts ? Colors.orange[50] : Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _showDisabledProducts ? Colors.orange[300]! : Colors.grey[300]!,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _showDisabledProducts ? Icons.visibility : Icons.visibility_off,
+                  size: 18,
+                  color: _showDisabledProducts ? Colors.orange[700] : Colors.grey[600],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _showDisabledProducts ? 'Sembunyikan Produk Tidak Aktif' : 'Tunjukkan Produk Tidak Aktif',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _showDisabledProducts ? Colors.orange[700] : Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -455,11 +510,15 @@ class _ProductListPageState extends State<ProductListPage> {
       return _buildEmptyState();
     }
 
+    // Separate active and disabled products if showing disabled
+    final activeProducts = _filteredProducts.where((p) => p.isActive).toList();
+    final disabledProducts = _filteredProducts.where((p) => !p.isActive).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${_filteredProducts.length} produk ditemui',
+          '${activeProducts.length} produk aktif${disabledProducts.isNotEmpty ? ', ${disabledProducts.length} tidak aktif' : ''}',
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -467,15 +526,35 @@ class _ProductListPageState extends State<ProductListPage> {
           ),
         ),
         const SizedBox(height: 12),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _filteredProducts.length,
-          itemBuilder: (context, index) {
-            final product = _filteredProducts[index];
-            return _buildProductCard(product);
-          },
-        ),
+        // Show active products first
+        ...activeProducts.map((product) => _buildProductCard(product)),
+        // Show disabled products section if any
+        if (disabledProducts.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.visibility_off, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Produk Tidak Aktif (${disabledProducts.length})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...disabledProducts.map((product) => _buildProductCard(product)),
+        ],
       ],
     );
   }
@@ -484,7 +563,10 @@ class _ProductListPageState extends State<ProductListPage> {
     final stock = _stockCache[product.id] ?? 0.0;
     final isLowStock = stock > 0 && stock < 10;
     final isOutOfStock = stock == 0;
-    final profit = product.salePrice - product.costPrice;
+    final isDisabled = !product.isActive;
+    // Use costPerUnit if available (calculated with packaging), otherwise fallback to costPrice
+    final effectiveCostPrice = product.costPerUnit ?? product.costPrice;
+    final profit = product.salePrice - effectiveCostPrice;
     final profitMargin =
         product.salePrice > 0 ? (profit / product.salePrice) * 100 : 0.0;
 
@@ -512,21 +594,44 @@ class _ProductListPageState extends State<ProductListPage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isOutOfStock
-              ? Colors.red[200]!
-              : isLowStock
-                  ? Colors.orange[200]!
-                  : Colors.grey[200]!,
-          width: isOutOfStock || isLowStock ? 2 : 1,
+          color: isDisabled
+              ? Colors.grey[400]!
+              : isOutOfStock
+                  ? Colors.red[200]!
+                  : isLowStock
+                      ? Colors.orange[200]!
+                      : Colors.grey[200]!,
+          width: (isDisabled || isOutOfStock || isLowStock) ? 2 : 1,
         ),
       ),
-      child: InkWell(
-        onTap: () => _showProductDetails(product),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+      color: isDisabled ? Colors.grey[50] : null,
+      child: Opacity(
+        opacity: isDisabled ? 0.6 : 1.0,
+        child: InkWell(
+          onTap: () => _showProductDetails(product),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
             children: [
+              // Status Badge for disabled products
+              if (isDisabled)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Tidak Aktif',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               // Product Image
               Container(
                 width: 70,
@@ -647,7 +752,7 @@ class _ProductListPageState extends State<ProductListPage> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'Kos: RM${product.costPrice.toStringAsFixed(2)}',
+                            'Kos: RM${(product.costPerUnit ?? product.costPrice).toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -742,7 +847,7 @@ class _ProductListPageState extends State<ProductListPage> {
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => EditProductPage(product: product),
+                          builder: (context) => AddProductWithRecipePage(product: product),
                         ),
                       );
                       if (result == true && mounted) {
@@ -751,14 +856,26 @@ class _ProductListPageState extends State<ProductListPage> {
                     },
                     tooltip: 'Edit',
                   ),
+                  // Enable/Disable button
+                  if (!product.isActive)
+                    IconButton(
+                      icon: const Icon(Icons.visibility, color: Colors.green),
+                      onPressed: () => _enableProduct(product),
+                      tooltip: 'Aktifkan',
+                    ),
+                  // Disable/Delete button
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: Icon(
+                      product.isActive ? Icons.visibility_off : Icons.delete_forever,
+                      color: product.isActive ? Colors.orange : Colors.red,
+                    ),
                     onPressed: () => _confirmDelete(product),
-                    tooltip: 'Padam',
+                    tooltip: product.isActive ? 'Nonaktifkan' : 'Padam Kekal',
                   ),
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -834,54 +951,157 @@ class _ProductListPageState extends State<ProductListPage> {
     );
   }
 
+  Future<void> _enableProduct(Product product) async {
+    try {
+      await _repo.enableProduct(product.id);
+      await _loadProducts();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Produk berjaya diaktifkan'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat mengaktifkan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmDelete(Product product) async {
-    final confirmed = await showDialog<bool>(
+    // Show dialog with options: Disable (recommended) or Delete (permanent)
+    final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Padam Produk'),
-        content: Text('Adakah anda pasti mahu memadam "${product.name}"?'),
+        title: Text(product.isActive ? 'Nonaktifkan Produk' : 'Padam Produk'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Pilih tindakan untuk "${product.name}":'),
+            const SizedBox(height: 16),
+            if (product.isActive) ...[
+              const Text(
+                '💡 Disyorkan: Nonaktifkan produk (boleh diaktifkan semula kemudian)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const Text(
+              '⚠️ Peringatan: Padam produk akan memadam secara kekal dan tidak boleh dibatalkan.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Batal'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
+          if (product.isActive)
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context, 'disable'),
+              icon: const Icon(Icons.visibility_off, size: 18),
+              label: const Text('Nonaktifkan'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange,
+                side: const BorderSide(color: Colors.orange),
+              ),
+            ),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, 'delete'),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Padam'),
+            icon: const Icon(Icons.delete_forever, size: 18),
+            label: const Text('Padam Kekal'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true && mounted) {
-      try {
-        await _repo.deleteProduct(product.id);
+    if (action == null || !mounted) return;
+
+    try {
+      if (action == 'disable') {
+        // Disable product (soft delete)
+        await _repo.disableProduct(product.id);
         await _loadProducts();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Produk berjaya dipadam'),
-              backgroundColor: Colors.green,
+              content: Text('✅ Produk berjaya dinyahaktifkan'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Ralat memadam: $e'),
-              backgroundColor: Colors.red,
+      } else if (action == 'delete') {
+        // Permanent delete - show confirmation again
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('⚠️ Padam Kekal'),
+            content: Text(
+              'Adakah anda PASTI mahu memadam "${product.name}" secara kekal?\n\n'
+              'Tindakan ini TIDAK BOLEH dibatalkan. Semua data produk akan hilang.',
             ),
-          );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Ya, Padam Kekal'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true && mounted) {
+          await _repo.deleteProduct(product.id);
+          await _loadProducts();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Produk berjaya dipadam secara kekal'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
 
   void _showProductDetails(Product product) {
     final stock = _stockCache[product.id] ?? 0.0;
-    final profit = product.salePrice - product.costPrice;
+    // Use costPerUnit if available (calculated with packaging), otherwise fallback to costPrice
+    final effectiveCostPrice = product.costPerUnit ?? product.costPrice;
+    final profit = product.salePrice - effectiveCostPrice;
     final profitMargin =
         product.salePrice > 0 ? (profit / product.salePrice) * 100 : 0.0;
 
@@ -928,8 +1148,13 @@ class _ProductListPageState extends State<ProductListPage> {
                     ),
                     _buildDetailRow(
                       'Harga Kos',
-                      'RM${product.costPrice.toStringAsFixed(2)}',
+                      'RM${(product.costPerUnit ?? product.costPrice).toStringAsFixed(2)}',
                     ),
+                    if (product.costPerUnit != null && product.totalCostPerBatch != null)
+                      _buildDetailRow(
+                        'Jumlah Kos Per Batch',
+                        'RM${product.totalCostPerBatch!.toStringAsFixed(2)}',
+                      ),
                     _buildDetailRow(
                       'Untung (Anggaran)',
                       'RM${profit.toStringAsFixed(2)}',

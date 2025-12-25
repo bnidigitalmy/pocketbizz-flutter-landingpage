@@ -1,3 +1,12 @@
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
+
 import '../../core/supabase/supabase_client.dart';
 import '../../core/utils/rate_limit_mixin.dart';
 import '../../core/utils/rate_limiter.dart';
@@ -101,7 +110,7 @@ class ProductsRepositorySupabase with RateLimitMixin {
               .from('products')
               .select()
               .eq('business_owner_id', userId) // Filter by user's business_owner_id
-              .eq('is_active', true)
+              .eq('is_active', true) // Only active products for getAll
               .order('name', ascending: true)
               .range(offset, offset + limit - 1); // Add pagination
 
@@ -136,10 +145,13 @@ class ProductsRepositorySupabase with RateLimitMixin {
   }
 
   /// List products with rate limiting
+  /// By default, only returns active products (is_active = true)
+  /// Set includeInactive = true to include disabled products
   Future<List<Product>> listProducts({
     String? category,
     String? searchQuery,
     int limit = 100,
+    bool includeInactive = false, // Include disabled products
   }) async {
     return await executeWithRateLimit(
       type: RateLimitType.read,
@@ -153,6 +165,11 @@ class ProductsRepositorySupabase with RateLimitMixin {
             .from('products')
             .select()
             .eq('business_owner_id', userId); // Filter by user's business_owner_id
+        
+        // Filter active products unless includeInactive is true
+        if (!includeInactive) {
+          query = query.eq('is_active', true);
+        }
 
         // Apply filters if provided
         if (category != null && category.isNotEmpty) {
@@ -196,7 +213,57 @@ class ProductsRepositorySupabase with RateLimitMixin {
     );
   }
 
-  /// Delete product with rate limiting
+  /// Disable product (soft delete - safer option)
+  /// Sets is_active = false. Product can be re-enabled later.
+  /// This preserves all data and references.
+  Future<void> disableProduct(String id) async {
+    await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        final userId = supabase.auth.currentUser?.id;
+        if (userId == null) {
+          throw Exception('User not authenticated');
+        }
+
+        await supabase
+            .from('products')
+            .update({
+              'is_active': false,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', id)
+            .eq('business_owner_id', userId);
+      },
+    );
+  }
+
+  /// Enable product (re-activate disabled product)
+  Future<void> enableProduct(String id) async {
+    await executeWithRateLimit(
+      type: RateLimitType.write,
+      operation: () async {
+        final userId = supabase.auth.currentUser?.id;
+        if (userId == null) {
+          throw Exception('User not authenticated');
+        }
+
+        await supabase
+            .from('products')
+            .update({
+              'is_active': true,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', id)
+            .eq('business_owner_id', userId);
+      },
+    );
+  }
+
+  /// Delete product permanently (hard delete - use with caution)
+  /// Products can be deleted even if referenced in bookings.
+  /// booking_items.product_id will be set to NULL automatically (ON DELETE SET NULL),
+  /// while booking_items.product_name is preserved for record-keeping.
+  /// Consider using disableProduct() instead for safer operation.
   Future<void> deleteProduct(String id) async {
     await executeWithRateLimit(
       type: RateLimitType.write,
@@ -206,6 +273,10 @@ class ProductsRepositorySupabase with RateLimitMixin {
           throw Exception('User not authenticated');
         }
 
+        // Note: Product can now be deleted even if referenced in bookings
+        // booking_items.product_id will be set to NULL automatically (ON DELETE SET NULL)
+        // booking_items.product_name is preserved so booking records remain intact
+        
         await supabase
             .from('products')
             .delete()

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -13,10 +14,29 @@ import '../../../data/repositories/categories_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
 
-/// Add Product with Recipe & Auto-Cost Calculation
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Add/Edit Product with Recipe & Auto-Cost Calculation
+ * - Supports both add and edit modes
+ * - Cost calculation: materials + labour + other + (packaging * units_per_batch)
+ * - Cost per unit = totalCostPerBatch / unitsPerBatch (INCLUDES packaging)
+ * - Recipe integration with automatic cost sync
+ * - Cost fields are critical - do not change calculation logic
+ */
+
+/// Add/Edit Product with Recipe & Auto-Cost Calculation
 /// Mobile-first, non-techy friendly, Malay language
+/// Supports both add (product=null) and edit (product provided) modes
 class AddProductWithRecipePage extends StatefulWidget {
-  const AddProductWithRecipePage({super.key});
+  final Product? product; // If provided, edit mode. If null, add mode.
+  
+  const AddProductWithRecipePage({super.key, this.product});
 
   @override
   State<AddProductWithRecipePage> createState() => _AddProductWithRecipePageState();
@@ -52,13 +72,16 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   
   bool _isLoading = true;
   bool _isSaving = false;
+  
+  // Edit mode data
+  String? _existingRecipeId; // Store recipe ID if editing
 
   // Cost calculations
   double _materialsCost = 0.0;
   double _totalPackagingCost = 0.0;
   double _totalCostPerBatch = 0.0;
   double _costPerUnit = 0.0;
-  int _suggestedMarginPercent = 30;
+  int _suggestedMarginPercent = 70; // Default 70% markup for food manufacturing
   double _suggestedSellingPrice = 0.0;
 
   // Common emojis for product categories
@@ -108,12 +131,21 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
 
   Future<void> _loadData() async {
     try {
+      // Load stock items and categories first (needed for loading recipe data)
       final stockItems = await _stockRepo.getAllStockItems(limit: 100);
       final categories = await _categoriesRepo.getAll(limit: 100);
       
       setState(() {
         _stockItems = stockItems;
         _categories = categories;
+      });
+      
+      // If editing, load existing product data (after stock items are loaded)
+      if (widget.product != null) {
+        await _loadExistingProductData();
+      }
+      
+      setState(() {
         _isLoading = false;
       });
     } catch (e) {
@@ -124,6 +156,62 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       }
       setState(() => _isLoading = false);
     }
+  }
+  
+  Future<void> _loadExistingProductData() async {
+    if (widget.product == null) return;
+    
+    final product = widget.product!;
+    
+    // Load product fields
+    _nameController.text = product.name;
+    _categoryController.text = product.category ?? '';
+    _sellingPriceController.text = product.salePrice.toStringAsFixed(2);
+    _unitsPerBatchController.text = (product.unitsPerBatch ?? 1).toString();
+    _labourCostController.text = (product.labourCost ?? 0.0).toStringAsFixed(2);
+    _otherCostsController.text = (product.otherCosts ?? 0.0).toStringAsFixed(2);
+    _packagingCostController.text = (product.packagingCost ?? 0.0).toStringAsFixed(2);
+    _currentImageUrl = product.imageUrl;
+    if (product.imageUrl != null) {
+      _imageUrlController.text = product.imageUrl!;
+    }
+    
+    // Load existing recipe if any
+    try {
+      final recipe = await _recipesRepo.getActiveRecipe(product.id);
+      if (recipe != null) {
+        _existingRecipeId = recipe.id;
+        
+        // Update units per batch if different
+        if (recipe.yieldQuantity != double.parse(_unitsPerBatchController.text)) {
+          _unitsPerBatchController.text = recipe.yieldQuantity.toStringAsFixed(0);
+        }
+        
+        // Load recipe items
+        final recipeItems = await _recipesRepo.getRecipeItems(recipe.id);
+        _recipeItems.clear();
+        for (final item in recipeItems) {
+          final input = RecipeItemInput();
+          input.stockItemId = item.stockItemId;
+          input.usageUnit = item.usageUnit;
+          input.quantityController.text = item.quantityNeeded.toString();
+          _recipeItems.add(input);
+        }
+        
+        // If no recipe items, add one empty row
+        if (_recipeItems.isEmpty) {
+          _recipeItems.add(RecipeItemInput());
+        }
+      }
+    } catch (e) {
+      // Recipe might not exist yet, that's ok
+      if (kDebugMode) {
+        print('No recipe found for product: $e');
+      }
+    }
+    
+    // Trigger cost calculation
+    _calculateCosts();
   }
 
   void _calculateCosts() {
@@ -171,11 +259,14 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     // Cost per unit
     final costPerUnit = unitsPerBatch > 0 ? totalCostPerBatch / unitsPerBatch : 0.0;
 
-    // Suggested margin based on cost
-    int suggestedMarginPercent = 30;
-    if (costPerUnit < 1) suggestedMarginPercent = 50;
-    else if (costPerUnit < 3) suggestedMarginPercent = 40;
-    else if (costPerUnit < 5) suggestedMarginPercent = 35;
+    // Suggested margin based on cost (markup percentage)
+    // For food manufacturing, need to cover: overhead (15-25%), wastage (5-10%), 
+    // marketing (5-10%), contingency (5%), and profit (20-30%)
+    // Minimum safe margin: 60-70%, Ideal: 80-100%
+    int suggestedMarginPercent = 70; // Default: 70% markup (more reasonable for food business)
+    if (costPerUnit < 1) suggestedMarginPercent = 80; // Higher margin for low-cost items
+    else if (costPerUnit < 3) suggestedMarginPercent = 75;
+    else if (costPerUnit < 5) suggestedMarginPercent = 70;
     
     final suggestedSellingPrice = costPerUnit * (1 + suggestedMarginPercent / 100);
 
@@ -298,81 +389,159 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     setState(() => _isSaving = true);
 
     try {
-      // 1. Create product first
-      final now = DateTime.now();
-      final product = Product(
-        id: '', // Will be generated by database
-        businessOwnerId: '', // Will be set by repository
-        sku: 'PROD-${DateTime.now().millisecondsSinceEpoch}', // Auto-generate SKU
-        name: _nameController.text.trim(),
-        category: _categoryController.text.trim(),
-        unit: 'pcs', // Default unit
-        salePrice: double.parse(_sellingPriceController.text),
-        costPrice: _costPerUnit,
-        description: null,
-        imageUrl: _imageUrlController.text.trim().isEmpty 
-            ? null 
-            : _imageUrlController.text.trim(),
-        unitsPerBatch: int.parse(_unitsPerBatchController.text),
-        labourCost: double.parse(_labourCostController.text),
-        otherCosts: double.parse(_otherCostsController.text),
-        packagingCost: double.parse(_packagingCostController.text),
-        materialsCost: _materialsCost,
-        totalCostPerBatch: _totalCostPerBatch,
-        costPerUnit: _costPerUnit,
-        createdAt: now,
-        updatedAt: now,
-      );
+      final isEditMode = widget.product != null;
+      Product productToSave;
+      String productId;
 
-      final createdProduct = await _productsRepo.createProduct(product);
-
-      // 1b. Upload image if any, then update product record
-      if (_pendingImage != null) {
-        try {
-          final imageUrl = await _imageService.uploadProductImage(
-            _pendingImage!,
-            createdProduct.id,
-          );
-          await _productsRepo.updateProduct(createdProduct.id, {'image_url': imageUrl});
-          _currentImageUrl = imageUrl;
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Gambar tidak dapat dimuat naik: $e'),
-                backgroundColor: Colors.orange,
-              ),
+      if (isEditMode) {
+        // UPDATE MODE: Update existing product
+        productId = widget.product!.id;
+        
+        // Upload image if any
+        String? imageUrl = _currentImageUrl;
+        if (_pendingImage != null) {
+          try {
+            imageUrl = await _imageService.updateProductImage(
+              _pendingImage!,
+              productId,
+              _currentImageUrl,
             );
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Gambar tidak dapat dimuat naik: $e'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+        }
+        
+        // Update product
+        final updates = {
+          'name': _nameController.text.trim(),
+          'category': _categoryController.text.trim().isEmpty ? null : _categoryController.text.trim(),
+          'sale_price': double.parse(_sellingPriceController.text),
+          'cost_price': _costPerUnit,
+          'units_per_batch': int.parse(_unitsPerBatchController.text),
+          'labour_cost': double.parse(_labourCostController.text),
+          'other_costs': double.parse(_otherCostsController.text),
+          'packaging_cost': double.parse(_packagingCostController.text),
+          'materials_cost': _materialsCost,
+          'total_cost_per_batch': _totalCostPerBatch,
+          'cost_per_unit': _costPerUnit,
+          if (imageUrl != null) 'image_url': imageUrl,
+          if (_pendingImage != null && imageUrl == null) 'image_url': null,
+        };
+        
+        await _productsRepo.updateProduct(productId, updates);
+        productToSave = widget.product!;
+      } else {
+        // CREATE MODE: Create new product
+        final now = DateTime.now();
+        final product = Product(
+          id: '', // Will be generated by database
+          businessOwnerId: '', // Will be set by repository
+          sku: 'PROD-${DateTime.now().millisecondsSinceEpoch}', // Auto-generate SKU
+          name: _nameController.text.trim(),
+          category: _categoryController.text.trim(),
+          unit: 'pcs', // Default unit
+          salePrice: double.parse(_sellingPriceController.text),
+          costPrice: _costPerUnit,
+          description: null,
+          imageUrl: null,
+          unitsPerBatch: int.parse(_unitsPerBatchController.text),
+          labourCost: double.parse(_labourCostController.text),
+          otherCosts: double.parse(_otherCostsController.text),
+          packagingCost: double.parse(_packagingCostController.text),
+          materialsCost: _materialsCost,
+          totalCostPerBatch: _totalCostPerBatch,
+          costPerUnit: _costPerUnit,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        productToSave = await _productsRepo.createProduct(product);
+        productId = productToSave.id;
+
+        // Upload image if any
+        if (_pendingImage != null) {
+          try {
+            final imageUrl = await _imageService.uploadProductImage(
+              _pendingImage!,
+              productId,
+            );
+            await _productsRepo.updateProduct(productId, {'image_url': imageUrl});
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Gambar tidak dapat dimuat naik: $e'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
           }
         }
       }
 
-      // 2. Create recipe
-      final recipe = await _recipesRepo.createRecipe(
-        productId: createdProduct.id,
-        name: '${createdProduct.name} Recipe',
-        yieldQuantity: double.parse(_unitsPerBatchController.text),
-        yieldUnit: 'pcs',
-        isActive: true,
-      );
+      // Handle recipe (create or update)
+      if (isEditMode && _existingRecipeId != null) {
+        // UPDATE RECIPE: Delete existing items and recreate
+        final existingItems = await _recipesRepo.getRecipeItems(_existingRecipeId!);
+        for (final item in existingItems) {
+          await _recipesRepo.deleteRecipeItem(item.id);
+        }
+        
+        // Update recipe
+        await _recipesRepo.updateRecipe(_existingRecipeId!, {
+          'yield_quantity': double.parse(_unitsPerBatchController.text),
+          'name': '${productToSave.name} Recipe',
+        });
+        
+        // Add updated recipe items
+        for (final item in _recipeItems) {
+          final quantity = double.tryParse(item.quantityController.text);
+          if (item.stockItemId != null && quantity != null && quantity > 0) {
+            await _recipesRepo.addRecipeItem(
+              recipeId: _existingRecipeId!,
+              stockItemId: item.stockItemId!,
+              quantityNeeded: quantity,
+              usageUnit: item.usageUnit ?? 'pcs',
+            );
+          }
+        }
+      } else {
+        // CREATE RECIPE: Create new recipe
+        final recipe = await _recipesRepo.createRecipe(
+          productId: productId,
+          name: '${productToSave.name} Recipe',
+          yieldQuantity: double.parse(_unitsPerBatchController.text),
+          yieldUnit: 'pcs',
+          isActive: true,
+        );
 
-      // 3. Create recipe items
-      for (final item in _recipeItems) {
-        final quantity = double.tryParse(item.quantityController.text);
-        if (item.stockItemId != null && quantity != null && quantity > 0) {
-          await _recipesRepo.addRecipeItem(
-            recipeId: recipe.id,
-            stockItemId: item.stockItemId!,
-            quantityNeeded: quantity,
-            usageUnit: item.usageUnit ?? 'pcs',
-          );
+        // Create recipe items
+        for (final item in _recipeItems) {
+          final quantity = double.tryParse(item.quantityController.text);
+          if (item.stockItemId != null && quantity != null && quantity > 0) {
+            await _recipesRepo.addRecipeItem(
+              recipeId: recipe.id,
+              stockItemId: item.stockItemId!,
+              quantityNeeded: quantity,
+              usageUnit: item.usageUnit ?? 'pcs',
+            );
+          }
         }
       }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Produk & resepi berjaya ditambah!'),
+          SnackBar(
+            content: Text(isEditMode 
+              ? '✅ Produk & resepi berjaya dikemaskini!' 
+              : '✅ Produk & resepi berjaya ditambah!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -394,7 +563,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Tambah Produk & Resepi'),
+        title: Text(widget.product != null ? 'Edit Produk & Resepi' : 'Tambah Produk & Resepi'),
         backgroundColor: AppColors.primary,
       ),
       body: _isLoading
@@ -621,7 +790,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                             )
                           : const Icon(Icons.save, size: 24),
                       label: Text(
-                        _isSaving ? 'Menyimpan...' : 'Simpan Produk',
+                        _isSaving 
+                          ? 'Menyimpan...' 
+                          : (widget.product != null ? 'Kemaskini Produk' : 'Simpan Produk'),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -1504,11 +1675,24 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       text: item.quantityController.text.isEmpty ? '1' : item.quantityController.text,
     );
     String selectedUnit = item.usageUnit ?? stock.unit;
-    List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit)
-      ..sort();
-    if (!compatibleUnits.map((u) => u.toLowerCase()).contains(stock.unit.toLowerCase())) {
+    List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit);
+    
+    // Ensure stock.unit is included (case-insensitive check)
+    final stockUnitLower = stock.unit.toLowerCase();
+    if (!compatibleUnits.any((u) => u.toLowerCase() == stockUnitLower)) {
       compatibleUnits.insert(0, stock.unit);
     }
+    
+    // Remove duplicates (case-insensitive) and sort
+    final seen = <String>{};
+    compatibleUnits = compatibleUnits.where((unit) {
+      final lower = unit.toLowerCase();
+      if (seen.contains(lower)) {
+        return false; // Skip duplicate
+      }
+      seen.add(lower);
+      return true;
+    }).toList()..sort();
 
     showDialog(
       context: context,
@@ -1636,9 +1820,21 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
         ? _stockItems.firstWhere((s) => s.id == item.stockItemId, orElse: () => _stockItems.first)
         : null;
     
-    final compatibleUnits = selectedStock != null
+    // Get compatible units and remove duplicates (case-insensitive)
+    List<String> compatibleUnits = selectedStock != null
         ? getCompatibleUnits(selectedStock.unit)
         : <String>[];
+    
+    // Remove duplicates (case-insensitive) to prevent DropdownButton errors
+    final seen = <String>{};
+    compatibleUnits = compatibleUnits.where((unit) {
+      final lower = unit.toLowerCase();
+      if (seen.contains(lower)) {
+        return false; // Skip duplicate
+      }
+      seen.add(lower);
+      return true;
+    }).toList()..sort();
 
     // Calculate cost for this item
     double itemCost = 0.0;

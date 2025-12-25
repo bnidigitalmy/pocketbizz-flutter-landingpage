@@ -9,6 +9,22 @@ import '../../../data/models/recipe.dart';
 import '../../../data/models/recipe_item.dart';
 import '../../../data/models/stock_item.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Recipe Builder Page - Cost Display
+ * - Recipe totalCost = materials + labour + other (WITHOUT packaging)
+ * - Recipe costPerUnit = totalCost / yieldQuantity (WITHOUT packaging)
+ * - Packaging cost is per-unit, not per-batch, so it's excluded from recipe totals
+ * - Final product cost (in product page) includes packaging
+ * - Info note explains packaging exclusion to users
+ */
+
 /// Enhanced Recipe Builder Page
 /// User-friendly recipe management with search, edit, and stock info
 class RecipeBuilderPage extends StatefulWidget {
@@ -885,6 +901,32 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            // Info note about packaging cost
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Nota: Kos di atas tidak termasuk kos pembungkusan (packaging cost). Kos akhir produk termasuk packaging akan dipaparkan dalam halaman produk.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange[900],
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

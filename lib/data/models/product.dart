@@ -1,4 +1,16 @@
-/// Product Model with Recipe & Costing
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Product Model with Recipe & Costing
+ * - Core data structure for products
+ * - Contains cost calculation fields (costPerUnit, totalCostPerBatch, materialsCost)
+ * - Cost fields are critical for pricing accuracy
+ */
 class Product {
   final String id;
   final String businessOwnerId;
@@ -25,6 +37,9 @@ class Product {
   final double? totalCostPerBatch; // materials + labour + other + (packaging * units)
   final double? costPerUnit; // totalCostPerBatch / unitsPerBatch
   
+  // Status
+  final bool isActive; // For enable/disable (soft delete alternative)
+  
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -48,6 +63,7 @@ class Product {
     this.materialsCost,
     this.totalCostPerBatch,
     this.costPerUnit,
+    this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -72,6 +88,7 @@ class Product {
       materialsCost: (json['materials_cost'] as num?)?.toDouble(),
       totalCostPerBatch: (json['total_cost_per_batch'] as num?)?.toDouble(),
       costPerUnit: (json['cost_per_unit'] as num?)?.toDouble(),
+      isActive: (json['is_active'] as bool?) ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -96,6 +113,7 @@ class Product {
       'materials_cost': materialsCost,
       'total_cost_per_batch': totalCostPerBatch,
       'cost_per_unit': costPerUnit,
+      'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
