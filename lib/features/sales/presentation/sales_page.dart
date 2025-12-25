@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/sales_receipt_pdf_generator.dart';
+import '../../../core/utils/pdf_generator.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
+import '../../../data/repositories/business_profile_repository_supabase.dart';
+import '../../../data/models/business_profile.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
 /// Sales Page - Enhanced UI with summary cards and channel filters
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -525,14 +537,19 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   String _formatDateTime(DateTime dateTime) {
+    // Convert UTC to local time
+    final localDateTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
+    
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final date = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final date = DateTime(localDateTime.year, localDateTime.month, localDateTime.day);
+
+    final timeStr = DateFormat('HH:mm').format(localDateTime);
 
     if (date == today) {
-      return 'Hari ini ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return 'Hari ini $timeStr';
     } else {
-      return DateFormat('dd MMM yyyy, HH:mm', 'ms_MY').format(dateTime);
+      return DateFormat('dd MMM yyyy, HH:mm', 'ms_MY').format(localDateTime);
     }
   }
 
@@ -615,6 +632,12 @@ class _SalesPageState extends State<SalesPage> {
                         sale.customerName ?? 'Pelanggan Tanpa Nama',
                       ),
                       _buildDetailRow('Tarikh', _formatDateTime(sale.createdAt)),
+                      // Show delivery address for online and delivery channels
+                      if ((sale.channel == 'online' || sale.channel == 'delivery') && 
+                          sale.deliveryAddress != null && 
+                          sale.deliveryAddress!.isNotEmpty) ...[
+                        _buildDetailRow('Alamat Penghantaran', sale.deliveryAddress!),
+                      ],
                       if (sale.notes != null && sale.notes!.isNotEmpty)
                         _buildDetailRow('Nota', sale.notes!),
                       const Divider(height: 24),
@@ -702,14 +725,7 @@ class _SalesPageState extends State<SalesPage> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () {
-                                // TODO: Print receipt
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Cetak resit - Akan datang!'),
-                                  ),
-                                );
-                              },
+                              onPressed: () => _printReceipt(context, sale),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
@@ -766,5 +782,70 @@ class _SalesPageState extends State<SalesPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _printReceipt(BuildContext context, Sale sale) async {
+    try {
+      // Show loading
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Text('Menyediakan resit...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+
+      // Get business profile
+      final businessProfileRepo = BusinessProfileRepository();
+      BusinessProfile? businessProfile;
+      try {
+        businessProfile = await businessProfileRepo.getBusinessProfile();
+      } catch (e) {
+        // Business profile is optional, continue without it
+        debugPrint('Could not load business profile: $e');
+      }
+
+      // Generate PDF
+      final pdfBytes = await SalesReceiptPDFGenerator.generateSalesReceipt(
+        sale,
+        businessProfile: businessProfile,
+      );
+
+      // Print PDF
+      await PDFGenerator.printPDF(pdfBytes, name: 'Resit Jualan #${sale.id.substring(0, 8).toUpperCase()}');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Resit berjaya dicetak'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat mencetak resit: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 }

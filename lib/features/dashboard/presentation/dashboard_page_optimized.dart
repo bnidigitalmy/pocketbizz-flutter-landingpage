@@ -277,6 +277,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       final todayStart = DateTime(today.year, today.month, today.day);
       final todayEnd = todayStart.add(const Duration(days: 1));
 
+      // Get sales by channel from reports (already includes bookings and consignment)
       final channels = await _reportsRepo.getSalesByChannel(
         startDate: todayStart,
         endDate: todayEnd,

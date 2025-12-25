@@ -1,8 +1,19 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../core/utils/date_time_helper.dart';
+import '../../../core/utils/sales_receipt_pdf_generator.dart';
+import '../../../core/utils/pdf_generator.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
+import '../../../data/repositories/business_profile_repository_supabase.dart';
+import '../../../data/models/business_profile.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
 /// Sale Details Dialog
 /// Shows complete sale information with items
 class SaleDetailsDialog extends StatelessWidget {
@@ -91,9 +102,20 @@ class SaleDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildInfoRow(
                       'Tarikh & Masa',
-                      DateTimeHelper.formatDateTime(sale.createdAt, pattern: 'dd/MM/yyyy, HH:mm'),
+                      DateTimeHelper.formatDateTime(DateTimeHelper.toLocalTime(sale.createdAt), pattern: 'dd MMM yyyy, HH:mm'),
                       Icons.access_time,
                     ),
+                    // Show delivery address for online and delivery channels
+                    if ((sale.channel == 'online' || sale.channel == 'delivery') && 
+                        sale.deliveryAddress != null && 
+                        sale.deliveryAddress!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _buildInfoRow(
+                        'Alamat Penghantaran',
+                        sale.deliveryAddress!,
+                        Icons.location_on,
+                      ),
+                    ],
                     if (sale.notes != null && sale.notes!.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       _buildInfoRow(
@@ -179,14 +201,7 @@ class SaleDetailsDialog extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: Print receipt
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Cetak resit - Akan datang!'),
-                          ),
-                        );
-                      },
+                      onPressed: () => _printReceipt(context),
                       icon: const Icon(Icons.print),
                       label: const Text('Cetak'),
                     ),
@@ -327,6 +342,71 @@ class SaleDetailsDialog extends StatelessWidget {
         return 'Penghantaran';
       default:
         return channel.toUpperCase();
+    }
+  }
+
+  Future<void> _printReceipt(BuildContext context) async {
+    try {
+      // Show loading
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Text('Menyediakan resit...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+
+      // Get business profile
+      final businessProfileRepo = BusinessProfileRepository();
+      BusinessProfile? businessProfile;
+      try {
+        businessProfile = await businessProfileRepo.getBusinessProfile();
+      } catch (e) {
+        // Business profile is optional, continue without it
+        debugPrint('Could not load business profile: $e');
+      }
+
+      // Generate PDF
+      final pdfBytes = await SalesReceiptPDFGenerator.generateSalesReceipt(
+        sale,
+        businessProfile: businessProfile,
+      );
+
+      // Print PDF
+      await PDFGenerator.printPDF(pdfBytes, name: 'Resit Jualan #${sale.id.substring(0, 8).toUpperCase()}');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Resit berjaya dicetak'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat mencetak resit: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 }

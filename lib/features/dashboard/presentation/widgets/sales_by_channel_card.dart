@@ -26,6 +26,8 @@ class SalesByChannelCard extends StatelessWidget {
       case 'myshop':
       case 'online':
         return Icons.shopping_cart;
+      case 'delivery':
+        return Icons.delivery_dining;
       case 'consignment':
       case 'vendor':
         return Icons.business;
@@ -47,6 +49,8 @@ class SalesByChannelCard extends StatelessWidget {
       case 'myshop':
       case 'online':
         return Colors.blue;
+      case 'delivery':
+        return Colors.orange;
       case 'consignment':
       case 'vendor':
         return Colors.purple;

@@ -107,6 +107,17 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
   int get _pendingCount => _bookings.where((b) => b.status == 'pending').length;
   int get _confirmedCount => _bookings.where((b) => b.status == 'confirmed').length;
+  
+  double get _pendingAmount => _bookings
+      .where((b) => b.status == 'pending')
+      .fold<double>(0.0, (sum, b) => sum + b.totalAmount);
+  
+  double get _confirmedAmount => _bookings
+      .where((b) => b.status == 'confirmed')
+      .fold<double>(0.0, (sum, b) => sum + b.totalAmount);
+  
+  double get _totalAmount => _bookings
+      .fold<double>(0.0, (sum, b) => sum + b.totalAmount);
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +216,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
             _pendingCount.toString(),
             Icons.pending_actions_rounded,
             Colors.orange,
-            'Perlu disahkan',
+            'RM${_pendingAmount.toStringAsFixed(2)}',
           ),
         ),
         const SizedBox(width: 12),
@@ -215,7 +226,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
             _confirmedCount.toString(),
             Icons.check_circle_rounded,
             Colors.blue,
-            'Tempahan aktif',
+            'RM${_confirmedAmount.toStringAsFixed(2)}',
           ),
         ),
         const SizedBox(width: 12),
@@ -225,7 +236,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
             _bookings.length.toString(),
             Icons.event_note_rounded,
             AppColors.primary,
-            'Semua tempahan',
+            'RM${_totalAmount.toStringAsFixed(2)}',
           ),
         ),
       ],

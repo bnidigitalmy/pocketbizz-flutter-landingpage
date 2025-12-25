@@ -4,6 +4,14 @@ import '../../core/utils/rate_limiter.dart';
 import 'production_repository_supabase.dart';
 import '../../features/subscription/data/repositories/subscription_repository_supabase.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
 /// Sale model
 class Sale {
   final String id;
@@ -13,6 +21,7 @@ class Sale {
   final double? discountAmount;
   final double finalAmount;
   final String? notes;
+  final String? deliveryAddress; // For online and delivery channels
   final DateTime createdAt;
   final List<SaleItem>? items;
 
@@ -24,6 +33,7 @@ class Sale {
     this.discountAmount,
     required this.finalAmount,
     this.notes,
+    this.deliveryAddress,
     required this.createdAt,
     this.items,
   });
@@ -37,7 +47,8 @@ class Sale {
       discountAmount: (json['discount_amount'] as num?)?.toDouble(),
       finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0,
       notes: json['notes'],
-      createdAt: DateTime.parse(json['created_at']),
+      deliveryAddress: json['delivery_address'],
+      createdAt: DateTime.parse(json['created_at']).toLocal(), // Convert UTC to local timezone
       items: json['sale_items'] != null
           ? (json['sale_items'] as List)
               .map((item) => SaleItem.fromJson(item))
@@ -91,6 +102,14 @@ class SaleItem {
   }
 }
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
 /// Sales repository using Supabase with rate limiting
 class SalesRepositorySupabase with RateLimitMixin {
   /// Create a new sale with rate limiting

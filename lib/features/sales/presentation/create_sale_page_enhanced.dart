@@ -5,6 +5,14 @@ import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ */
 /// Enhanced Create Sale Page
 /// User-friendly form with better UI/UX and validation
 class CreateSalePageEnhanced extends StatefulWidget {

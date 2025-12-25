@@ -47,8 +47,10 @@ class DateTimeHelper {
   }
 
   /// Format DateTime to user's local timezone with date and time
+  /// If dateTime is already local, pass it directly. If UTC, it will be converted.
   static String formatDateTime(DateTime dateTime, {String pattern = 'dd MMM yyyy, hh:mm a'}) {
-    final localTime = toLocalTime(dateTime);
+    // Ensure we convert UTC to local if needed
+    final localTime = dateTime.isUtc ? dateTime.toLocal() : dateTime;
     return DateFormat(pattern, 'ms').format(localTime);
   }
 

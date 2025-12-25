@@ -478,7 +478,9 @@ class ReportsRepositorySupabase {
         return 'Tempahan';
       case 'myshop':
       case 'online':
-        return 'MyShop (Online)';
+        return 'Online';
+      case 'delivery':
+        return 'Penghantaran';
       case 'consignment':
       case 'vendor':
         return 'Vendor (Consignment)';
