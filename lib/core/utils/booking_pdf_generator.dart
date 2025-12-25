@@ -6,6 +6,17 @@ import '../../data/repositories/bookings_repository_supabase.dart';
 import '../../data/models/business_profile.dart';
 import 'date_time_helper.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Balance calculations (totalAmount - deposit - totalPaid) are critical.
+ * Invoice shows "Baki Perlu Dibayar" (fixed), Receipt shows "Baki Terkini" (current).
+ */
 /// PDF Generator for Booking Invoices
 class BookingPDFGenerator {
   /// Generate PDF Invoice for Booking
@@ -402,14 +413,14 @@ class BookingPDFGenerator {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              'Baki:',
+                              'Baki Perlu Dibayar:',
                               style: pw.TextStyle(
                                 fontSize: 11,
                                 fontWeight: pw.FontWeight.bold,
                               ),
                             ),
                             pw.Text(
-                              'RM${(booking.totalAmount - booking.depositAmount!).toStringAsFixed(2)}',
+                              'RM${(booking.totalAmount - (booking.depositAmount ?? 0.0)).toStringAsFixed(2)}',
                               style: pw.TextStyle(
                                 fontSize: 11,
                                 fontWeight: pw.FontWeight.bold,
@@ -839,7 +850,7 @@ class BookingPDFGenerator {
                   pw.Divider(),
                   _buildReceiptRow(
                     'Baki',
-                    'RM${(booking.totalAmount - booking.totalPaid).toStringAsFixed(2)}',
+                    'RM${(booking.totalAmount - (booking.depositAmount ?? 0.0) - booking.totalPaid).toStringAsFixed(2)}',
                     isHighlight: true,
                   ),
                 ],

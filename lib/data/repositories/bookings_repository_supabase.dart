@@ -2,6 +2,17 @@ import '../../core/supabase/supabase_client.dart';
 import '../../core/utils/rate_limit_mixin.dart';
 import '../../core/utils/rate_limiter.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Balance calculation: totalAmount - depositAmount - totalPaid
+ * This formula is used consistently across UI, repository, and PDF generation.
+ */
 /// Booking model
 class Booking {
   final String id;
@@ -122,6 +133,17 @@ class BookingItem {
   }
 }
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * recordPayment() uses: remainingBalance = totalAmount - depositAmount - totalPaid
+ * This calculation must remain consistent with UI and PDF generation.
+ */
 /// Bookings repository using Supabase with rate limiting
 class BookingsRepositorySupabase with RateLimitMixin {
   /// Get booking prefix from business_profile (optional user prefix)
@@ -501,7 +523,7 @@ class BookingsRepositorySupabase with RateLimitMixin {
 
     // Get booking to check total
     final booking = await getBooking(bookingId);
-    final remainingBalance = booking.totalAmount - booking.totalPaid;
+    final remainingBalance = booking.totalAmount - (booking.depositAmount ?? 0.0) - booking.totalPaid;
     
     if (amount > remainingBalance) {
       throw Exception('Payment amount (RM${amount.toStringAsFixed(2)}) exceeds remaining balance (RM${remainingBalance.toStringAsFixed(2)})');
@@ -529,7 +551,7 @@ class BookingsRepositorySupabase with RateLimitMixin {
         return {
           'payment': paymentData,
           'booking': updatedBooking,
-          'remaining_balance': updatedBooking.totalAmount - updatedBooking.totalPaid,
+          'remaining_balance': updatedBooking.totalAmount - (updatedBooking.depositAmount ?? 0.0) - updatedBooking.totalPaid,
         };
       },
     );

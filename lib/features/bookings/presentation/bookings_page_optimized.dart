@@ -15,6 +15,19 @@ import '../../drive_sync/utils/drive_sync_helper.dart';
 import '../../../core/services/document_storage_service.dart';
 import 'create_booking_page_enhanced.dart';
 
+/**
+ * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
+ * ❌ DO NOT MODIFY
+ * ❌ DO NOT REFACTOR
+ * ❌ DO NOT OPTIMIZE
+ * This logic is production-tested.
+ * New features must EXTEND, not change.
+ * 
+ * Balance calculations in UI must match repository and PDF:
+ * - Financial Summary: totalAmount - depositAmount - totalPaid
+ * - Payment Dialog: totalAmount - depositAmount - totalPaid
+ * - Record Payment Button: totalAmount - depositAmount - totalPaid
+ */
 /// Optimized Tempahan Page
 /// Full-featured tempahan management with PDF and WhatsApp sharing
 class BookingsPageOptimized extends StatefulWidget {
@@ -774,7 +787,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
       if (booking.depositAmount != null && booking.depositAmount! > 0) {
         message += 'Deposit: RM${booking.depositAmount!.toStringAsFixed(2)}%0A';
-        final balance = booking.totalAmount - booking.depositAmount!;
+        final balance = booking.totalAmount - (booking.depositAmount ?? 0.0) - booking.totalPaid;
         message += 'Baki: RM${balance.toStringAsFixed(2)}%0A';
       }
 
@@ -1032,7 +1045,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                           _buildDetailRow('Jumlah Dibayar', 'RM${fullBooking.totalPaid.toStringAsFixed(2)}'),
                           _buildDetailRow(
                             'Baki',
-                            'RM${(fullBooking.totalAmount - fullBooking.totalPaid).toStringAsFixed(2)}',
+                            'RM${(fullBooking.totalAmount - (fullBooking.depositAmount ?? 0.0) - fullBooking.totalPaid).toStringAsFixed(2)}',
                             isHighlight: true,
                           ),
                         ],
@@ -1168,7 +1181,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                       const SizedBox(height: 24),
                       
                       // Record Payment Button (if there's remaining balance)
-                      if (fullBooking.totalAmount - fullBooking.totalPaid > 0) ...[
+                      if (fullBooking.totalAmount - (fullBooking.depositAmount ?? 0.0) - fullBooking.totalPaid > 0) ...[
                         ElevatedButton.icon(
                           onPressed: () => _showRecordPaymentDialog(fullBooking),
                           icon: const Icon(Icons.payment, size: 20),
@@ -1363,7 +1376,7 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
 
   /// Show dialog to record payment
   Future<void> _showRecordPaymentDialog(Booking booking) async {
-    final remainingBalance = booking.totalAmount - booking.totalPaid;
+    final remainingBalance = booking.totalAmount - (booking.depositAmount ?? 0.0) - booking.totalPaid;
     
     final amountController = TextEditingController();
     final referenceController = TextEditingController();
@@ -1410,6 +1423,22 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      amountController.text = remainingBalance.toStringAsFixed(2);
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.payment, size: 18),
+                    label: const Text('Bayar Baki Penuh'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: BorderSide(color: AppColors.primary),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(

@@ -16,9 +16,6 @@ import 'delivery_form_dialog.dart';
 import 'edit_rejection_dialog.dart';
 import 'payment_status_dialog.dart';
 import 'invoice_dialog.dart';
-import '../../onboarding/presentation/widgets/contextual_tooltip.dart';
-import '../../onboarding/data/tooltip_content.dart';
-import '../../onboarding/services/tooltip_service.dart';
 
 /// Deliveries Page - Consignment System
 /// Manage deliveries to Consignees (vendors)
