@@ -597,22 +597,22 @@ class _ProductListPageState extends State<ProductListPage> {
           color: isDisabled
               ? Colors.grey[400]!
               : isOutOfStock
-                  ? Colors.red[200]!
-                  : isLowStock
-                      ? Colors.orange[200]!
-                      : Colors.grey[200]!,
+              ? Colors.red[200]!
+              : isLowStock
+                  ? Colors.orange[200]!
+                  : Colors.grey[200]!,
           width: (isDisabled || isOutOfStock || isLowStock) ? 2 : 1,
         ),
       ),
       color: isDisabled ? Colors.grey[50] : null,
       child: Opacity(
         opacity: isDisabled ? 0.6 : 1.0,
-        child: InkWell(
-          onTap: () => _showProductDetails(product),
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+      child: InkWell(
+        onTap: () => _showProductDetails(product),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
               // Status Badge for disabled products
               if (isDisabled)
@@ -858,7 +858,7 @@ class _ProductListPageState extends State<ProductListPage> {
                   ),
                   // Enable/Disable button
                   if (!product.isActive)
-                    IconButton(
+                  IconButton(
                       icon: const Icon(Icons.visibility, color: Colors.green),
                       onPressed: () => _enableProduct(product),
                       tooltip: 'Aktifkan',
@@ -1049,50 +1049,50 @@ class _ProductListPageState extends State<ProductListPage> {
         }
       } else if (action == 'delete') {
         // Permanent delete - show confirmation again
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
             title: const Text('⚠️ Padam Kekal'),
             content: Text(
               'Adakah anda PASTI mahu memadam "${product.name}" secara kekal?\n\n'
               'Tindakan ini TIDAK BOLEH dibatalkan. Semua data produk akan hilang.',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Batal'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Ya, Padam Kekal'),
-              ),
-            ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
           ),
-        );
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Ya, Padam Kekal'),
+          ),
+        ],
+      ),
+    );
 
-        if (confirmed == true && mounted) {
-          await _repo.deleteProduct(product.id);
-          await _loadProducts();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+    if (confirmed == true && mounted) {
+        await _repo.deleteProduct(product.id);
+        await _loadProducts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
                 content: Text('✅ Produk berjaya dipadam secara kekal'),
-                backgroundColor: Colors.green,
-              ),
-            );
+              backgroundColor: Colors.green,
+            ),
+          );
           }
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
             content: Text('Ralat: $e'),
-            backgroundColor: Colors.red,
+              backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
-          ),
-        );
+            ),
+          );
       }
     }
   }
@@ -1154,7 +1154,7 @@ class _ProductListPageState extends State<ProductListPage> {
                       _buildDetailRow(
                         'Jumlah Kos Per Batch',
                         'RM${product.totalCostPerBatch!.toStringAsFixed(2)}',
-                      ),
+                    ),
                     _buildDetailRow(
                       'Untung (Anggaran)',
                       'RM${profit.toStringAsFixed(2)}',

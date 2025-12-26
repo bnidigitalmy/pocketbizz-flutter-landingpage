@@ -36,8 +36,8 @@ class _SuppliersPageState extends State<SuppliersPage> {
         setState(() {
           _suppliers = suppliers;
           _loading = false;
-        });
-      }
+    });
+  }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
@@ -464,9 +464,11 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
 
     setState(() => _saving = true);
     try {
+      Supplier? result;
+      
       if (widget.supplier == null) {
         // Create
-        await _repo.createSupplier(
+        result = await _repo.createSupplier(
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim().isEmpty
               ? null
@@ -480,7 +482,7 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
         );
       } else {
         // Update
-        await _repo.updateSupplier(
+        result = await _repo.updateSupplier(
           id: widget.supplier!.id,
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim().isEmpty
@@ -495,16 +497,24 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
         );
       }
 
+      // Reset saving state
       if (mounted) {
-        Navigator.pop(context, true);
+        setState(() => _saving = false);
+      }
+
+      // Close dialog and return result
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context, result);
       }
     } catch (e) {
-      setState(() => _saving = false);
+      // Reset saving state on error
       if (mounted) {
+        setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }

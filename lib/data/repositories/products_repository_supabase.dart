@@ -276,7 +276,7 @@ class ProductsRepositorySupabase with RateLimitMixin {
         // Note: Product can now be deleted even if referenced in bookings
         // booking_items.product_id will be set to NULL automatically (ON DELETE SET NULL)
         // booking_items.product_name is preserved so booking records remain intact
-        
+
         await supabase
             .from('products')
             .delete()

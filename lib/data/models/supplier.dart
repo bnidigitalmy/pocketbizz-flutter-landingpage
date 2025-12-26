@@ -4,7 +4,7 @@
 /// - Supplier = Pembekal bahan untuk user buat produk (purchase relationship)
 /// - Vendor = Consignee yang jual produk user (consignment relationship)
 /// 
-/// Uses vendors table (without type filter since actual DB doesn't have type column)
+/// Uses suppliers table (separate from vendors table)
 class Supplier {
   final String id;
   final String businessOwnerId;

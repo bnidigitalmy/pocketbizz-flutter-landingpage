@@ -49,6 +49,7 @@ class VendorsRepositorySupabase {
     String? email,
     String? phone,
     String? address,
+    String commissionType = 'percentage',
     double defaultCommissionRate = 0.0,
     String? bankName,
     String? bankAccountNumber,
@@ -66,6 +67,7 @@ class VendorsRepositorySupabase {
       'email': email,
       'phone': phone,
       'address': address,
+      'commission_type': commissionType,
       'default_commission_rate': defaultCommissionRate,
       'bank_name': bankName,
       'bank_account_number': bankAccountNumber,
@@ -80,10 +82,26 @@ class VendorsRepositorySupabase {
 
   /// Update vendor
   Future<void> updateVendor(String vendorId, Map<String, dynamic> updates) async {
+    final updateData = {
+      ...updates,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    
     await supabase
         .from('vendors')
-        .update({...updates, 'updated_at': DateTime.now().toIso8601String()})
+        .update(updateData)
         .eq('id', vendorId);
+    
+    // Verify update was successful by checking the updated row
+    final verify = await supabase
+        .from('vendors')
+        .select()
+        .eq('id', vendorId)
+        .maybeSingle();
+    
+    if (verify == null) {
+      throw Exception('Failed to update vendor: Vendor not found after update');
+    }
   }
 
   /// Delete vendor

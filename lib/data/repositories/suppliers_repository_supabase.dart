@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../core/supabase/supabase_client.dart';
 import '../models/supplier.dart';
 
@@ -8,7 +9,7 @@ import '../models/supplier.dart';
 /// - Suppliers = Pembekal bahan untuk user beli dan buat produk
 /// - Vendors = Consignee (kedai yang jual produk user dengan commission)
 /// 
-/// Uses vendors table (all vendors are treated as suppliers for this module)
+/// Uses suppliers table (separate from vendors table)
 class SuppliersRepository {
   /// Get all suppliers
   Future<List<Supplier>> getAllSuppliers({
@@ -20,7 +21,7 @@ class SuppliersRepository {
       if (userId == null) throw Exception('User not authenticated');
 
       final response = await supabase
-          .from('vendors')
+          .from('suppliers')
           .select()
           .eq('business_owner_id', userId)
           .order('name')
@@ -41,7 +42,7 @@ class SuppliersRepository {
       if (userId == null) throw Exception('User not authenticated');
 
       final response = await supabase
-          .from('vendors')
+          .from('suppliers')
           .select()
           .eq('id', supplierId)
           .eq('business_owner_id', userId)
@@ -74,15 +75,38 @@ class SuppliersRepository {
         'address': address?.trim().isEmpty == true ? null : address?.trim(),
       };
 
+      debugPrint('📝 Creating supplier with data: $data');
+
       final response = await supabase
-          .from('vendors')
+          .from('suppliers')
           .insert(data)
           .select()
           .single();
 
+      debugPrint('✅ Supplier created successfully: $response');
+
       return Supplier.fromJson(response as Map<String, dynamic>);
     } catch (e) {
-      throw Exception('Failed to create supplier: $e');
+      debugPrint('❌ Error creating supplier: $e');
+      debugPrint('   Error type: ${e.runtimeType}');
+      
+      // Check for common database errors
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('column') && errorStr.contains('email')) {
+        throw Exception(
+          'Kolumn email tidak wujud dalam database. '
+          'Sila jalankan migration: db/migrations/2025-01-16_add_email_to_suppliers.sql'
+        );
+      }
+      
+      if (errorStr.contains('permission denied') || errorStr.contains('rls')) {
+        throw Exception(
+          'Tiada kebenaran untuk mencipta supplier. '
+          'Sila pastikan Row Level Security (RLS) policies sudah disetup dengan betul.'
+        );
+      }
+      
+      throw Exception('Gagal mencipta supplier: ${e.toString()}');
     }
   }
 
@@ -107,7 +131,7 @@ class SuppliersRepository {
       };
 
       final response = await supabase
-          .from('vendors')
+          .from('suppliers')
           .update(data)
           .eq('id', id)
           .eq('business_owner_id', userId)
@@ -127,7 +151,7 @@ class SuppliersRepository {
       if (userId == null) throw Exception('User not authenticated');
 
       await supabase
-          .from('vendors')
+          .from('suppliers')
           .delete()
           .eq('id', id)
           .eq('business_owner_id', userId);

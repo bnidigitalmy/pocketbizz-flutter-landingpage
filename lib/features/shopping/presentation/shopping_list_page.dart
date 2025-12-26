@@ -7,10 +7,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/shopping_cart_item.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../data/models/vendor.dart';
+import '../../../data/models/supplier.dart';
 import '../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
+import '../../../data/repositories/suppliers_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -29,12 +31,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   final _stockRepo = StockRepository(supabase);
   final _poRepo = PurchaseOrderRepository(supabase);
   final _vendorRepo = VendorsRepositorySupabase();
+  final _suppliersRepo = SuppliersRepository();
   final _businessProfileRepo = BusinessProfileRepository();
   
   List<ShoppingCartItem> _cartItems = [];
   List<StockItem> _allStockItems = [];
   List<StockItem> _lowStockItems = [];
-  List<Vendor> _suppliers = [];
+  List<Supplier> _suppliers = [];
   BusinessProfile? _businessProfile;
   bool _isLoading = true;
   
@@ -97,7 +100,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             // Stock items updated - refresh data with debounce
             if (mounted) {
               _debouncedRefresh();
-            }
+  }
           });
 
       // Subscribe to purchase_orders table to detect when PO is received
@@ -199,7 +202,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       List<ShoppingCartItem> cartItems = [];
       List<StockItem> allStockItems = [];
       List<StockItem> lowStockItems = [];
-      List<Vendor> suppliers = [];
+      List<Supplier> suppliers = [];
       
       try {
         cartItems = await _cartRepo.getAllCartItems(limit: 100);
@@ -221,7 +224,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
       
       try {
-        suppliers = await _vendorRepo.getAllVendors(activeOnly: true, limit: 100);
+        suppliers = await _suppliersRepo.getAllSuppliers(limit: 100);
       } catch (e) {
         debugPrint('Error loading suppliers: $e');
       }
@@ -514,7 +517,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       // Get supplier from list
       final supplier = _suppliers.firstWhere(
         (s) => s.id == _selectedSupplierId,
-        orElse: () => Vendor(
+        orElse: () => Supplier(
           id: '',
           businessOwnerId: '',
           name: '',
@@ -577,7 +580,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     try {
       final cartItemIds = _cartItems.map((item) => item.id).toList();
       
-      await _poRepo.createPOFromCart(
+      final po = await _poRepo.createPOFromCart(
         supplierId: _selectedSupplierId,
         supplierName: _previewSupplierNameController.text.trim(),
         supplierPhone: _previewSupplierPhoneController.text.trim().isEmpty
@@ -606,8 +609,17 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
           ),
         );
         
+        // Refresh supplier list to include newly created supplier
+        await _loadData();
+        
+        // If supplier was newly created, set selected supplier ID
+        if (_selectedSupplierId == null && po.supplierId != null) {
+          setState(() {
+            _selectedSupplierId = po.supplierId;
+          });
+        }
+        
         setState(() {
-          _selectedSupplierId = null;
           _customSupplierNameController.clear();
           _customSupplierPhoneController.clear();
           _customSupplierEmailController.clear();
@@ -615,8 +627,6 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
           _deliveryAddressController.clear();
           _poNotesController.clear();
         });
-        
-        _loadData();
         
         // Navigate to PO page
         await Navigator.pushNamed(context, '/purchase-orders');

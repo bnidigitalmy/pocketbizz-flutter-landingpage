@@ -414,6 +414,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     business_owner_id UUID NOT NULL REFERENCES users (id),
     name TEXT NOT NULL,
+    email TEXT,
     phone TEXT,
     address TEXT,
     commission NUMERIC(7,2) DEFAULT 0,
@@ -421,6 +422,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_suppliers_owner ON suppliers (business_owner_id);
+CREATE INDEX IF NOT EXISTS idx_suppliers_email ON suppliers (email) WHERE email IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS supplier_products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

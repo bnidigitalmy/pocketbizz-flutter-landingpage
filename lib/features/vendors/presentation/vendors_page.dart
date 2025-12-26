@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
+import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
+import '../../../data/models/vendor_commission_price_range.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import 'commission_dialog.dart';
 import 'vendor_detail_page.dart';
@@ -26,11 +28,13 @@ class VendorsPage extends StatefulWidget {
 
 class _VendorsPageState extends State<VendorsPage> {
   final _vendorsRepo = VendorsRepositorySupabase();
+  final _priceRangesRepo = VendorCommissionPriceRangesRepository();
   List<Vendor> _vendors = [];
   bool _isLoading = true;
 
   // Dialog states
   bool _addDialogOpen = false;
+  bool _addDialogShowing = false; // Track if dialog is currently showing
   bool _commissionDialogOpen = false;
   Vendor? _selectedVendorForCommission;
 
@@ -39,7 +43,12 @@ class _VendorsPageState extends State<VendorsPage> {
   final _vendorNumberController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _commissionController = TextEditingController(text: '15.0');
   final _formKey = GlobalKey<FormState>();
+  
+  // Commission settings
+  String _commissionType = 'percentage';
+  List<Map<String, dynamic>> _priceRanges = []; // Temporary price ranges before vendor created
 
   @override
   void initState() {
@@ -55,6 +64,7 @@ class _VendorsPageState extends State<VendorsPage> {
     _vendorNumberController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _commissionController.dispose();
     super.dispose();
   }
 
@@ -86,6 +96,9 @@ class _VendorsPageState extends State<VendorsPage> {
     _vendorNumberController.clear();
     _phoneController.clear();
     _addressController.clear();
+    _commissionController.text = '15.0';
+    _commissionType = 'percentage';
+    _priceRanges.clear();
     _formKey.currentState?.reset();
   }
 
@@ -101,26 +114,71 @@ class _VendorsPageState extends State<VendorsPage> {
     });
   }
 
-  Future<void> _handleCreate() async {
+  Future<void> _handleCreate(BuildContext dialogContext) async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Validate price ranges if commission type is price_range
+    if (_commissionType == 'price_range' && _priceRanges.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sila tambah sekurang-kurangnya satu price range'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     try {
-      await _vendorsRepo.createVendor(
+      // Parse commission rate
+      final commissionRate = _commissionType == 'percentage'
+          ? double.tryParse(_commissionController.text.trim()) ?? 15.0
+          : 0.0;
+      
+      // Create vendor
+      final vendor = await _vendorsRepo.createVendor(
         name: _nameController.text.trim(),
         vendorNumber: _vendorNumberController.text.trim().isEmpty ? null : _vendorNumberController.text.trim(),
         phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+        commissionType: _commissionType,
+        defaultCommissionRate: commissionRate,
       );
 
+      // Create price ranges if commission type is price_range
+      if (_commissionType == 'price_range' && _priceRanges.isNotEmpty) {
+        for (int i = 0; i < _priceRanges.length; i++) {
+          await _priceRangesRepo.createPriceRange(
+            vendorId: vendor.id,
+            minPrice: _priceRanges[i]['minPrice'] as double,
+            maxPrice: _priceRanges[i]['maxPrice'] as double?,
+            commissionAmount: _priceRanges[i]['commission'] as double,
+            position: i,
+          );
+        }
+      }
+
+      // Close dialog first
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext);
+      }
+
+      // Set state to prevent dialog from reopening
       if (mounted) {
+        setState(() {
+          _addDialogOpen = false;
+          _addDialogShowing = false;
+        });
+      }
+
+      // Then show success and refresh
+      if (mounted) {
+        _resetForm();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Vendor telah ditambah'),
             backgroundColor: AppColors.success,
           ),
         );
-        setState(() => _addDialogOpen = false);
-        _resetForm();
         _loadVendors();
       }
     } catch (e) {
@@ -129,6 +187,7 @@ class _VendorsPageState extends State<VendorsPage> {
           SnackBar(
             content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -139,13 +198,18 @@ class _VendorsPageState extends State<VendorsPage> {
   Widget build(BuildContext context) {
     // Show dialogs when state changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_addDialogOpen) {
+      if (_addDialogOpen && !_addDialogShowing) {
+        setState(() => _addDialogShowing = true);
         showDialog(
           context: context,
+          barrierDismissible: false,
           builder: (context) => _buildAddDialog(),
         ).then((_) {
           if (mounted) {
-            setState(() => _addDialogOpen = false);
+            setState(() {
+              _addDialogOpen = false;
+              _addDialogShowing = false;
+            });
           }
         });
       }
@@ -442,6 +506,8 @@ class _VendorsPageState extends State<VendorsPage> {
   }
 
   Widget _buildAddDialog() {
+    return StatefulBuilder(
+      builder: (context, setDialogState) {
     return AlertDialog(
       title: const Text('Tambah Vendor Baru'),
       content: SingleChildScrollView(
@@ -507,6 +573,90 @@ class _VendorsPageState extends State<VendorsPage> {
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
               ),
+              const SizedBox(height: 24),
+              // Commission Settings Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.percent, size: 20, color: Colors.blue[700]),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Tetapan Komisyen',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _commissionType,
+                      decoration: const InputDecoration(
+                        labelText: 'Jenis Komisyen',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.settings),
+                        helperText: 'Pilih jenis komisyen untuk vendor ini',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'percentage',
+                          child: Text('Peratus (%)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'price_range',
+                          child: Text('Price Range'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() {
+                            _commissionType = value;
+                          });
+                        }
+                      },
+                    ),
+                    if (_commissionType == 'percentage') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _commissionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Kadar Komisyen (%)',
+                          hintText: 'cth: 15.0',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.percent),
+                          suffixText: '%',
+                          helperText: 'Kadar komisyen default untuk vendor ini (0-100%)',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Kadar komisyen diperlukan';
+                          }
+                          final rate = double.tryParse(value);
+                          if (rate == null || rate < 0 || rate > 100) {
+                            return 'Sila masukkan kadar yang sah (0-100%)';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                    if (_commissionType == 'price_range') ...[
+                      const SizedBox(height: 12),
+                      _buildPriceRangesSection(setDialogState),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -515,16 +665,19 @@ class _VendorsPageState extends State<VendorsPage> {
         TextButton(
           onPressed: () {
             Navigator.pop(context);
+            if (mounted) {
+              setState(() {
+                _addDialogOpen = false;
+                _addDialogShowing = false;
+              });
+            }
             _resetForm();
           },
           child: const Text('Batal'),
         ),
         ElevatedButton(
           onPressed: () async {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(context);
-              await _handleCreate();
-            }
+            await _handleCreate(context);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
@@ -534,5 +687,204 @@ class _VendorsPageState extends State<VendorsPage> {
         ),
       ],
     );
+      },
+    );
+  }
+
+  // Price Range Management Methods
+  Widget _buildPriceRangesSection(StateSetter setDialogState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Price Ranges',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: AppColors.primary),
+              onPressed: () => _showAddPriceRangeDialog(setDialogState),
+              tooltip: 'Tambah Price Range',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_priceRanges.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Tiada price range. Klik + untuk tambah.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          )
+        else
+          ..._priceRanges.asMap().entries.map((entry) {
+            final index = entry.key;
+            final range = entry.value;
+            return _buildPriceRangeCard(range, index, setDialogState);
+          }),
+      ],
+    );
+  }
+
+  Widget _buildPriceRangeCard(Map<String, dynamic> range, int index, StateSetter setDialogState) {
+    final minPrice = range['minPrice'] as double;
+    final maxPrice = range['maxPrice'] as double?;
+    final commission = range['commission'] as double;
+    
+    final maxPriceText = maxPrice == null 
+        ? 'dan ke atas' 
+        : 'hingga RM${maxPrice.toStringAsFixed(2)}';
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(
+          'RM${minPrice.toStringAsFixed(2)} $maxPriceText',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('Komisyen: RM${commission.toStringAsFixed(2)}'),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete, color: Colors.red),
+          onPressed: () => _removePriceRange(index, setDialogState),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddPriceRangeDialog(StateSetter setDialogState) async {
+    final minPriceController = TextEditingController();
+    final maxPriceController = TextEditingController();
+    final commissionController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<Map<String, double?>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tambah Price Range'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: minPriceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Harga Min (RM) *',
+                    hintText: '0.10',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Harga min diperlukan';
+                    }
+                    final price = double.tryParse(value);
+                    if (price == null || price < 0) {
+                      return 'Sila masukkan harga yang sah';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: maxPriceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Harga Max (RM) - Kosongkan untuk unlimited',
+                    hintText: '5.00',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value != null && value.trim().isNotEmpty) {
+                      final price = double.tryParse(value);
+                      if (price == null || price < 0) {
+                        return 'Sila masukkan harga yang sah';
+                      }
+                      final minPrice = double.tryParse(minPriceController.text);
+                      if (minPrice != null && price <= minPrice) {
+                        return 'Harga max mesti lebih besar dari harga min';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: commissionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Jumlah Komisyen (RM) *',
+                    hintText: '1.00',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Jumlah komisyen diperlukan';
+                    }
+                    final commission = double.tryParse(value);
+                    if (commission == null || commission < 0) {
+                      return 'Sila masukkan jumlah komisyen yang sah';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final minPrice = double.tryParse(minPriceController.text);
+                final maxPrice = maxPriceController.text.trim().isEmpty
+                    ? null
+                    : double.tryParse(maxPriceController.text);
+                final commission = double.tryParse(commissionController.text);
+
+                if (minPrice == null || commission == null) {
+                  return;
+                }
+
+                if (maxPrice != null && maxPrice <= minPrice) {
+                  return;
+                }
+
+                Navigator.pop(context, {
+                  'minPrice': minPrice,
+                  'maxPrice': maxPrice,
+                  'commission': commission,
+                });
+              }
+            },
+            child: const Text('Tambah'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setDialogState(() {
+        _priceRanges.add(result);
+      });
+    }
+  }
+
+  void _removePriceRange(int index, StateSetter setDialogState) {
+    setDialogState(() {
+      _priceRanges.removeAt(index);
+    });
   }
 }

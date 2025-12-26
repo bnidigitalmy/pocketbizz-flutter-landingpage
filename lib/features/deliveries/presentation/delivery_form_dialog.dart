@@ -112,6 +112,28 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
     try {
       final commission = await widget.deliveriesRepo.getVendorCommission(vendorId);
       debugPrint('📊 Vendor commission loaded: $commission');
+      
+      // Check if commission is valid
+      if (commission != null) {
+        final commissionType = commission['commissionType'] as String? ?? 'percentage';
+        final commissionRate = double.tryParse(commission['percentage'] ?? '0') ?? 0.0;
+        
+        if (commissionType == 'percentage' && commissionRate <= 0) {
+          debugPrint('⚠️ WARNING: Vendor has no commission setup (rate: $commissionRate). Commission will NOT be deducted!');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '⚠️ Vendor ini tidak ada tetapan komisyen. Sila setup komisyen vendor sebelum membuat penghantaran.',
+                ),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      }
+      
       setState(() {
         _vendorCommission = commission;
       });

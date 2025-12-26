@@ -114,11 +114,36 @@ class _CommissionDialogState extends State<CommissionDialog> {
       };
       
       if (_commissionType == 'percentage') {
-        final commissionRate = double.tryParse(_commissionController.text) ?? 0.0;
+        final commissionRate = double.tryParse(_commissionController.text);
+        if (commissionRate == null) {
+          if (mounted) {
+            setState(() => _isSaving = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Sila masukkan kadar komisyen yang sah'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
         updateData['default_commission_rate'] = commissionRate;
+        debugPrint('💾 Saving commission: type=$_commissionType, rate=$commissionRate');
+      } else if (_commissionType == 'price_range') {
+        debugPrint('💾 Saving commission: type=$_commissionType, ranges=${_priceRanges.length}');
       }
 
+      debugPrint('📝 Update data: $updateData');
       await _vendorsRepo.updateVendor(widget.vendorId, updateData);
+      debugPrint('✅ Vendor commission updated successfully');
+
+      // Reload vendor data to reflect changes in the dialog
+      await _loadVendor();
+
+      // Reset saving state before closing
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -350,12 +375,15 @@ class _CommissionDialogState extends State<CommissionDialog> {
     final minPriceController = TextEditingController();
     final maxPriceController = TextEditingController();
     final commissionController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
-    final result = await showDialog<bool>(
+    final result = await showDialog<Map<String, double?>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Tambah Price Range'),
         content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -367,6 +395,16 @@ class _CommissionDialogState extends State<CommissionDialog> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Harga min diperlukan';
+                    }
+                    final price = double.tryParse(value);
+                    if (price == null || price < 0) {
+                      return 'Sila masukkan harga yang sah';
+                    }
+                    return null;
+                  },
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -377,6 +415,19 @@ class _CommissionDialogState extends State<CommissionDialog> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value != null && value.trim().isNotEmpty) {
+                      final price = double.tryParse(value);
+                      if (price == null || price < 0) {
+                        return 'Sila masukkan harga yang sah';
+                      }
+                      final minPrice = double.tryParse(minPriceController.text);
+                      if (minPrice != null && price <= minPrice) {
+                        return 'Harga max mesti lebih besar dari harga min';
+                      }
+                    }
+                    return null;
+                  },
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -387,53 +438,62 @@ class _CommissionDialogState extends State<CommissionDialog> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Jumlah komisyen diperlukan';
+                    }
+                    final commission = double.tryParse(value);
+                    if (commission == null || commission < 0) {
+                      return 'Sila masukkan jumlah komisyen yang sah';
+                    }
+                    return null;
+                  },
               ),
             ],
+            ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final minPrice = double.tryParse(minPriceController.text);
+                final maxPrice = maxPriceController.text.trim().isEmpty
+                    ? null
+                    : double.tryParse(maxPriceController.text);
+                final commission = double.tryParse(commissionController.text);
+
+                // Double check (validation should catch this, but just in case)
+                if (minPrice == null || commission == null) {
+                  return;
+                }
+
+                // Check max price > min price
+                if (maxPrice != null && maxPrice <= minPrice) {
+                  return;
+                }
+
+                Navigator.pop(context, {
+                  'minPrice': minPrice,
+                  'maxPrice': maxPrice,
+                  'commission': commission,
+                });
+              }
+            },
             child: const Text('Tambah'),
           ),
         ],
       ),
     );
 
-    if (result == true) {
-      final minPrice = double.tryParse(minPriceController.text);
-      final maxPrice = maxPriceController.text.trim().isEmpty
-          ? null
-          : double.tryParse(maxPriceController.text);
-      final commission = double.tryParse(commissionController.text);
-
-      if (minPrice == null || commission == null || minPrice < 0 || commission < 0) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sila masukkan nilai yang sah'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      if (maxPrice != null && maxPrice <= minPrice) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Harga max mesti lebih besar dari harga min'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
+    if (result != null) {
+      final minPrice = result['minPrice']!;
+      final maxPrice = result['maxPrice'];
+      final commission = result['commission']!;
 
       try {
         await _priceRangesRepo.createPriceRange(

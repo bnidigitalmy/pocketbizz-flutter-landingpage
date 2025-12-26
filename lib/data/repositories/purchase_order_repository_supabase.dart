@@ -434,43 +434,42 @@ class PurchaseOrderRepository {
         throw Exception('Cart items not found');
       }
 
-      // Create vendor if supplier is new (supplierId is null)
+      // Create supplier if supplier is new (supplierId is null)
       String? finalSupplierId = supplierId;
       if (supplierId == null && supplierName.trim().isNotEmpty) {
         try {
-          // Check if vendor with same name already exists
-          final existingVendor = await _supabase
-              .from('vendors')
+          // Check if supplier with same name already exists
+          final existingSupplier = await _supabase
+              .from('suppliers')
               .select('id')
               .eq('business_owner_id', userId)
               .eq('name', supplierName.trim())
               .maybeSingle();
           
-          if (existingVendor != null) {
-            // Use existing vendor
-            finalSupplierId = existingVendor['id'] as String;
+          if (existingSupplier != null) {
+            // Use existing supplier
+            finalSupplierId = existingSupplier['id'] as String;
+            debugPrint('Using existing supplier: $finalSupplierId');
           } else {
-            // Create new vendor with type 'supplier'
-            final vendorResponse = await _supabase
-                .from('vendors')
+            // Create new supplier in suppliers table
+            final supplierResponse = await _supabase
+                .from('suppliers')
                 .insert({
                   'business_owner_id': userId,
                   'name': supplierName.trim(),
                   'email': supplierEmail?.trim(),
                   'phone': supplierPhone?.trim(),
                   'address': supplierAddress?.trim(),
-                  'type': 'supplier',  // Mark as supplier
-                  'is_active': true,
                 })
                 .select()
                 .single();
             
-            finalSupplierId = vendorResponse['id'] as String;
-            debugPrint('Created new supplier vendor: $finalSupplierId');
+            finalSupplierId = supplierResponse['id'] as String;
+            debugPrint('✅ Created new supplier: $finalSupplierId');
           }
         } catch (e) {
-          debugPrint('Failed to create vendor, continuing with PO creation: $e');
-          // Continue without vendor ID - PO will still have supplier_name
+          debugPrint('❌ Failed to create supplier, continuing with PO creation: $e');
+          // Continue without supplier ID - PO will still have supplier_name
         }
       }
 
