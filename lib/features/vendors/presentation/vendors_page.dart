@@ -258,12 +258,11 @@ class _VendorsPageState extends State<VendorsPage> {
 
     final canPop = ModalRoute.of(context)?.canPop ?? false;
 
-    return SubscriptionGuard(
-      featureName: 'Pengurusan Vendor',
-      allowTrial: true,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
+    // NOTE: SubscriptionGuard removed - expired users can VIEW vendors (read-only)
+    // Write operations are protected by SubscriptionEnforcement in catch blocks
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -310,7 +309,6 @@ class _VendorsPageState extends State<VendorsPage> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Tambah Vendor'),
-      ),
       ),
     );
   }

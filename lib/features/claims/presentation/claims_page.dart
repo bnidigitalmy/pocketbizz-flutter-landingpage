@@ -518,12 +518,11 @@ class _ClaimsPageState extends State<ClaimsPage> {
       // Claim details dialog removed - using navigation instead
     });
 
-    return SubscriptionGuard(
-      featureName: 'Sistem Konsinyemen',
-      allowTrial: true,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
+    // NOTE: SubscriptionGuard removed - expired users can VIEW claims (read-only)
+    // Write operations are protected by SubscriptionEnforcement in catch blocks
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
           title: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -572,7 +571,6 @@ class _ClaimsPageState extends State<ClaimsPage> {
               onRefresh: () => _loadClaims(reset: true),
               child: _buildContent(),
             ),
-      ),
     );
   }
 
