@@ -892,6 +892,12 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
       } catch (e) {
         if (mounted) {
           setState(() => _isSubmitting = false);
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Penghantaran',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: ${e.toString()}'),

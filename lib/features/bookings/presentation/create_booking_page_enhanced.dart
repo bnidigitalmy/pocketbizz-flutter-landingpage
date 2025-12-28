@@ -173,6 +173,12 @@ class _CreateBookingPageEnhancedState extends State<CreateBookingPageEnhanced> {
       } catch (e) {
         if (mounted) {
           setState(() => _loading = false);
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Tempahan',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: $e'),

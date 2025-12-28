@@ -566,15 +566,12 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       }
     } catch (e) {
       if (mounted) {
-        final msg = e.toString();
-        final isSubRequired = msg.contains('Subscription required') || msg.contains('P0001');
-        if (isSubRequired) {
-          await UpgradeModalEnhanced.show(
-            context,
-            action: isEditMode ? 'Edit Produk & Resepi' : 'Tambah Produk & Resepi',
-            subscription: await SubscriptionService().getCurrentSubscription(),
-          );
-        } else {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: isEditMode ? 'Edit Produk & Resepi' : 'Tambah Produk & Resepi',
+          error: e,
+        );
+        if (!handled) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Ralat: Gagal simpan produk. Sila cuba lagi.'),

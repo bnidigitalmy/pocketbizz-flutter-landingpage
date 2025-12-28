@@ -576,6 +576,12 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
           if (e is ClaimValidationException) {
             _showValidationErrors(e.validation);
           } else {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Tambah Tuntutan',
+              error: e,
+            );
+            if (handled) return;
             _showError('Ralat mencipta tuntutan: $e');
           }
         }

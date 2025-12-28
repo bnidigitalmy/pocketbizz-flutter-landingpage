@@ -126,6 +126,12 @@ class _AddProductPageState extends State<AddProductPage> {
               ),
             );
           } else {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Tambah Produk',
+              error: e,
+            );
+            if (handled) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Error: $e')),
             );

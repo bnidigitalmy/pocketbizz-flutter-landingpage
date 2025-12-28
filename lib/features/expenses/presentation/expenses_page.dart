@@ -332,6 +332,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
       } catch (e) {
         if (mounted) {
           setState(() => _isSaving = false);
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Perbelanjaan',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Ralat menyimpan perbelanjaan: $e'),

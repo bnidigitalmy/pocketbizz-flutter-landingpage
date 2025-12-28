@@ -190,6 +190,12 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
             ),
           );
         } else {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: action,
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );

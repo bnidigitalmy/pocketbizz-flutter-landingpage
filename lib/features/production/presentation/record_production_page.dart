@@ -116,6 +116,12 @@ class _RecordProductionPageState extends State<RecordProductionPage> {
       } catch (e) {
         setState(() => _isSaving = false);
         if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Rekod Pengeluaran',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: $e'),

@@ -215,6 +215,12 @@ class _EditProductPageState extends State<EditProductPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Edit Produk',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ralat: $e'),

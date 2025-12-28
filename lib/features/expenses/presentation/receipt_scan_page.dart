@@ -444,30 +444,27 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _prefillFormFromParsed(parsed);
 
     } catch (e) {
-      final msg = e.toString();
-      final isSubRequired = msg.contains('Subscription required') ||
-          msg.contains('status: 403') ||
-          msg.contains('P0001');
+      final handled = mounted
+          ? await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Scan Resit (OCR)',
+              error: e,
+            )
+          : false;
+      if (handled) {
+        if (mounted) setState(() => _ocrError = null);
+        return;
+      }
 
-      if (isSubRequired) {
-        if (mounted) {
-          await UpgradeModalEnhanced.show(
-            context,
-            action: 'Scan Resit (OCR)',
-            subscription: await SubscriptionService().getCurrentSubscription(),
-          );
-          setState(() => _ocrError = null);
-        }
-      } else {
-        setState(() => _ocrError = msg);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('OCR gagal diproses. Sila cuba lagi.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
+      final msg = e.toString();
+      setState(() => _ocrError = msg);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('OCR gagal diproses. Sila cuba lagi.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);

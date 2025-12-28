@@ -179,6 +179,12 @@ class _CreateSalePageState extends State<CreateSalePage> {
             ),
           );
         } else {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Jualan',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );

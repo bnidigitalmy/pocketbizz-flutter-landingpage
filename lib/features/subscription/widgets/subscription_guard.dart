@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/subscription_service.dart';
 import '../data/models/subscription.dart';
 import '../../../core/theme/app_colors.dart';
@@ -204,6 +205,52 @@ Future<void> requirePro(
   
   // User has access, proceed with action
   await run();
+}
+
+/// Detect & handle backend subscription enforcement errors consistently.
+///
+/// This is used when the UI thinks the user can proceed (cached subscription)
+/// but the backend blocks the write (eg. Postgres trigger raises P0001).
+class SubscriptionEnforcement {
+  static bool isSubscriptionRequiredError(Object error) {
+    if (error is PostgrestException) {
+      // Our DB trigger raises exception which bubbles up as PostgrestException code P0001.
+      if (error.code == 'P0001') return true;
+      final msg = (error.message).toLowerCase();
+      if (msg.contains('subscription required')) return true;
+      if (msg.contains('not active subscription')) return true;
+      if (msg.contains('langganan')) return true;
+    }
+
+    final msg = error.toString().toLowerCase();
+    return msg.contains('subscription required') ||
+        msg.contains('not active subscription') ||
+        msg.contains('p0001') ||
+        // Edge Functions (OCR etc) typically surface as a string with 403 somewhere.
+        msg.contains('status: 403') ||
+        msg.contains('http 403') ||
+        msg.contains('403') ||
+        msg.contains('langganan anda telah tamat');
+  }
+
+  /// Returns true if it handled the error (showed upgrade modal).
+  static Future<bool> maybePromptUpgrade(
+    BuildContext context, {
+    required String action,
+    required Object error,
+  }) async {
+    if (!isSubscriptionRequiredError(error)) return false;
+
+    final subscription = await SubscriptionService().getCurrentSubscription();
+    if (!context.mounted) return true;
+
+    await UpgradeModalEnhanced.show(
+      context,
+      action: action,
+      subscription: subscription,
+    );
+    return true;
+  }
 }
 
 /// Show upgrade modal for expired/no subscription users

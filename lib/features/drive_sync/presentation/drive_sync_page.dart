@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../data/models/drive_sync_log.dart';
 import '../data/repositories/drive_sync_repository_supabase.dart';
 import '../utils/drive_sync_helper.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 class DriveSyncPage extends StatefulWidget {
   const DriveSyncPage({super.key});
@@ -40,52 +41,62 @@ class _DriveSyncPageState extends State<DriveSyncPage> {
   }
 
   Future<void> _signInToGoogleDrive() async {
-    setState(() {
-      _isSigningIn = true;
-    });
+    // PHASE: Subscriber Expired System - Protect sync/sign-in action
+    await requirePro(context, 'Sync / Push ke Google Drive', () async {
+      setState(() {
+        _isSigningIn = true;
+      });
 
-    try {
-      final success = await DriveSyncHelper.signIn();
-      if (mounted) {
-        setState(() {
-          _isSigningIn = false;
-        });
+      try {
+        final success = await DriveSyncHelper.signIn();
+        if (mounted) {
+          setState(() {
+            _isSigningIn = false;
+          });
 
-        // Re-check sign-in status after a delay to ensure state is updated
-        await Future.delayed(const Duration(milliseconds: 500));
-        await _checkSignInStatus();
+          // Re-check sign-in status after a delay to ensure state is updated
+          await Future.delayed(const Duration(milliseconds: 500));
+          await _checkSignInStatus();
 
-        if (success && _isSignedIn) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Berjaya sign in ke Google Drive!'),
-              backgroundColor: Colors.green,
-            ),
+          if (success && _isSignedIn) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Berjaya sign in ke Google Drive!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Reload sync logs to show any existing synced documents
+            await _loadSyncLogs();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Sign in dibatalkan atau gagal'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isSigningIn = false;
+          });
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Sync / Push ke Google Drive',
+            error: e,
           );
-          // Reload sync logs to show any existing synced documents
-          await _loadSyncLogs();
-        } else {
+          if (handled) return;
+
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sign in dibatalkan atau gagal'),
-              backgroundColor: Colors.orange,
+            SnackBar(
+              content: Text('Ralat sign in: $e'),
+              backgroundColor: Colors.red,
             ),
           );
         }
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSigningIn = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ralat sign in: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    });
   }
 
   Future<void> _signOutFromGoogleDrive() async {

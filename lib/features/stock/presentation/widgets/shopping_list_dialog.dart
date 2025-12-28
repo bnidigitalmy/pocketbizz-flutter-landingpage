@@ -125,6 +125,12 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah ke Senarai Belian (Bulk)',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );
