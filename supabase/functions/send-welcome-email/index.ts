@@ -155,7 +155,7 @@ serve(async (req: Request) => {
       <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;">
         <p style="margin: 0 0 10px 0; font-size: 15px; color: #333;"><strong>Perlukan Bantuan?</strong></p>
         <p style="margin: 0; font-size: 14px; color: #666;">
-          WhatsApp: <a href="https://wa.me/60123456789" style="color: #2E7D32;">+60 12-345 6789</a><br>
+          WhatsApp: <a href="https://wa.me/60107827802" style="color: #2E7D32;">+60 10-782 7802</a><br>
           Email: <a href="mailto:support@pocketbizz.my" style="color: #2E7D32;">support@pocketbizz.my</a>
         </p>
       </div>
