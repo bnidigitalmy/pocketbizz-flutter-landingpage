@@ -8,6 +8,7 @@ import '../../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../../data/models/production_batch.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 /// 3-Step Production Planning Dialog
 class ProductionPlanningDialog extends StatefulWidget {
@@ -157,9 +158,16 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Jadualkan Produksi',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal jadualkan produksi: $e'),
+            content: Text('Gagal jadualkan produksi: Sila cuba lagi'),
             backgroundColor: Colors.red,
           ),
         );
@@ -372,8 +380,15 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Rekod Produksi',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Gagal rekod produksi: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }

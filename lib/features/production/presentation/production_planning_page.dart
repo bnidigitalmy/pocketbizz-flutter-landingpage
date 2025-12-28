@@ -12,6 +12,7 @@ import '../../../data/repositories/planner_tasks_repository_supabase.dart';
 import '../../../data/models/planner_task.dart';
 import '../../../data/models/production_batch.dart';
 import '../../../data/models/product.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 import 'widgets/production_planning_dialog.dart';
 import 'widgets/bulk_production_planning_dialog.dart';
 
@@ -664,9 +665,16 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
         }
       } catch (e) {
         if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Kemaskini Nota',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Gagal kemaskini nota: $e'),
+              content: Text('Gagal kemaskini nota: Sila cuba lagi'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -780,9 +788,16 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
         }
       } catch (e) {
         if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam Rekod Produksi',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Gagal padam rekod: $e'),
+              content: Text('Gagal padam rekod: Sila cuba lagi'),
               backgroundColor: AppColors.error,
             ),
           );

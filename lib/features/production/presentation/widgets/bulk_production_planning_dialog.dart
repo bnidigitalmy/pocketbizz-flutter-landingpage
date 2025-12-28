@@ -8,6 +8,7 @@ import '../../../../data/models/production_batch.dart';
 import '../../../../data/repositories/production_repository_supabase.dart';
 import '../../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class BulkProductionPlanningDialog extends StatefulWidget {
   final List<Product> products;
@@ -259,8 +260,15 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Bulk Produksi',
+          error: e,
+        );
+        if (handled) return;
         _getRootScaffoldMessenger()?.showSnackBar(
-          SnackBar(content: Text('Gagal bulk produce: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal bulk produce: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }
