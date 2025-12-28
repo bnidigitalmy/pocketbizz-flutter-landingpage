@@ -203,8 +203,15 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Preview Produksi',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Gagal preview: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }
@@ -313,9 +320,16 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah ke Senarai Belian',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Gagal tambah: Sila cuba lagi'),
             backgroundColor: Colors.red,
           ),
         );
