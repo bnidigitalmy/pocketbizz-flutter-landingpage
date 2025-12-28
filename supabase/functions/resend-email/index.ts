@@ -20,7 +20,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const DEFAULT_FROM = "PocketBizz <noreply@pocketbizz.com>";
+const DEFAULT_FROM = "PocketBizz <noreply@notifications.pocketbizz.my>";
 
 interface EmailRequest {
   to: string;
