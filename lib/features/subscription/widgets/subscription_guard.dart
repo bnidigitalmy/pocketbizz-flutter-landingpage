@@ -45,17 +45,13 @@ class SubscriptionGuard extends StatelessWidget {
   bool _checkAccess(Subscription? subscription) {
     if (subscription == null) return false;
 
-    // Use isActive which includes grace period
-    if (subscription.isActive) {
-      return true;
-    }
+    // isActive already checks trial/active/grace with time validation
+    if (!subscription.isActive) return false;
+    
+    // If trial users not allowed for this feature, deny even if active
+    if (subscription.isOnTrial && !allowTrial) return false;
 
-    // Trial users can access if allowTrial is true
-    if (subscription.status == SubscriptionStatus.trial && allowTrial) {
-      return true;
-    }
-
-    return false;
+    return true;
   }
 
   Widget _buildUpgradePrompt(BuildContext context, Subscription? subscription) {

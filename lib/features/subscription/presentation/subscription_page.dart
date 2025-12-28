@@ -414,8 +414,12 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
   Widget _buildCurrentPlanCard() {
     final subscription = _currentSubscription;
+    // Handle pending_payment status separately for clearer display
+    final isPendingPayment = subscription?.status == SubscriptionStatus.pendingPayment;
     final planName = subscription != null
-        ? (subscription.isOnTrial ? 'Free Trial' : subscription.planName)
+        ? isPendingPayment
+            ? 'Menunggu Bayaran'
+            : (subscription.isOnTrial ? 'Free Trial' : subscription.planName)
         : 'Tiada Langganan Aktif';
     final status = subscription?.status ?? SubscriptionStatus.expired;
     final daysRemaining = subscription?.daysRemaining ?? 0;
@@ -465,11 +469,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 const SizedBox(height: 4),
                                 Text(
                                   subscription != null
-                                      ? subscription.isOnTrial
-                                          ? 'Trial bermula ${subscription.trialStartedAt != null ? DateTimeHelper.formatDate(subscription.trialStartedAt!) : subscription.formattedStartDate}'
-                                          : priceInfo != null
-                                              ? priceInfo
-                                              : 'Bermula ${subscription.formattedStartDate}'
+                                      ? isPendingPayment
+                                          ? 'Pakej ${subscription.planName} • Sila lengkapkan pembayaran'
+                                          : subscription.isOnTrial
+                                              ? 'Trial bermula ${subscription.trialStartedAt != null ? DateTimeHelper.formatDate(subscription.trialStartedAt!) : subscription.formattedStartDate}'
+                                              : priceInfo != null
+                                                  ? priceInfo
+                                                  : 'Bermula ${subscription.formattedStartDate}'
                                       : 'Tiada langganan aktif',
                                   style: const TextStyle(
                                     fontSize: 11,
@@ -511,11 +517,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               ),
                               Text(
                                 subscription != null
-                                    ? subscription.isOnTrial
-                                        ? 'Trial bermula ${subscription.trialStartedAt != null ? DateTimeHelper.formatDate(subscription.trialStartedAt!) : subscription.formattedStartDate}'
-                                        : priceInfo != null
-                                            ? priceInfo
-                                            : 'Bermula ${subscription.formattedStartDate}'
+                                    ? isPendingPayment
+                                        ? 'Pakej ${subscription.planName} • Sila lengkapkan pembayaran'
+                                        : subscription.isOnTrial
+                                            ? 'Trial bermula ${subscription.trialStartedAt != null ? DateTimeHelper.formatDate(subscription.trialStartedAt!) : subscription.formattedStartDate}'
+                                            : priceInfo != null
+                                                ? priceInfo
+                                                : 'Bermula ${subscription.formattedStartDate}'
                                     : 'Tiada langganan aktif',
                                 style: const TextStyle(
                                   fontSize: 12,
