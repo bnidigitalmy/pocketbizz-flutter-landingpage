@@ -295,12 +295,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
               const SizedBox(height: 24),
 
-              // Package Selection - Show if no subscription, expired, on trial, OR active (for extend)
+              // Package Selection - Show if no subscription, expired, on trial, OR active (for extend), OR pending payment (to change package)
               if (_currentSubscription == null || 
                   _currentSubscription!.status == SubscriptionStatus.expired ||
                   _currentSubscription!.isOnTrial ||
                   _currentSubscription!.status == SubscriptionStatus.active ||
-                  _currentSubscription!.status == SubscriptionStatus.grace)
+                  _currentSubscription!.status == SubscriptionStatus.grace ||
+                  _currentSubscription!.status == SubscriptionStatus.pendingPayment)
                 _buildPackageSelection(),
 
               const SizedBox(height: 24),

@@ -7,6 +7,7 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/models/delivery.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/consignment_claim.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Create Consignment Claim Page
 /// User selects deliveries and creates a claim
@@ -143,6 +144,14 @@ class _CreateConsignmentClaimPageState extends State<CreateConsignmentClaimPage>
     } catch (e) {
       if (mounted) {
         setState(() => _isCreating = false);
+        
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Cipta Tuntutan Konsainan',
+          error: e,
+        );
+        if (handled) return;
         
         // Better error messages
         String errorMessage = 'Ralat mencipta tuntutan';
