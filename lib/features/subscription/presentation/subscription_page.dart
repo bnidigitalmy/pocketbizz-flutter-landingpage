@@ -566,7 +566,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Langganan belum aktif lagi. Sila lengkapkan pembayaran melalui BCL.my. Akaun akan aktif serta-merta selepas bayaran berjaya.',
+                      'Langganan belum aktif lagi. Sila lengkapkan pembayaran melalui BCL.my. Akaun akan aktif serta-merta selepas bayaran berjaya.\n\n💡 Nak tukar pakej? Pilih pakej lain di bawah.',
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
                     ),
                     const SizedBox(height: 10),
@@ -1191,17 +1191,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final savingsText = plan.getSavingsText();
     final pricePerMonth = price / plan.durationMonths;
     final hasPendingPayment = _currentSubscription?.status == SubscriptionStatus.pendingPayment;
-    final canUpgrade = !hasPendingPayment &&
-        (_currentSubscription == null ||
+    // NOTE: Allow package selection even with pending payment - user can change their mind
+    final canUpgrade = _currentSubscription == null ||
             _currentSubscription!.isOnTrial ||
-            _currentSubscription!.status == SubscriptionStatus.expired);
+            _currentSubscription!.status == SubscriptionStatus.expired ||
+            _currentSubscription!.status == SubscriptionStatus.pendingPayment; // Allow selecting different package
     final isExtending = _currentSubscription != null && 
                         (_currentSubscription!.status == SubscriptionStatus.active ||
                          _currentSubscription!.status == SubscriptionStatus.grace);
     // Allow extend untuk semua plans (kecuali current plan) kalau subscription active/grace
     final canExtend = isExtending && !isCurrentPlan;
     // Untuk extend, semua plan boleh dipilih (kecuali current)
-    final canSelectPlan = !hasPendingPayment && (canUpgrade || (isExtending && !isCurrentPlan));
+    // Also allow selection if there's pending payment (user can choose different package)
+    final canSelectPlan = canUpgrade || (isExtending && !isCurrentPlan);
     final isPopular = plan.durationMonths == 6;
     
     // Enhanced styling for current plan
