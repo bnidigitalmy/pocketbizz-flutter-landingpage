@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../core/utils/admin_helper.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
+import '../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../data/repositories/planner_tasks_repository_supabase.dart';
@@ -24,6 +25,7 @@ class ProductionPlanningPage extends StatefulWidget {
 
 class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
   late final ProductionRepository _productionRepo;
+  late final ProductionBatchRpcRepository _productionBatchRepo;
   late final ProductsRepositorySupabase _productsRepo;
   late final ShoppingCartRepository _cartRepo;
   late final PlannerTasksRepositorySupabase _plannerRepo;
@@ -38,6 +40,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
   void initState() {
     super.initState();
     _productionRepo = ProductionRepository(supabase);
+    _productionBatchRepo = ProductionBatchRpcRepository(client: supabase);
     _productsRepo = ProductsRepositorySupabase();
     _cartRepo = ShoppingCartRepository();
     _plannerRepo = PlannerTasksRepositorySupabase();
@@ -95,6 +98,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       builder: (context) => ProductionPlanningDialog(
         products: _products,
         productionRepo: _productionRepo,
+        productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,
       ),
@@ -107,6 +111,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       builder: (context) => BulkProductionPlanningDialog(
         products: _products,
         productionRepo: _productionRepo,
+        productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,
       ),

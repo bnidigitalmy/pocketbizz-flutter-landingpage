@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/production_preview.dart';
 import '../../../../data/repositories/production_repository_supabase.dart';
+import '../../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../../data/models/production_batch.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
@@ -12,6 +13,7 @@ import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
 class ProductionPlanningDialog extends StatefulWidget {
   final List<Product> products;
   final ProductionRepository productionRepo;
+  final ProductionBatchRpcRepository productionBatchRepo;
   final ShoppingCartRepository cartRepo;
   final VoidCallback onSuccess;
 
@@ -19,6 +21,7 @@ class ProductionPlanningDialog extends StatefulWidget {
     super.key,
     required this.products,
     required this.productionRepo,
+    required this.productionBatchRepo,
     required this.cartRepo,
     required this.onSuccess,
   });
@@ -354,7 +357,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
         notes: _notes.trim().isEmpty ? null : _notes.trim(),
       );
 
-      await widget.productionRepo.recordProductionBatch(input);
+      await widget.productionBatchRepo.recordProductionBatch(input);
 
       if (mounted) {
         Navigator.pop(context);

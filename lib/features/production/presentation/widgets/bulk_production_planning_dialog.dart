@@ -6,11 +6,13 @@ import '../../../../data/models/bulk_production_preview.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/production_batch.dart';
 import '../../../../data/repositories/production_repository_supabase.dart';
+import '../../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
 
 class BulkProductionPlanningDialog extends StatefulWidget {
   final List<Product> products;
   final ProductionRepository productionRepo;
+  final ProductionBatchRpcRepository productionBatchRepo;
   final ShoppingCartRepository cartRepo;
   final VoidCallback onSuccess;
 
@@ -18,6 +20,7 @@ class BulkProductionPlanningDialog extends StatefulWidget {
     super.key,
     required this.products,
     required this.productionRepo,
+    required this.productionBatchRepo,
     required this.cartRepo,
     required this.onSuccess,
   });
@@ -197,7 +200,7 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
             expiryDate: expiryToUse,
             notes: _notesCtrl.text.trim().isEmpty ? 'Bulk produksi' : 'Bulk produksi: ${_notesCtrl.text.trim()}',
           );
-          await widget.productionRepo.recordProductionBatch(input);
+          await widget.productionBatchRepo.recordProductionBatch(input);
           produced.add(p);
         } catch (e) {
           failed[p.productId] = e.toString();

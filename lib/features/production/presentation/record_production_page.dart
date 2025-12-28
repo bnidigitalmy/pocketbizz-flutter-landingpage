@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/production_repository_supabase.dart';
+import '../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/production_batch.dart';
 import '../../../data/models/product.dart';
@@ -29,6 +30,7 @@ class RecordProductionPage extends StatefulWidget {
 
 class _RecordProductionPageState extends State<RecordProductionPage> {
   late final ProductionRepository _productionRepo;
+  late final ProductionBatchRpcRepository _productionRpc;
   late final ProductsRepositorySupabase _productsRepo;
   
   final _formKey = GlobalKey<FormState>();
@@ -47,6 +49,7 @@ class _RecordProductionPageState extends State<RecordProductionPage> {
   void initState() {
     super.initState();
     _productionRepo = ProductionRepository(supabase);
+    _productionRpc = ProductionBatchRpcRepository(client: supabase);
     _productsRepo = ProductsRepositorySupabase();
     _selectedProduct = widget.product;
     _loadProducts();
@@ -102,7 +105,7 @@ class _RecordProductionPageState extends State<RecordProductionPage> {
             : _batchNumberController.text.trim(),
       );
 
-        await _productionRepo.recordProductionBatch(input);
+        await _productionRpc.recordProductionBatch(input);
 
         if (mounted) {
           Navigator.pop(context, true);
