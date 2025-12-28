@@ -6,6 +6,7 @@ import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../features/subscription/exceptions/subscription_limit_exception.dart';
 import '../../../features/subscription/presentation/subscription_page.dart';
+import '../../../features/subscription/widgets/subscription_guard.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -165,7 +166,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
       }
     } catch (e) {
       if (mounted) {
-        // PHASE 3: Handle subscription limit exceptions with upgrade prompt
+        // PHASE: Handle subscription enforcement errors with upgrade prompt
         if (e is SubscriptionLimitException) {
           showDialog(
             context: context,
@@ -214,12 +215,21 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Ralat: $e'),
-              backgroundColor: Colors.red,
-            ),
+          // Check if it's a subscription enforcement error (P0001)
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Jualan',
+            error: e,
           );
+          if (!handled) {
+            // Only show error if NOT a subscription issue
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Ralat: Sila cuba lagi'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } finally {
