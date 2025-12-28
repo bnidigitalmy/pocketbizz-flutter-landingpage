@@ -148,8 +148,48 @@ serve(async (req) => {
 
         // Send grace email (if not sent)
         if (!sub.grace_email_sent) {
-          // TODO: Send email notification
-          // For now, just mark as sent
+          // Get user email
+          const { data: userData } = await supabase.auth.admin.getUserById(sub.user_id as string);
+          const userEmail = userData?.user?.email;
+          
+          if (userEmail) {
+            // Send grace reminder email via resend-email Edge Function
+            try {
+              const graceEndFormatted = newGraceUntil.toLocaleDateString('ms-MY', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              });
+              
+              await supabase.functions.invoke('resend-email', {
+                body: {
+                  to: userEmail,
+                  subject: '⚠️ Langganan PocketBizz Dalam Tempoh Tangguh',
+                  html: `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #f59e0b;">⚠️ Tempoh Tangguh Bermula</h2>
+                      <p>Assalamualaikum,</p>
+                      <p>Langganan PocketBizz anda telah memasuki <strong>tempoh tangguh (grace period)</strong>.</p>
+                      <p>Anda masih boleh menggunakan semua ciri PocketBizz sehingga <strong>${graceEndFormatted}</strong>.</p>
+                      <p>Selepas tarikh tersebut, akaun anda akan dihadkan kepada mod baca sahaja.</p>
+                      <div style="margin: 24px 0; padding: 16px; background: #fef3c7; border-radius: 8px;">
+                        <p style="margin: 0; font-weight: bold;">Untuk terus menggunakan PocketBizz:</p>
+                        <p style="margin: 8px 0 0 0;">Sila lengkapkan pembayaran melalui aplikasi PocketBizz.</p>
+                      </div>
+                      <p>Terima kasih kerana menggunakan PocketBizz!</p>
+                      <p style="color: #666; font-size: 12px;">— Pasukan PocketBizz</p>
+                    </div>
+                  `,
+                },
+              });
+              console.log(`[${nowIso}] Grace email sent to ${userEmail}`);
+            } catch (emailError) {
+              console.error(`[${nowIso}] Failed to send grace email:`, emailError);
+              // Don't fail the transition if email fails
+            }
+          }
+          
+          // Mark email as sent (even if send failed, to prevent spam)
           await supabase
             .from("subscriptions")
             .update({
