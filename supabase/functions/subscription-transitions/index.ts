@@ -1,5 +1,11 @@
 // Supabase Edge Function to handle subscription grace/expiry transitions
 // Should be called via cron job (hourly or daily)
+// 
+// Handles:
+// - trial → expired (when trial_ends_at passes)
+// - pending_payment → active (when payment completed and start date reached)
+// - active → grace (when expires_at passes)
+// - grace → expired (when grace_until passes)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -35,11 +41,11 @@ serve(async (req) => {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Get all subscriptions that need transitions
+    // Get all subscriptions that need transitions (including trial)
     const { data: subscriptions, error: fetchError } = await supabase
       .from("subscriptions")
       .select("*")
-      .in("status", ["active", "grace", "pending_payment"]);
+      .in("status", ["trial", "active", "grace", "pending_payment"]);
 
     if (fetchError) {
       throw new Error(`Failed to fetch subscriptions: ${fetchError.message}`);
@@ -59,15 +65,35 @@ serve(async (req) => {
     let activated = 0;
     let movedToGrace = 0;
     let expired = 0;
+    let trialExpired = 0;
 
     for (const sub of subscriptions) {
       const status = (sub.status as string).toLowerCase();
       const expiresAt = new Date(sub.expires_at as string);
+      const trialEndsAt = sub.trial_ends_at ? new Date(sub.trial_ends_at as string) : null;
       const startedAt = sub.started_at ? new Date(sub.started_at as string) : null;
       const graceUntil = sub.grace_until ? new Date(sub.grace_until as string) : null;
       const paymentStatus = sub.payment_status as string | null;
 
-      // 1. Activate pending_payment if payment completed and start date reached
+      // 1. Expire trial if past trial_ends_at (or expires_at as fallback)
+      if (status === "trial") {
+        const trialEnd = trialEndsAt || expiresAt;
+        if (now > trialEnd) {
+          await supabase
+            .from("subscriptions")
+            .update({
+              status: "expired",
+              updated_at: nowIso,
+            })
+            .eq("id", sub.id);
+
+          trialExpired++;
+          processed++;
+          continue;
+        }
+      }
+
+      // 2. Activate pending_payment if payment completed and start date reached
       if (
         status === "pending_payment" &&
         paymentStatus === "completed" &&
@@ -106,7 +132,7 @@ serve(async (req) => {
         continue;
       }
 
-      // 2. Move active to grace if past expiry
+      // 3. Move active to grace if past expiry
       if (status === "active" && now > expiresAt) {
         const newGraceUntil = graceUntil || new Date(expiresAt);
         newGraceUntil.setDate(newGraceUntil.getDate() + 7);
@@ -138,7 +164,7 @@ serve(async (req) => {
         continue;
       }
 
-      // 3. Move grace to expired if past grace_until
+      // 4. Move grace to expired if past grace_until
       if (status === "grace" && graceUntil && now > graceUntil) {
         await supabase
           .from("subscriptions")
@@ -160,6 +186,7 @@ serve(async (req) => {
         activated,
         movedToGrace,
         expired,
+        trialExpired,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
