@@ -240,6 +240,7 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
       // Add items one by one to ensure they're added properly
       int successCount = 0;
       int failCount = 0;
+      Object? subscriptionError; // Track if we hit a subscription error
       
       for (var item in insufficientItems) {
         try {
@@ -257,12 +258,27 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
           );
           successCount++;
         } catch (e) {
+          // PHASE: Check if subscription error - stop loop and show upgrade modal
+          if (SubscriptionEnforcement.isSubscriptionRequiredError(e)) {
+            subscriptionError = e;
+            break; // Stop trying to add more items
+          }
           failCount++;
           debugPrint('Error adding ${item.stockItemName}: $e');
         }
       }
 
       setState(() => _isLoading = false);
+      
+      // If subscription error was detected, show upgrade modal
+      if (subscriptionError != null && mounted) {
+        await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah ke Senarai Belian',
+          error: subscriptionError,
+        );
+        return;
+      }
 
       if (mounted) {
         if (successCount > 0) {
