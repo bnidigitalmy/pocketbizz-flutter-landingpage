@@ -25,6 +25,7 @@ import '../../../data/repositories/suppliers_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Upgraded Shopping List Page
 /// Full-featured shopping cart with PO creation, print, and WhatsApp share
@@ -314,6 +315,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Buang Item',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -354,6 +361,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       });
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini Kuantiti',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -417,6 +430,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah Item Manual',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -455,6 +474,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah ke Senarai Belian',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -476,38 +501,67 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       return;
     }
     
+    Object? subscriptionError;
+    int successCount = 0;
+    
     try {
       for (var item in availableItems) {
-        final currentQty = item.currentQuantity;
-        final threshold = item.lowStockThreshold;
-        final shortage = threshold - currentQty;
-        
-        // Calculate packages needed (rounded up)
-        final packagesNeeded = shortage > 0 
-            ? (shortage / item.packageSize).ceil()
-            : 1; // At least 1 pek if no shortage
-        
-        // Convert to base unit
-        final qty = packagesNeeded * item.packageSize;
-        
-        await _cartRepo.addToCart(
-          stockItemId: item.id,
-          shortageQty: qty,
-        );
+        try {
+          final currentQty = item.currentQuantity;
+          final threshold = item.lowStockThreshold;
+          final shortage = threshold - currentQty;
+          
+          // Calculate packages needed (rounded up)
+          final packagesNeeded = shortage > 0 
+              ? (shortage / item.packageSize).ceil()
+              : 1; // At least 1 pek if no shortage
+          
+          // Convert to base unit
+          final qty = packagesNeeded * item.packageSize;
+          
+          await _cartRepo.addToCart(
+            stockItemId: item.id,
+            shortageQty: qty,
+          );
+          successCount++;
+        } catch (e) {
+          if (SubscriptionEnforcement.isSubscriptionRequiredError(e)) {
+            subscriptionError = e;
+            break; // Stop on subscription error
+          }
+          debugPrint('Error adding ${item.name}: $e');
+        }
       }
       
       _loadData();
       
-      if (mounted) {
+      if (!mounted) return;
+      
+      if (subscriptionError != null) {
+        await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah Semua ke Senarai Belian',
+          error: subscriptionError!,
+        );
+        return;
+      }
+      
+      if (successCount > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🎉 ${availableItems.length} item ditambah!'),
+            content: Text('🎉 $successCount item ditambah!'),
             backgroundColor: AppColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah Semua ke Senarai Belian',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -647,6 +701,12 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Buat Purchase Order',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error creating PO: $e'),

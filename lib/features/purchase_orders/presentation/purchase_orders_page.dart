@@ -28,6 +28,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../drive_sync/utils/drive_sync_helper.dart';
 import '../../../core/services/document_storage_service.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 // Conditional import for web
 import 'dart:html' as html if (dart.library.html) 'dart:html';
@@ -170,6 +171,12 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini Status PO',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -204,6 +211,12 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Terima Barang',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -246,6 +259,12 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
         }
       } catch (e) {
         if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam PO',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: $e')),
           );
@@ -269,6 +288,12 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Duplikasi PO',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
@@ -369,6 +394,12 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       }
     } catch (e) {
       if (mounted) {
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini PO',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
