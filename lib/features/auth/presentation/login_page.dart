@@ -56,6 +56,23 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  /// Send welcome email to new user (fire and forget)
+  void _sendWelcomeEmail({required String email, required String name}) {
+    // Fire and forget - don't await, don't block signup
+    supabase.functions.invoke(
+      'send-welcome-email',
+      body: {'email': email, 'name': name},
+    ).then((response) {
+      if (response.status == 200) {
+        debugPrint('Welcome email sent successfully');
+      } else {
+        debugPrint('Failed to send welcome email: ${response.status}');
+      }
+    }).catchError((e) {
+      debugPrint('Error sending welcome email: $e');
+    });
+  }
+
   /// Handle authentication errors from URL parameters
   void _handleAuthError() {
     final uri = Uri.base;
@@ -158,6 +175,12 @@ class _LoginPageState extends State<LoginPage> {
               );
             }
           }
+
+          // Send welcome email (fire and forget)
+          _sendWelcomeEmail(
+            email: _emailController.text.trim(),
+            name: _nameController.text.trim(),
+          );
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
