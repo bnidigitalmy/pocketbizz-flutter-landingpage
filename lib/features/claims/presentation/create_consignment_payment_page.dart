@@ -6,6 +6,7 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/consignment_payment.dart';
 import '../../../data/models/consignment_claim.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Create Consignment Payment Page
 /// Vendor makes payment to user with different payment methods
@@ -194,9 +195,16 @@ class _CreateConsignmentPaymentPageState extends State<CreateConsignmentPaymentP
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Rekod Bayaran Konsainan',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Gagal rekod: Sila cuba lagi'),
             backgroundColor: Colors.red,
           ),
         );

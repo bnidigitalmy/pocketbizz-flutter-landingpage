@@ -216,9 +216,16 @@ class _ClaimsPageState extends State<ClaimsPage> {
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini Status Bayaran',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Gagal kemaskini: Sila cuba lagi'),
             backgroundColor: Colors.red,
           ),
         );

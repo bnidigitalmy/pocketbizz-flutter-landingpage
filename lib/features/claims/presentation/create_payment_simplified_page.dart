@@ -5,6 +5,7 @@ import '../../../data/repositories/consignment_payments_repository_supabase.dart
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/consignment_payment.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Simplified Payment Recording Page
 /// Step-by-step flow for recording vendor payments (non-technical user friendly)
@@ -272,7 +273,14 @@ class _CreatePaymentSimplifiedPageState extends State<CreatePaymentSimplifiedPag
     } catch (e) {
       if (mounted) {
         setState(() => _isCreating = false);
-        _showError('Ralat: $e');
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Rekod Bayaran',
+          error: e,
+        );
+        if (handled) return;
+        _showError('Ralat: Sila cuba lagi');
       }
     }
   }

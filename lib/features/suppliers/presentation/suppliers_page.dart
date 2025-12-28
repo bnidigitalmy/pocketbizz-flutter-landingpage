@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/suppliers_repository_supabase.dart';
 import '../../../data/models/supplier.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Suppliers Page
 /// Manage suppliers (pembekal bahan/ingredients) for Purchase Orders
@@ -155,9 +156,16 @@ class _SuppliersPageState extends State<SuppliersPage> {
         }
       } catch (e) {
         if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam Supplier',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: $e'),
+              content: Text('Gagal padam: Sila cuba lagi'),
               backgroundColor: Colors.red,
             ),
           );
@@ -519,9 +527,16 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
       // Reset saving state on error
       if (mounted) {
         setState(() => _saving = false);
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: widget.supplier == null ? 'Tambah Supplier' : 'Kemaskini Supplier',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('Gagal simpan: Sila cuba lagi'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),

@@ -14,6 +14,7 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/vendor_commission_price_range.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Commission Setup Dialog
 /// Allows setting up commission rates for vendors
@@ -167,9 +168,16 @@ class _CommissionDialogState extends State<CommissionDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini Komisyen',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Gagal kemaskini: Sila cuba lagi'),
             backgroundColor: Colors.red,
           ),
         );
@@ -525,9 +533,16 @@ class _CommissionDialogState extends State<CommissionDialog> {
         }
       } catch (e) {
         if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Price Range',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: $e'),
+              content: Text('Gagal tambah: Sila cuba lagi'),
               backgroundColor: Colors.red,
             ),
           );
@@ -571,9 +586,16 @@ class _CommissionDialogState extends State<CommissionDialog> {
         }
       } catch (e) {
         if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam Price Range',
+            error: e,
+          );
+          if (handled) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: $e'),
+              content: Text('Gagal padam: Sila cuba lagi'),
               backgroundColor: Colors.red,
             ),
           );

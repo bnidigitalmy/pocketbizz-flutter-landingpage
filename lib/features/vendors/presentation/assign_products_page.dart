@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Assign Products Page - Link products to vendor
 class AssignProductsPage extends StatefulWidget {
@@ -143,8 +144,15 @@ class _AssignProductsPageState extends State<AssignProductsPage> {
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Assign Product',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal assign: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }
@@ -161,8 +169,15 @@ class _AssignProductsPageState extends State<AssignProductsPage> {
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Remove Product',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal remove: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }

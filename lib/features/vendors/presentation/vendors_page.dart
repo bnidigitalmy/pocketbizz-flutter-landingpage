@@ -192,9 +192,16 @@ class _VendorsPageState extends State<VendorsPage> {
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah Vendor',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Gagal simpan: Sila cuba lagi'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),

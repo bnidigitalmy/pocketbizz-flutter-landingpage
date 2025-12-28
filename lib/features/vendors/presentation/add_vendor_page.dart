@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Add Vendor Page - Create new vendor
 class AddVendorPage extends StatefulWidget {
@@ -69,8 +70,15 @@ class _AddVendorPageState extends State<AddVendorPage> {
       }
     } catch (e) {
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah Vendor',
+          error: e,
+        );
+        if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal simpan: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     } finally {

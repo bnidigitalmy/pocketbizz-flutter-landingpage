@@ -6,6 +6,7 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/consignment_payments_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/consignment_claim.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Record Payment Page
 /// Simple flow: Select vendor → Select claim → Enter amount received → Update claim
@@ -298,7 +299,14 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        _showError('Ralat: $e');
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Rekod Bayaran',
+          error: e,
+        );
+        if (handled) return;
+        _showError('Ralat: Sila cuba lagi');
       }
     }
   }
