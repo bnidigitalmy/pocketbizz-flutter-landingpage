@@ -92,8 +92,15 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Preview Bulk Produksi',
+          error: e,
+        );
+        if (handled) return;
         _getRootScaffoldMessenger()?.showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal preview: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }
@@ -160,8 +167,15 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Tambah ke Senarai Belian',
+          error: e,
+        );
+        if (handled) return;
         _getRootScaffoldMessenger()?.showSnackBar(
-          SnackBar(content: Text('Gagal tambah ke senarai belian: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Gagal tambah ke senarai belian: Sila cuba lagi'), backgroundColor: Colors.red),
         );
       }
     }
