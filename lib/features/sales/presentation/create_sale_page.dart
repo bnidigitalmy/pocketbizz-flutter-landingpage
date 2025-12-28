@@ -103,10 +103,11 @@ class _CreateSalePageState extends State<CreateSalePage> {
     }
 
     // PHASE: Subscriber Expired System - Protect create action
-    await requirePro(context, 'Tambah Jualan', () async {
-      setState(() => _loading = true);
-
-      try {
+    setState(() => _loading = true);
+    
+    try {
+      // Check subscription first via requirePro
+      await requirePro(context, 'Tambah Jualan', () async {
         await _salesRepo.createSale(
           customerName: _customerNameController.text.trim().isEmpty
               ? null
@@ -122,16 +123,16 @@ class _CreateSalePageState extends State<CreateSalePage> {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Sale created successfully!'),
+              content: Text('Jualan berjaya ditambah!'),
               backgroundColor: Colors.green,
             ),
           );
         }
-      } catch (e) {
-        if (mounted) {
-          setState(() => _loading = false);
-          // PHASE 3: Handle subscription limit exceptions with upgrade prompt
-          if (e is SubscriptionLimitException) {
+      });
+    } catch (e) {
+      if (mounted) {
+        // PHASE: Handle subscription enforcement errors with upgrade prompt
+        if (e is SubscriptionLimitException) {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -179,15 +180,21 @@ class _CreateSalePageState extends State<CreateSalePage> {
             ),
           );
         } else {
+          // Try to handle as subscription enforcement error
           final handled = await SubscriptionEnforcement.maybePromptUpgrade(
             context,
             action: 'Tambah Jualan',
             error: e,
           );
-          if (handled) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          if (!handled) {
+            // Only show technical error if it's NOT a subscription issue
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal menambah jualan: ${_formatError(e)}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } finally {
@@ -195,6 +202,15 @@ class _CreateSalePageState extends State<CreateSalePage> {
         setState(() => _loading = false);
       }
     }
+  }
+  
+  String _formatError(dynamic e) {
+    final msg = e.toString();
+    // Hide technical details from user
+    if (msg.contains('PostgrestException') || msg.contains('Exception:')) {
+      return 'Sila cuba lagi';
+    }
+    return msg;
   }
 
   void _addProduct(Product product) {

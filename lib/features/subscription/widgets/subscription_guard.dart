@@ -209,24 +209,36 @@ Future<void> requirePro(
 /// but the backend blocks the write (eg. Postgres trigger raises P0001).
 class SubscriptionEnforcement {
   static bool isSubscriptionRequiredError(Object error) {
+    // Check PostgrestException specifically
     if (error is PostgrestException) {
       // Our DB trigger raises exception which bubbles up as PostgrestException code P0001.
       if (error.code == 'P0001') return true;
+      if (error.code == 'PGRST301') return true; // Row-level security violation
+      
       final msg = (error.message).toLowerCase();
       if (msg.contains('subscription required')) return true;
+      if (msg.contains('subscription')) return true;
       if (msg.contains('not active subscription')) return true;
+      if (msg.contains('does not have active subscription')) return true;
       if (msg.contains('langganan')) return true;
+      if (msg.contains('please renew')) return true;
     }
 
+    // Check string representation for any subscription-related keywords
     final msg = error.toString().toLowerCase();
     return msg.contains('subscription required') ||
+        msg.contains('subscription') && msg.contains('required') ||
         msg.contains('not active subscription') ||
+        msg.contains('does not have active subscription') ||
+        msg.contains('please renew your subscription') ||
         msg.contains('p0001') ||
+        msg.contains('pgrst301') ||
         // Edge Functions (OCR etc) typically surface as a string with 403 somewhere.
         msg.contains('status: 403') ||
         msg.contains('http 403') ||
-        msg.contains('403') ||
-        msg.contains('langganan anda telah tamat');
+        msg.contains('statuscode: 403') ||
+        msg.contains('langganan anda telah tamat') ||
+        msg.contains('langganan') && msg.contains('tamat');
   }
 
   /// Returns true if it handled the error (showed upgrade modal).
