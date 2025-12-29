@@ -22,17 +22,52 @@ PocketBizz adalah aplikasi untuk uruskan bisnes pengeluaran (bakery, F&B, krafta
 
 **Flow utama PocketBizz:**
 
-1. 📦 Masukkan stok bahan mentah
-2. 🍰 Cipta produk & resepi
-3. 🏭 Rekod pengeluaran (production)
-4. 🛒 Rekod jualan
-5. 📊 Lihat laporan
+1. 📱 Install app ke phone
+2. 📦 Masukkan stok bahan mentah
+3. 🍰 Cipta produk & resepi
+4. 🏭 Rekod pengeluaran
+5. 🛒 Rekod jualan
+6. 📊 Lihat laporan
 
 **Penting:**
 • Ikut langkah secara berurutan
-• Langkah 1-3 WAJIB buat dulu
+• Langkah 2-4 WAJIB buat dulu
 
 Jom mula! 🚀
+''',
+    ),
+    _GuideStep(
+      title: '📱 Install App ke Phone',
+      icon: Icons.install_mobile,
+      color: Colors.deepPurple,
+      content: '''
+**Untuk pengalaman terbaik!**
+
+PocketBizz boleh diinstall macam app biasa supaya lebih senang guna.
+
+**Untuk iPhone (Safari):**
+
+1. Buka app.pocketbizz.my di Safari
+2. Tekan icon "Share" (kotak dengan anak panah)
+3. Scroll bawah, tekan "Add to Home Screen"
+4. Tekan "Add"
+5. Siap! Icon PocketBizz ada di home screen
+
+**Untuk Android (Chrome):**
+
+1. Buka app.pocketbizz.my di Chrome
+2. Tekan menu (3 titik) di kanan atas
+3. Tekan "Add to Home Screen" atau "Install App"
+4. Tekan "Add" atau "Install"
+5. Siap! Icon PocketBizz ada di home screen
+
+**Kelebihan install:**
+• Buka terus macam app biasa
+• Tak perlu taip URL
+• Lebih laju load
+• Boleh guna offline (terhad)
+
+✅ Siap install!
 ''',
     ),
     _GuideStep(

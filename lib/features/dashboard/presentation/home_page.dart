@@ -14,6 +14,7 @@ import '../../products/presentation/test_image_upload_page.dart';
 import '../../feedback/presentation/submit_feedback_page.dart';
 import '../../feedback/presentation/my_feedback_page.dart';
 import '../../feedback/presentation/community_links_page.dart';
+import '../../feedback/presentation/community_page.dart';
 import '../../feedback/presentation/user_guide_page.dart';
 import '../../feedback/presentation/admin/admin_feedback_page.dart';
 import '../../subscription/widgets/expired_banner.dart';
@@ -425,7 +426,10 @@ class _HomePageState extends State<HomePage> {
                   subtitle: const Text('Sertai Facebook/Telegram group', style: TextStyle(fontSize: 11)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/community');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CommunityPage()),
+                    );
                   },
                 ),
               ],
