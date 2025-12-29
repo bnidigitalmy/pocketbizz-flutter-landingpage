@@ -4,6 +4,7 @@ import '../data/models/subscription_plan.dart';
 import '../data/models/subscription_payment.dart';
 import '../data/models/plan_limits.dart';
 import '../data/repositories/subscription_repository_supabase.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
@@ -35,6 +36,32 @@ class SubscriptionService {
     return (isEarlyAdopter ? _bclFormUrlsEarlyAdopter : _bclFormUrlsNormal)[durationMonths];
   }
 
+  Future<void> _launchExternal(Uri uri) async {
+    // PWA/Web: externalApplication can fail in standalone mode.
+    // Use platformDefault and navigate in the same window for reliability.
+    if (kIsWeb) {
+      try {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.platformDefault,
+          webOnlyWindowName: '_self',
+        );
+        return;
+      } catch (_) {
+        // Fallback: try new tab
+        await launchUrl(
+          uri,
+          mode: LaunchMode.platformDefault,
+          webOnlyWindowName: '_blank',
+        );
+        return;
+      }
+    }
+
+    // Mobile/desktop
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   /// Open BCL.my payment form with an existing order id (no DB writes).
   /// Used for pending_payment flows ("Teruskan Pembayaran") so users don't create multiple pending sessions.
   Future<void> openBclPaymentForm({
@@ -52,7 +79,7 @@ class SubscriptionService {
       'order_id': orderId,
     });
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await _launchExternal(uri);
     } else {
       throw Exception('Could not launch payment URL');
     }
@@ -234,7 +261,7 @@ class SubscriptionService {
       'order_id': orderId,
     });
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await _launchExternal(uri);
     } else {
       throw Exception('Could not launch payment URL');
     }
@@ -301,7 +328,7 @@ class SubscriptionService {
     );
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await _launchExternal(uri);
     } else {
       throw Exception('Could not launch payment URL');
     }
@@ -324,7 +351,7 @@ class SubscriptionService {
       'order_id': result.orderId,
     });
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await _launchExternal(uri);
     } else {
       throw Exception('Could not launch payment URL');
     }
