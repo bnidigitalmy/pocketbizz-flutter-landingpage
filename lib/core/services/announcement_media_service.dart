@@ -23,6 +23,27 @@ class AnnouncementMediaService {
   /// Pick image from gallery or camera
   Future<XFile?> pickImage({bool fromCamera = false}) async {
     try {
+      // On web (especially iOS Safari/PWA), ImagePicker can return blob: URLs that get revoked.
+      // Use FilePicker with bytes to avoid "Could not load Blob from its URL".
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return null;
+        final f = result.files.single;
+        if (f.bytes == null) {
+          throw Exception('Fail gambar tidak dapat dibaca');
+        }
+        final ext = (f.extension ?? 'jpg').toLowerCase();
+        final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+        return XFile.fromData(
+          f.bytes!,
+          name: f.name,
+          mimeType: mime,
+        );
+      }
+
       final XFile? image = await _imagePicker.pickImage(
         source: fromCamera ? ImageSource.camera : ImageSource.gallery,
         maxWidth: 2048,
@@ -38,6 +59,27 @@ class AnnouncementMediaService {
   /// Pick video from gallery
   Future<XFile?> pickVideo() async {
     try {
+      // Web: use FilePicker to avoid blob URL issues
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['mp4', 'mov', 'avi'],
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return null;
+        final f = result.files.single;
+        if (f.bytes == null) {
+          throw Exception('Fail video tidak dapat dibaca');
+        }
+        final ext = (f.extension ?? 'mp4').toLowerCase();
+        final mime = _getMimeType(ext);
+        return XFile.fromData(
+          f.bytes!,
+          name: f.name,
+          mimeType: mime,
+        );
+      }
+
       final XFile? video = await _imagePicker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(minutes: 5), // Max 5 minutes
@@ -56,6 +98,7 @@ class AnnouncementMediaService {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
+        withData: kIsWeb, // ensure bytes are available on web
       );
       return result;
     } catch (e) {

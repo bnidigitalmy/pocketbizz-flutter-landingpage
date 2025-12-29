@@ -401,8 +401,9 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
       setState(() => _attachments.add(uploaded));
     } catch (e) {
       if (!mounted) return;
+      final msg = _friendlyUploadError(e, jenis: 'gambar');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal upload gambar: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
@@ -424,8 +425,9 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
       setState(() => _attachments.add(uploaded));
     } catch (e) {
       if (!mounted) return;
+      final msg = _friendlyUploadError(e, jenis: 'video');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal upload video: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
@@ -450,12 +452,27 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
       setState(() => _attachments.add(uploaded));
     } catch (e) {
       if (!mounted) return;
+      final msg = _friendlyUploadError(e, jenis: 'fail');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal upload fail: $e'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
     }
+  }
+
+  String _friendlyUploadError(Object e, {required String jenis}) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('blob') || s.contains('revoked')) {
+      return 'Gagal upload $jenis. Sila pilih semula $jenis dan cuba lagi.';
+    }
+    if (s.contains('permission') || s.contains('not authorized') || s.contains('401') || s.contains('403')) {
+      return 'Gagal upload $jenis. Sila log masuk semula dan cuba lagi.';
+    }
+    if (s.contains('network') || s.contains('socket') || s.contains('timeout')) {
+      return 'Gagal upload $jenis kerana sambungan internet. Cuba lagi bila line stabil.';
+    }
+    return 'Gagal upload $jenis. Sila cuba lagi.';
   }
 }
 
