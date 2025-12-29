@@ -14,6 +14,7 @@ import '../../products/presentation/test_image_upload_page.dart';
 import '../../feedback/presentation/submit_feedback_page.dart';
 import '../../feedback/presentation/my_feedback_page.dart';
 import '../../feedback/presentation/community_links_page.dart';
+import '../../feedback/presentation/user_guide_page.dart';
 import '../../feedback/presentation/admin/admin_feedback_page.dart';
 import '../../subscription/widgets/expired_banner.dart';
 import 'dashboard_page_optimized.dart';
@@ -388,6 +389,18 @@ class _HomePageState extends State<HomePage> {
               leading: const Icon(Icons.support_agent, color: Colors.blue),
               title: const Text('Sokongan & Komuniti'),
               children: [
+                ListTile(
+                  leading: const Icon(Icons.menu_book, color: Colors.amber, size: 20),
+                  title: const Text('Panduan Pengguna'),
+                  subtitle: const Text('Cara guna PocketBizz step-by-step', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UserGuidePage()),
+                    );
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.feedback, color: Colors.blue, size: 20),
                   title: const Text('Feedback Saya'),
