@@ -3,6 +3,9 @@ import '../../../../../core/theme/app_colors.dart';
 import '../admin_dashboard_page.dart';
 import '../subscription_list_page.dart';
 import '../user_management_page.dart';
+import '../early_adopters_page.dart';
+import '../../../../announcements/presentation/admin/admin_announcements_page.dart';
+import '../../../../feedback/presentation/admin/admin_feedback_page.dart';
 
 /// Admin Layout with Sidebar Navigation
 /// Responsive untuk desktop dan mobile
@@ -39,6 +42,21 @@ class _AdminLayoutState extends State<AdminLayout> {
       icon: Icons.people,
       label: 'User Management',
       route: '/admin/users',
+    ),
+    AdminNavItem(
+      icon: Icons.star,
+      label: 'Early Adopters',
+      route: '/admin/early-adopters',
+    ),
+    AdminNavItem(
+      icon: Icons.campaign,
+      label: 'Announcements',
+      route: '/admin/announcements',
+    ),
+    AdminNavItem(
+      icon: Icons.feedback,
+      label: 'Feedback',
+      route: '/admin/feedback',
     ),
   ];
 
@@ -339,6 +357,9 @@ class _AdminLayoutState extends State<AdminLayout> {
                       AdminDashboardPage(),
                       AdminSubscriptionListPage(),
                       AdminUserManagementPage(),
+                      EarlyAdoptersPage(),
+                      AdminAnnouncementsPage(),
+                      AdminFeedbackPage(),
                     ],
                   ),
                 ),
@@ -408,6 +429,9 @@ class _AdminLayoutState extends State<AdminLayout> {
                             AdminDashboardPage(),
                             AdminSubscriptionListPage(),
                             AdminUserManagementPage(),
+                            EarlyAdoptersPage(),
+                            AdminAnnouncementsPage(),
+                            AdminFeedbackPage(),
                           ],
                         ),
                       ),

@@ -55,21 +55,50 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
         });
 
         if (response.data != null && response.data['users'] != null) {
-          final users = (response.data['users'] as List).map((user) {
-            return {
-              'id': user['id'],
-              'email': user['email'] ?? '${user['id'].substring(0, 8)}...',
+          final authUsers = (response.data['users'] as List);
+          
+          // Fetch subscription data for all users
+          final usersList = <Map<String, dynamic>>[];
+          
+          for (final user in authUsers) {
+            final userId = user['id'] as String;
+            
+            // Get latest subscription for this user
+            final subResponse = await supabase
+                .from('subscriptions')
+                .select('status, plan_name, expires_at, duration_months')
+                .eq('user_id', userId)
+                .order('created_at', ascending: false)
+                .limit(1)
+                .maybeSingle();
+            
+            // Check early adopter status
+            final earlyAdopterResponse = await supabase
+                .from('early_adopters')
+                .select('registration_number')
+                .eq('user_id', userId)
+                .maybeSingle();
+            
+            usersList.add({
+              'id': userId,
+              'email': user['email'] ?? '${userId.substring(0, 8)}...',
               'name': user['user_metadata']?['full_name'] ?? 
                       user['user_metadata']?['name'] ?? 
                       'User',
+              'businessName': user['user_metadata']?['business_name'],
               'created_at': user['created_at'],
               'suspended': user['banned_until'] != null,
-            };
-          }).toList();
+              'plan': subResponse?['plan_name'] ?? 'No Plan',
+              'status': _getStatusLabel(subResponse),
+              'expiresAt': subResponse?['expires_at'],
+              'isEarlyAdopter': earlyAdopterResponse != null,
+              'earlyAdopterNumber': earlyAdopterResponse?['registration_number'],
+            });
+          }
 
           if (mounted) {
             setState(() {
-              _users = users;
+              _users = usersList;
               _isLoading = false;
             });
             return;
@@ -80,10 +109,10 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
         debugPrint('Edge Function failed, using fallback: $e');
       }
 
-      // Fallback: get from subscriptions
+      // Fallback: get from subscriptions with more data
       final response = await supabase
           .from('subscriptions')
-          .select('user_id, created_at')
+          .select('user_id, created_at, status, plan_name, expires_at, duration_months')
           .order('created_at', ascending: false)
           .limit(1000);
       
@@ -91,15 +120,30 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
       final usersList = <Map<String, dynamic>>[];
       
       for (final sub in response as List) {
-        final userId = (sub as Map<String, dynamic>)['user_id'] as String;
+        final subData = sub as Map<String, dynamic>;
+        final userId = subData['user_id'] as String;
         if (!userIds.contains(userId)) {
           userIds.add(userId);
+          
+          // Check early adopter status
+          final earlyAdopterResponse = await supabase
+              .from('early_adopters')
+              .select('registration_number')
+              .eq('user_id', userId)
+              .maybeSingle();
+          
           usersList.add({
             'id': userId,
-            'email': '${userId.substring(0, 8)}...@pocketbizz.my',
-            'name': 'User ${userId.substring(0, 8)}',
-            'created_at': sub['created_at'],
+            'email': '${userId.substring(0, 8)}...@user',
+            'name': 'User ${userId.substring(0, 6)}',
+            'businessName': null,
+            'created_at': subData['created_at'],
             'suspended': false,
+            'plan': subData['plan_name'] ?? 'No Plan',
+            'status': _getStatusLabel(subData),
+            'expiresAt': subData['expires_at'],
+            'isEarlyAdopter': earlyAdopterResponse != null,
+            'earlyAdopterNumber': earlyAdopterResponse?['registration_number'],
           });
         }
       }
@@ -118,6 +162,94 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
         );
       }
     }
+  }
+
+  String _getStatusLabel(Map<String, dynamic>? subscription) {
+    if (subscription == null) return 'No Subscription';
+    
+    final status = subscription['status'] as String?;
+    final expiresAt = subscription['expires_at'] as String?;
+    
+    if (expiresAt != null) {
+      final expiryDate = DateTime.parse(expiresAt);
+      if (expiryDate.isBefore(DateTime.now())) {
+        return 'Expired';
+      }
+    }
+    
+    switch (status) {
+      case 'active':
+        return 'Active';
+      case 'trial':
+        return 'Trial';
+      case 'expired':
+        return 'Expired';
+      case 'grace':
+        return 'Grace Period';
+      case 'paused':
+        return 'Paused';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'pending_payment':
+        return 'Pending Payment';
+      default:
+        return status ?? 'Unknown';
+    }
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    Color bgColor;
+    
+    switch (status.toLowerCase()) {
+      case 'active':
+        color = Colors.green[800]!;
+        bgColor = Colors.green[100]!;
+        break;
+      case 'trial':
+        color = Colors.blue[800]!;
+        bgColor = Colors.blue[100]!;
+        break;
+      case 'expired':
+        color = Colors.red[800]!;
+        bgColor = Colors.red[100]!;
+        break;
+      case 'grace period':
+        color = Colors.orange[800]!;
+        bgColor = Colors.orange[100]!;
+        break;
+      case 'paused':
+        color = Colors.purple[800]!;
+        bgColor = Colors.purple[100]!;
+        break;
+      case 'cancelled':
+        color = Colors.grey[800]!;
+        bgColor = Colors.grey[200]!;
+        break;
+      case 'pending payment':
+        color = Colors.amber[800]!;
+        bgColor = Colors.amber[100]!;
+        break;
+      default:
+        color = Colors.grey[600]!;
+        bgColor = Colors.grey[100]!;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
   }
 
   List<Map<String, dynamic>> get _filteredUsers {
@@ -275,15 +407,27 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
                                     ),
                                     DataCell(
                                       ConstrainedBox(
-                                        constraints: const BoxConstraints(maxWidth: 100),
-                                        child: const Text('-', style: TextStyle(fontSize: 12)), // Plan - to be populated
+                                        constraints: const BoxConstraints(maxWidth: 120),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              user['plan'] as String? ?? '-',
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                            if (user['isEarlyAdopter'] == true) ...[
+                                              const SizedBox(width: 4),
+                                              Tooltip(
+                                                message: 'Early Adopter #${user['earlyAdopterNumber']}',
+                                                child: const Icon(Icons.star, size: 14, color: Colors.amber),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     DataCell(
-                                      ConstrainedBox(
-                                        constraints: const BoxConstraints(maxWidth: 100),
-                                        child: const Text('-', style: TextStyle(fontSize: 12)), // Status - to be populated
-                                      ),
+                                      _buildStatusBadge(user['status'] as String? ?? '-'),
                                     ),
                                 DataCell((user['suspended'] as bool?) == true
                                     ? const Icon(Icons.block, size: 16, color: Colors.red)
