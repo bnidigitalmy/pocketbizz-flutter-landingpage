@@ -18,137 +18,242 @@ class _UserGuidePageState extends State<UserGuidePage> {
       icon: Icons.waving_hand,
       color: Colors.amber,
       content: '''
-PocketBizz adalah aplikasi untuk uruskan bisnes kecil anda dengan mudah.
+PocketBizz adalah aplikasi untuk uruskan bisnes pengeluaran (bakery, F&B, kraftangan dll).
 
-Dalam panduan ini, anda akan belajar:
-• Cara daftar produk
-• Cara rekod jualan
-• Cara urus stok
-• Cara lihat laporan
+**Flow utama PocketBizz:**
+
+1. 📦 Masukkan stok bahan mentah
+2. 🍰 Cipta produk & resepi
+3. 🏭 Rekod pengeluaran (production)
+4. 🛒 Rekod jualan
+5. 📊 Lihat laporan
+
+**Penting:**
+• Ikut langkah secara berurutan
+• Langkah 1-3 WAJIB buat dulu
 
 Jom mula! 🚀
 ''',
     ),
     _GuideStep(
-      title: '📦 Langkah 1: Daftar Produk',
-      icon: Icons.inventory_2,
-      color: Colors.brown,
+      title: '📦 Langkah 1: Stok Bahan Mentah',
+      icon: Icons.inventory,
+      color: Colors.blue,
       content: '''
-**Apa perlu buat:**
+**Ini langkah PERTAMA dan WAJIB!**
 
-1. Tekan menu "Produk" di sidebar
-2. Tekan butang "+" untuk tambah produk baru
+Bahan mentah = bahan untuk buat produk anda.
+Contoh: tepung, gula, telur, mentega, dll.
+
+**Cara buat:**
+
+1. Tekan menu "Stok" di sidebar
+2. Tekan butang "+" untuk tambah bahan baru
 3. Isi maklumat:
-   • Nama produk
-   • Harga jualan
-   • Kos produk (optional)
+   • Nama bahan (cth: Tepung Gandum)
+   • Unit ukuran (kg/gram/pcs/dll)
+   • Saiz pakej (cth: 1 kg)
+   • Harga beli (cth: RM 8.00)
+   • Kuantiti semasa
 4. Tekan "Simpan"
 
 **Tips:**
-• Boleh upload gambar produk
-• Letak harga yang betul dari awal
-• Nama produk senang diingat
+• Masukkan SEMUA bahan yang anda guna
+• Harga beli penting untuk kira kos produk
 
 ✅ Siap langkah 1!
 ''',
     ),
     _GuideStep(
-      title: '🛒 Langkah 2: Rekod Jualan',
-      icon: Icons.point_of_sale,
-      color: Colors.green,
+      title: '🍰 Langkah 2: Cipta Produk & Resepi',
+      icon: Icons.cake,
+      color: Colors.brown,
       content: '''
-**Apa perlu buat:**
+**Sekarang boleh cipta produk!**
 
-1. Tekan menu "Jualan" di sidebar
-2. Tekan butang "+" untuk jualan baru
-3. Pilih produk yang dijual
-4. Masukkan kuantiti
-5. Tekan "Simpan Jualan"
+Produk = barang yang anda jual.
+Resepi = senarai bahan untuk buat produk.
 
-**Tips:**
-• Boleh jual banyak produk sekali gus
-• Pilih saluran (kedai/online/dll)
-• Rekod setiap jualan supaya laporan tepat
+**Cara buat:**
+
+1. Tekan menu "Produk" di sidebar
+2. Tekan butang "+" untuk tambah produk
+3. Isi maklumat produk:
+   • Nama produk (cth: Kek Coklat)
+   • Harga jualan (cth: RM 15.00)
+   • Unit (pcs/kotak/dll)
+4. Tambah resepi:
+   • Pilih bahan dari stok
+   • Masukkan kuantiti (cth: 500g tepung)
+   • Tambah semua bahan yang diperlukan
+5. Set kos tambahan (optional):
+   • Kos buruh
+   • Kos pembungkusan
+6. Tekan "Simpan"
+
+**Auto-kira:**
+• App akan kira kos per unit secara automatik!
 
 ✅ Siap langkah 2!
 ''',
     ),
     _GuideStep(
-      title: '📊 Langkah 3: Urus Stok',
-      icon: Icons.warehouse,
-      color: Colors.blue,
+      title: '🏭 Langkah 3: Rekod Pengeluaran',
+      icon: Icons.factory,
+      color: Colors.purple,
       content: '''
-**Apa perlu buat:**
+**Bila dah ada stok & produk, boleh mula buat!**
 
-1. Tekan menu "Stok" di sidebar
-2. Lihat senarai stok anda
-3. Untuk tambah stok:
-   • Tekan item stok
-   • Pilih "Tambah Stok"
-   • Masukkan kuantiti
+Pengeluaran = proses buat produk dari bahan mentah.
 
-**Tips:**
-• Set "Paras Minimum" untuk amaran stok rendah
-• Stok auto tolak bila rekod jualan
-• Check stok selalu supaya tak kehabisan
+**Cara buat:**
+
+1. Tekan menu "Pengeluaran" di sidebar
+2. Tekan "Rekod Pengeluaran"
+3. Pilih produk yang nak buat
+4. Masukkan kuantiti (berapa unit)
+5. Tekan "Simpan"
+
+**Apa yang berlaku:**
+• Bahan mentah AUTO TOLAK dari stok
+• Production batch dicipta
+• Stok produk siap untuk dijual
+
+**Contoh:**
+Buat 20 unit Kek Coklat:
+→ Tepung -10kg (auto tolak)
+→ Gula -4kg (auto tolak)
+→ Kek Coklat +20 unit (ready jual)
 
 ✅ Siap langkah 3!
 ''',
     ),
     _GuideStep(
-      title: '📈 Langkah 4: Lihat Laporan',
-      icon: Icons.analytics,
-      color: Colors.purple,
+      title: '🛒 Langkah 4: Rekod Jualan',
+      icon: Icons.point_of_sale,
+      color: Colors.green,
       content: '''
-**Apa perlu buat:**
+**Dah ada stok produk siap? Boleh jual!**
 
-1. Tekan menu "Laporan" di sidebar
-2. Pilih jenis laporan:
-   • Jualan Harian
-   • Jualan Bulanan
-   • Untung Rugi
-3. Pilih tarikh yang nak lihat
-4. Tekan "Jana Laporan"
+**Cara buat:**
+
+1. Tekan menu "Jualan" di sidebar
+2. Tekan butang "+" untuk jualan baru
+3. Pilih produk yang dijual
+4. Masukkan kuantiti
+5. Pilih saluran jualan:
+   • Kedai
+   • Online
+   • WhatsApp
+   • dll
+6. Tekan "Simpan Jualan"
+
+**Auto-tolak (FIFO):**
+• Stok produk siap auto tolak
+• Sistem ambil dari batch LAMA dulu
 
 **Tips:**
-• Check laporan setiap minggu
-• Bandingkan dengan bulan lepas
-• Export ke PDF/Excel bila perlu
+• Rekod setiap jualan dengan segera
+• Jangan tunggu akhir hari
 
 ✅ Siap langkah 4!
 ''',
     ),
     _GuideStep(
-      title: '🎯 Langkah 5: Tips Harian',
-      icon: Icons.lightbulb,
+      title: '🚚 Langkah 5: Vendor (Optional)',
+      icon: Icons.local_shipping,
       color: Colors.orange,
       content: '''
-**Rutin harian yang disarankan:**
+**Untuk bisnes konsainan sahaja.**
+
+Kalau anda hantar produk ke kedai/vendor lain untuk dijual.
+
+**Cara buat:**
+
+1. Tekan menu "Vendor" di sidebar
+2. Tambah vendor baru (kedai/agent)
+3. Set komisyen (% atau tetap)
+4. Rekod penghantaran:
+   • Pilih vendor
+   • Pilih produk & kuantiti
+   • Hantar!
+5. Buat tuntutan bila produk terjual
+
+**Flow:**
+Hantar → Vendor jual → Buat tuntutan → Dapat bayaran
+
+**Skip langkah ini jika:**
+• Anda jual sendiri sahaja
+• Tak ada agent/konsainan
+
+✅ Siap langkah 5!
+''',
+    ),
+    _GuideStep(
+      title: '📊 Langkah 6: Lihat Laporan',
+      icon: Icons.analytics,
+      color: Colors.indigo,
+      content: '''
+**Check prestasi bisnes anda!**
+
+**Cara buat:**
+
+1. Tekan menu "Laporan" di sidebar
+2. Pilih jenis laporan:
+   • Jualan Harian/Bulanan
+   • Untung Rugi
+   • Stok Keluar/Masuk
+3. Pilih tarikh
+4. Tekan "Jana Laporan"
+
+**Laporan penting:**
+• Jumlah jualan hari ini
+• Produk paling laris
+• Untung kasar
+• Stok rendah
+
+**Tips:**
+• Check laporan setiap minggu
+• Bandingkan dengan minggu/bulan lepas
+• Export ke PDF untuk simpan
+
+✅ Siap langkah 6!
+''',
+    ),
+    _GuideStep(
+      title: '🎯 Tips Harian',
+      icon: Icons.lightbulb,
+      color: Colors.teal,
+      content: '''
+**Rutin harian untuk guna PocketBizz:**
 
 ☀️ **Pagi:**
-• Buka app, check stok rendah
-• Sediakan produk untuk hari ini
+• Check alert stok bahan rendah
+• Plan pengeluaran hari ini
+• Beli bahan kalau perlu
 
-🌤️ **Siang:**
-• Rekod setiap jualan segera
-• Update stok bila perlu
+🌤️ **Siang/Petang:**
+• Rekod pengeluaran yang dibuat
+• Rekod setiap jualan dengan segera
+• Update stok bila terima bekalan
 
 🌙 **Malam:**
-• Check jualan hari ini
+• Check laporan jualan hari ini
 • Lihat untung rugi
 • Plan untuk esok
 
 **Ingat:**
-• Rekod jualan terus, jangan tunggu
-• Data yang tepat = keputusan yang baik
+• Data tepat = laporan tepat
+• Rekod segera, jangan tangguh
+• Check stok setiap hari
 ''',
     ),
     _GuideStep(
       title: '🆘 Perlukan Bantuan?',
       icon: Icons.help,
-      color: Colors.teal,
+      color: Colors.red,
       content: '''
-**Kalau ada masalah:**
+**Kami sedia membantu!**
 
 📱 **WhatsApp:**
 +60 10-782 7802
@@ -160,12 +265,20 @@ support@pocketbizz.my
 • Pergi "Sokongan & Komuniti"
 • Tekan "Hantar Feedback"
 
-**Tips:**
+**Bila hubungi kami:**
 • Screenshot masalah anda
-• Terangkan langkah yang dibuat
-• Kami akan bantu secepat mungkin!
+• Terangkan step yang dibuat
+• Kami respond dalam 24 jam
+
+**Sumber lain:**
+• Video tutorial (coming soon)
+• FAQ di website
+• Komuniti Facebook/Telegram
 
 🙏 Terima kasih guna PocketBizz!
+
+**Ringkasan Flow:**
+📦 Stok → 🍰 Produk → 🏭 Pengeluaran → 🛒 Jualan → 📊 Laporan
 ''',
     ),
   ];
