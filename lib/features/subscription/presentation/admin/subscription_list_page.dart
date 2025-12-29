@@ -351,137 +351,147 @@ class _AdminSubscriptionListPageState extends State<AdminSubscriptionListPage> {
                     ? const Center(child: CircularProgressIndicator())
                     : _filteredSubscriptions.isEmpty
                         ? const Center(child: Text('No subscriptions found'))
-                        : SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              columns: const [
-                                DataColumn(label: Text('User')),
-                                DataColumn(label: Text('Plan')),
-                                DataColumn(label: Text('Duration')),
-                                DataColumn(label: Text('Start Date')),
-                                DataColumn(label: Text('End Date')),
-                                DataColumn(label: Text('Total Paid')),
-                                DataColumn(label: Text('Source')),
-                                DataColumn(label: Text('Status')),
-                                DataColumn(label: Text('Actions')),
-                              ],
-                              rows: _filteredSubscriptions.map((sub) {
-                                return DataRow(
-                                  cells: [
-                                    DataCell(Text(
-                                      sub.userId.length > 20
-                                          ? '${sub.userId.substring(0, 20)}...'
-                                          : sub.userId,
-                                      style: const TextStyle(fontSize: 12),
-                                    )),
-                                    DataCell(Text(sub.planName)),
-                                    DataCell(Text('${sub.durationMonths} month${sub.durationMonths > 1 ? 's' : ''}')),
-                                    DataCell(Text(DateFormat('dd MMM yyyy', 'ms').format(DateTimeHelper.toLocalTime(sub.startedAt ?? sub.createdAt)))),
-                                    DataCell(Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(DateFormat('dd MMM yyyy', 'ms').format(sub.expiresAt)),
-                                        if (sub.status == SubscriptionStatus.expired || sub.expiresAt.isBefore(DateTime.now()))
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 4),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: const Text(
-                                                'Expired',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                    child: DataTable(
+                                      columns: const [
+                                        DataColumn(label: Text('User')),
+                                        DataColumn(label: Text('Plan')),
+                                        DataColumn(label: Text('Duration')),
+                                        DataColumn(label: Text('Start Date')),
+                                        DataColumn(label: Text('End Date')),
+                                        DataColumn(label: Text('Total Paid')),
+                                        DataColumn(label: Text('Source')),
+                                        DataColumn(label: Text('Status')),
+                                        DataColumn(label: Text('Actions')),
+                                      ],
+                                      rows: _filteredSubscriptions.map((sub) {
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(Text(
+                                              sub.userId.length > 20
+                                                  ? '${sub.userId.substring(0, 20)}...'
+                                                  : sub.userId,
+                                              style: const TextStyle(fontSize: 12),
+                                            )),
+                                            DataCell(Text(sub.planName)),
+                                            DataCell(Text('${sub.durationMonths} month${sub.durationMonths > 1 ? 's' : ''}')),
+                                            DataCell(Text(DateFormat('dd MMM yyyy', 'ms').format(DateTimeHelper.toLocalTime(sub.startedAt ?? sub.createdAt)))),
+                                            DataCell(Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(DateFormat('dd MMM yyyy', 'ms').format(sub.expiresAt)),
+                                                if (sub.status == SubscriptionStatus.expired || sub.expiresAt.isBefore(DateTime.now()))
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(left: 4),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: const Text(
+                                                        'Expired',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 10,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            )),
+                                            DataCell(Text('RM ${sub.totalAmount.toStringAsFixed(2)}')),
+                                            DataCell(_buildProviderBadge(sub.paymentGateway)),
+                                            DataCell(_buildStatusBadge(sub.status, sub.status == SubscriptionStatus.expired || sub.expiresAt.isBefore(DateTime.now()))),
+                                            DataCell(
+                                              PopupMenuButton<String>(
+                                                onSelected: (value) {
+                                                  setState(() {
+                                                    _selectedSubscription = sub;
+                                                    if (value == 'extend') {
+                                                      _showExtendDialog = true;
+                                                    } else if (value == 'pause') {
+                                                      _showPauseDialog = true;
+                                                    } else if (value == 'resume') {
+                                                      _handleResumeSubscription(sub);
+                                                    } else if (value == 'refund') {
+                                                      _loadPaymentsForRefund(sub);
+                                                    }
+                                                  });
+                                                },
+                                                itemBuilder: (context) => [
+                                                  if (sub.status != SubscriptionStatus.cancelled)
+                                                    const PopupMenuItem(
+                                                      value: 'extend',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.schedule, size: 16),
+                                                          SizedBox(width: 8),
+                                                          Text('Extend'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  if (sub.status == SubscriptionStatus.active && !sub.isPaused)
+                                                    const PopupMenuItem(
+                                                      value: 'pause',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.pause, size: 16, color: Colors.orange),
+                                                          SizedBox(width: 8),
+                                                          Text('Pause'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  if (sub.status == SubscriptionStatus.paused || sub.isPaused)
+                                                    const PopupMenuItem(
+                                                      value: 'resume',
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.play_arrow, size: 16, color: Colors.green),
+                                                          SizedBox(width: 8),
+                                                          Text('Resume'),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  const PopupMenuItem(
+                                                    value: 'refund',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.undo, size: 16, color: Colors.red),
+                                                        SizedBox(width: 8),
+                                                        Text('Refund'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                                child: const Padding(
+                                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text('Actions', style: TextStyle(fontSize: 12)),
+                                                      SizedBox(width: 4),
+                                                      Icon(Icons.arrow_drop_down, size: 16),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    )),
-                                    DataCell(Text('RM ${sub.totalAmount.toStringAsFixed(2)}')),
-                                    DataCell(_buildProviderBadge(sub.paymentGateway)),
-                                    DataCell(_buildStatusBadge(sub.status, sub.status == SubscriptionStatus.expired || sub.expiresAt.isBefore(DateTime.now()))),
-                                    DataCell(
-                                      PopupMenuButton<String>(
-                                        onSelected: (value) {
-                                          setState(() {
-                                            _selectedSubscription = sub;
-                                            if (value == 'extend') {
-                                              _showExtendDialog = true;
-                                            } else if (value == 'pause') {
-                                              _showPauseDialog = true;
-                                            } else if (value == 'resume') {
-                                              _handleResumeSubscription(sub);
-                                            } else if (value == 'refund') {
-                                              _loadPaymentsForRefund(sub);
-                                            }
-                                          });
-                                        },
-                                        itemBuilder: (context) => [
-                                          if (sub.status != SubscriptionStatus.cancelled)
-                                            const PopupMenuItem(
-                                              value: 'extend',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.schedule, size: 16),
-                                                  SizedBox(width: 8),
-                                                  Text('Extend'),
-                                                ],
-                                              ),
-                                            ),
-                                          if (sub.status == SubscriptionStatus.active && !sub.isPaused)
-                                            const PopupMenuItem(
-                                              value: 'pause',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.pause, size: 16, color: Colors.orange),
-                                                  SizedBox(width: 8),
-                                                  Text('Pause'),
-                                                ],
-                                              ),
-                                            ),
-                                          if (sub.status == SubscriptionStatus.paused || sub.isPaused)
-                                            const PopupMenuItem(
-                                              value: 'resume',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.play_arrow, size: 16, color: Colors.green),
-                                                  SizedBox(width: 8),
-                                                  Text('Resume'),
-                                                ],
-                                              ),
-                                            ),
-                                          const PopupMenuItem(
-                                            value: 'refund',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.undo, size: 16, color: Colors.red),
-                                                SizedBox(width: 8),
-                                                Text('Refund'),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                        child: const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text('Actions', style: TextStyle(fontSize: 12)),
-                                              SizedBox(width: 4),
-                                              Icon(Icons.arrow_drop_down, size: 16),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                          ],
+                                        );
+                                      }).toList(),
                                     ),
-                                  ],
-                                );
-                              }).toList(),
-                            ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
               ),
             ],
