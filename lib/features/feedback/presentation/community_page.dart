@@ -249,20 +249,20 @@ class CommunityPage extends StatelessWidget {
           // Image
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.asset(
-              imagePath,
-              height: 140,
+            child: Container(
+              height: 160,
               width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 140,
-                  color: color.withOpacity(0.1),
-                  child: Center(
+              color: Colors.white,
+              padding: const EdgeInsets.all(16),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
                     child: Icon(icon, size: 48, color: color),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
           // Content
