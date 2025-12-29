@@ -60,26 +60,21 @@ class _EarlyAdoptersPageState extends State<EarlyAdoptersPage> {
 
   Future<void> _loadEarlyAdopterStats() async {
     try {
-      // Get early adopter count
+      // Get early adopter count (only active ones)
       final countResponse = await supabase
           .from('early_adopters')
           .select('id')
+          .eq('is_active', true)
           .count();
       
       final count = countResponse.count;
-      
-      // Check if quota is full
-      final settingsResponse = await supabase
-          .from('subscription_settings')
-          .select('value')
-          .eq('key', 'early_adopter_quota_full')
-          .maybeSingle();
       
       if (mounted) {
         setState(() {
           _usedSlots = count;
           _remainingSlots = _totalSlots - count;
-          _quotaFull = settingsResponse?['value'] == 'true';
+          // Quota is full when count reaches 100
+          _quotaFull = count >= _totalSlots;
         });
       }
     } catch (e) {
