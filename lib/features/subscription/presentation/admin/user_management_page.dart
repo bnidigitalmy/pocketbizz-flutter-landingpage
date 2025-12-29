@@ -57,31 +57,16 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
         if (response.data != null && response.data['users'] != null) {
           final authUsers = (response.data['users'] as List);
           
-          // Fetch subscription data for all users
+          // Use enriched data from Edge Function (avoids N+1 queries)
           final usersList = <Map<String, dynamic>>[];
           
           for (final user in authUsers) {
             final userId = user['id'] as String;
             
-            // Get latest subscription for this user with plan info
-            final subResponse = await supabase
-                .from('subscriptions')
-                .select('status, expires_at, subscription_plans(name, duration_months)')
-                .eq('user_id', userId)
-                .order('created_at', ascending: false)
-                .limit(1)
-                .maybeSingle();
+            final subResponse = user['latest_subscription'] as Map<String, dynamic>?;
             
             // Extract plan name from joined data
-            final planName = subResponse?['subscription_plans']?['name'] as String? ?? 'PocketBizz';
-            
-            // Check early adopter status
-            final earlyAdopterResponse = await supabase
-                .from('early_adopters')
-                .select('id, registered_at, is_active')
-                .eq('user_id', userId)
-                .eq('is_active', true)
-                .maybeSingle();
+            final planName = (subResponse?['subscription_plans']?['name'] as String?) ?? 'PocketBizz';
             
             usersList.add({
               'id': userId,
@@ -95,7 +80,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
               'plan': planName,
               'status': _getStatusLabel(subResponse),
               'expiresAt': subResponse?['expires_at'],
-              'isEarlyAdopter': earlyAdopterResponse != null,
+              'isEarlyAdopter': user['is_early_adopter'] == true,
             });
           }
 
@@ -122,36 +107,50 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
       final userIds = <String>{};
       final usersList = <Map<String, dynamic>>[];
       
+      // Collect distinct user_ids first (keep ordering by created_at desc)
       for (final sub in response as List) {
         final subData = sub as Map<String, dynamic>;
         final userId = subData['user_id'] as String;
         if (!userIds.contains(userId)) {
           userIds.add(userId);
-          
-          // Extract plan name from joined data
-          final fallbackPlanName = subData['subscription_plans']?['name'] as String? ?? 'PocketBizz';
-          
-          // Check early adopter status
-          final earlyAdopterResponse = await supabase
-              .from('early_adopters')
-              .select('id, is_active')
-              .eq('user_id', userId)
-              .eq('is_active', true)
-              .maybeSingle();
-          
-          usersList.add({
-            'id': userId,
-            'email': '${userId.substring(0, 8)}...@user',
-            'name': 'User ${userId.substring(0, 6)}',
-            'businessName': null,
-            'created_at': subData['created_at'],
-            'suspended': false,
-            'plan': fallbackPlanName,
-            'status': _getStatusLabel(subData),
-            'expiresAt': subData['expires_at'],
-            'isEarlyAdopter': earlyAdopterResponse != null,
-          });
         }
+      }
+
+      // Batch fetch early adopter user_ids
+      final earlySet = <String>{};
+      if (userIds.isNotEmpty) {
+        final earlyResp = await supabase
+            .from('early_adopters')
+            .select('user_id')
+            .eq('is_active', true)
+            .inFilter('user_id', userIds.toList());
+        for (final row in earlyResp as List) {
+          final uid = (row as Map<String, dynamic>)['user_id'] as String?;
+          if (uid != null) earlySet.add(uid);
+        }
+      }
+
+      // Build user list (no per-user await)
+      final addedUserIds = <String>{};
+      for (final sub in response as List) {
+        final subData = sub as Map<String, dynamic>;
+        final userId = subData['user_id'] as String;
+        if (addedUserIds.contains(userId)) continue;
+        addedUserIds.add(userId);
+
+        final fallbackPlanName = subData['subscription_plans']?['name'] as String? ?? 'PocketBizz';
+        usersList.add({
+          'id': userId,
+          'email': '${userId.substring(0, 8)}...@user',
+          'name': 'User ${userId.substring(0, 6)}',
+          'businessName': null,
+          'created_at': subData['created_at'],
+          'suspended': false,
+          'plan': fallbackPlanName,
+          'status': _getStatusLabel(subData),
+          'expiresAt': subData['expires_at'],
+          'isEarlyAdopter': earlySet.contains(userId),
+        });
       }
       
       if (mounted) {

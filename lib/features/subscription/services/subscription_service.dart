@@ -13,6 +13,7 @@ import '../../../core/supabase/supabase_client.dart';
 /// Business logic for subscription management
 class SubscriptionService {
   final SubscriptionRepositorySupabase _repo = SubscriptionRepositorySupabase();
+  static const Duration _defaultTimeout = Duration(seconds: 12);
   // BCL.my payment forms (must match the exact charged totals)
   // Normal price (RM39/bulan): np-*
   static const _bclFormUrlsNormal = {
@@ -79,7 +80,7 @@ class SubscriptionService {
 
   /// Get current subscription status
   Future<Subscription?> getCurrentSubscription() async {
-    return await _repo.getUserSubscription();
+    return _repo.getUserSubscription().timeout(_defaultTimeout);
   }
 
   /// Check if user has active subscription (trial or paid)
@@ -96,17 +97,97 @@ class SubscriptionService {
 
   /// Check if user is early adopter
   Future<bool> isEarlyAdopter() async {
-    return await _repo.isEarlyAdopter();
+    return _repo.isEarlyAdopter().timeout(_defaultTimeout);
   }
 
   /// Get available subscription plans
   Future<List<SubscriptionPlan>> getAvailablePlans() async {
-    return await _repo.getAvailablePlans();
+    return _repo.getAvailablePlans().timeout(_defaultTimeout);
   }
 
   /// Get plan limits (usage tracking)
   Future<PlanLimits> getPlanLimits() async {
-    return await _repo.getPlanLimits();
+    try {
+      // Fast path: COUNT queries (avoid downloading all rows)
+      return await _getPlanLimitsFast().timeout(_defaultTimeout);
+    } catch (_) {
+      // Fallback (older DBs/edge cases)
+      return _repo.getPlanLimits().timeout(_defaultTimeout);
+    }
+  }
+
+  Future<PlanLimits> _getPlanLimitsFast() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      return PlanLimits(
+        products: LimitInfo(current: 0, max: 0),
+        stockItems: LimitInfo(current: 0, max: 0),
+        transactions: LimitInfo(current: 0, max: 0),
+      );
+    }
+
+    final subscription = await getCurrentSubscription();
+    final isActive = subscription?.isActive ?? false;
+    final isTrial = subscription?.isOnTrial ?? false;
+
+    Future<int> countProducts() async {
+      final resp = await supabase
+          .from('products')
+          .select('id')
+          .eq('business_owner_id', userId)
+          .eq('is_active', true)
+          .count();
+      return resp.count;
+    }
+
+    Future<int> countStockItems() async {
+      try {
+        final resp = await supabase
+            .from('stock_items')
+            .select('id')
+            .eq('business_owner_id', userId)
+            .eq('is_archived', false)
+            .count();
+        return resp.count;
+      } catch (_) {
+        // Backward compatibility
+        final resp = await supabase
+            .from('ingredients')
+            .select('id')
+            .eq('business_owner_id', userId)
+            .count();
+        return resp.count;
+      }
+    }
+
+    Future<int> countTransactions() async {
+      final resp = await supabase
+          .from('sales')
+          .select('id')
+          .eq('business_owner_id', userId)
+          .count();
+      return resp.count;
+    }
+
+    final counts = await Future.wait([
+      countProducts(),
+      countStockItems(),
+      countTransactions(),
+    ]);
+
+    final productsCount = counts[0];
+    final stockItemsCount = counts[1];
+    final transactionsCount = counts[2];
+
+    final maxProducts = isTrial ? 10 : (isActive ? 500 : 10);
+    final maxStockItems = isTrial ? 50 : (isActive ? 2000 : 50);
+    final maxTransactions = isTrial ? 100 : (isActive ? 10000 : 100);
+
+    return PlanLimits(
+      products: LimitInfo(current: productsCount, max: maxProducts),
+      stockItems: LimitInfo(current: stockItemsCount, max: maxStockItems),
+      transactions: LimitInfo(current: transactionsCount, max: maxTransactions),
+    );
   }
 
   /// Redirect to payment form with order_id and pending session
@@ -316,12 +397,12 @@ class SubscriptionService {
 
   /// Get subscription history
   Future<List<Subscription>> getSubscriptionHistory() async {
-    return await _repo.getUserSubscriptionHistory();
+    return _repo.getUserSubscriptionHistory().timeout(_defaultTimeout);
   }
 
   /// Get payment history
   Future<List<SubscriptionPayment>> getPaymentHistory() async {
-    return await _repo.getPaymentHistory();
+    return _repo.getPaymentHistory().timeout(_defaultTimeout);
   }
 
   /// Get payments for specific subscription
