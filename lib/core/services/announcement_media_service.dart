@@ -20,6 +20,13 @@ class AnnouncementMediaService {
     return prefix.endsWith('/') ? prefix : '$prefix/';
   }
 
+  String _extensionFromName(String name, {String fallback = 'mp4'}) {
+    final parts = name.split('.');
+    if (parts.length < 2) return fallback;
+    final ext = parts.last.toLowerCase();
+    return ext.isEmpty ? fallback : ext;
+  }
+
   /// Pick image from gallery or camera
   Future<XFile?> pickImage({bool fromCamera = false}) async {
     try {
@@ -141,14 +148,20 @@ class AnnouncementMediaService {
     String folderPrefix = '',
   }) async {
     try {
-      final String extension = videoFile.path.split('.').last;
+      // On web, XFile.path may be empty (we create it from bytes). Prefer name for extension.
+      final String extension = (() {
+        final byPath = videoFile.path.split('.').last.toLowerCase();
+        if (byPath.isNotEmpty && byPath.length <= 5) return byPath;
+        return _extensionFromName(videoFile.name, fallback: 'mp4');
+      })();
       final String fileName = '${announcementId}-${DateTime.now().millisecondsSinceEpoch}.$extension';
       final String filePath = '${_normalizePrefix(folderPrefix)}videos/$fileName';
+      final String contentType = _getMimeType(extension);
 
       final String url = await _uploadFile(
         file: videoFile,
         filePath: filePath,
-        contentType: 'video/$extension',
+        contentType: contentType,
       );
 
       return AnnouncementMedia(
@@ -156,7 +169,7 @@ class AnnouncementMediaService {
         url: url,
         filename: videoFile.name,
         size: await videoFile.length(),
-        mimeType: 'video/$extension',
+        mimeType: contentType,
       );
     } catch (e) {
       throw Exception('Gagal upload video: $e');
