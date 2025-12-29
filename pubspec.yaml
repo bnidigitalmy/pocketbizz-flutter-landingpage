@@ -31,6 +31,7 @@ dependencies:
   
   # Image handling
   image_picker: ^1.0.7
+  cached_network_image: ^3.3.1  # Performance: Image caching
   
   # File handling
   file_picker: ^8.0.0+1

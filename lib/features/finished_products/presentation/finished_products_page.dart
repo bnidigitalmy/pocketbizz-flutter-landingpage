@@ -13,6 +13,7 @@ import '../../../data/models/finished_product.dart';
 import '../../../data/models/product.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
+import '../../../core/widgets/cached_image.dart';
 import 'batch_details_dialog.dart';
 
 /// Finished Products Page
@@ -332,49 +333,12 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
                     width: 1,
                   ),
                 ),
-                child: productInfo?.imageUrl != null && productInfo!.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          productInfo.imageUrl!,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey[200],
-                              child: Icon(
-                                Icons.inventory_2_outlined,
-                                color: Colors.grey[400],
-                                size: 36,
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: Colors.grey[200],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        child: Icon(
-                          Icons.inventory_2_outlined,
-                          color: Colors.grey[400],
-                          size: 36,
-                        ),
-                      ),
+                child: CachedProductImage(
+                  imageUrl: productInfo?.imageUrl,
+                  width: 80,
+                  height: 80,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               const SizedBox(width: 16),
               // Product Info (Middle - Expanded)

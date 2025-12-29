@@ -23,6 +23,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'add_product_with_recipe_page.dart';
+import '../../../core/widgets/cached_image.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -640,18 +641,12 @@ class _ProductListPageState extends State<ProductListPage> {
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.image, color: Colors.grey);
-                          },
-                        ),
-                      )
-                    : const Icon(Icons.image, color: Colors.grey),
+                child: CachedProductImage(
+                  imageUrl: product.imageUrl,
+                  width: 70,
+                  height: 70,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               const SizedBox(width: 16),
               // Product Info

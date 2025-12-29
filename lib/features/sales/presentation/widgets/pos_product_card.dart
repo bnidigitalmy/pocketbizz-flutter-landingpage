@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/product.dart';
+import '../../../../core/widgets/cached_image.dart';
 
 class PosProductCard extends StatelessWidget {
   final Product product;
@@ -51,29 +52,12 @@ class PosProductCard extends StatelessWidget {
                         top: Radius.circular(12),
                       ),
                     ),
-                    child: product.imageUrl != null &&
-                            product.imageUrl!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12),
-                            ),
-                            child: Image.network(
-                              product.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 48,
-                                  color: Colors.grey[400],
-                                );
-                              },
-                            ),
-                          )
-                        : Icon(
-                            Icons.inventory_2_outlined,
-                            size: 48,
-                            color: Colors.grey[400],
-                          ),
+                    child: CachedProductImage(
+                      imageUrl: product.imageUrl,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
                 // Product Info
