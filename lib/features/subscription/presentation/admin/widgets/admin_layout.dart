@@ -91,7 +91,7 @@ class _AdminLayoutState extends State<AdminLayout> {
     final isMobile = MediaQuery.of(context).size.width < 768;
     
     if (isMobile) {
-      // Mobile: Bottom Navigation
+      // Mobile: Bottom Navigation - Scrollable horizontal
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -104,36 +104,49 @@ class _AdminLayoutState extends State<AdminLayout> {
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Container(
-            height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: _navItems.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final isSelected = _selectedIndex == index;
-                
-                return Expanded(
-                  child: InkWell(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: _navItems.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final isSelected = _selectedIndex == index;
+                  
+                  return InkWell(
                     onTap: () => _onNavItemTapped(index),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? AppColors.primary.withOpacity(0.1) 
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             item.icon,
                             color: isSelected
                                 ? AppColors.primary
                                 : Colors.grey[600],
-                            size: 24,
+                            size: 20,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
-                            item.label,
+                            item.label.length > 10 
+                                ? '${item.label.substring(0, 8)}...' 
+                                : item.label,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 9,
                               fontWeight: isSelected
                                   ? FontWeight.w600
                                   : FontWeight.normal,
@@ -141,13 +154,14 @@ class _AdminLayoutState extends State<AdminLayout> {
                                   ? AppColors.primary
                                   : Colors.grey[600],
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),

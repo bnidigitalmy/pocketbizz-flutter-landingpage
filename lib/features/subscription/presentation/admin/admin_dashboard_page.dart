@@ -140,16 +140,24 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<void> _loadRecentActivities() async {
     try {
-      // Get recent subscriptions
+      // Get recent subscriptions with plan info
       final response = await supabase
           .from('subscriptions')
-          .select('id, user_id, status, plan_name, created_at')
+          .select('id, user_id, status, created_at, subscription_plans(name)')
           .order('created_at', ascending: false)
           .limit(5);
       
       if (mounted) {
+        final activities = (response as List).map((item) {
+          final data = item as Map<String, dynamic>;
+          return {
+            ...data,
+            'plan_name': data['subscription_plans']?['name'] ?? 'PocketBizz',
+          };
+        }).toList();
+        
         setState(() {
-          _recentActivities = (response as List).cast<Map<String, dynamic>>();
+          _recentActivities = activities.cast<Map<String, dynamic>>();
         });
       }
     } catch (e) {

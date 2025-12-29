@@ -63,14 +63,17 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
           for (final user in authUsers) {
             final userId = user['id'] as String;
             
-            // Get latest subscription for this user
+            // Get latest subscription for this user with plan info
             final subResponse = await supabase
                 .from('subscriptions')
-                .select('status, plan_name, expires_at, duration_months')
+                .select('status, expires_at, duration_months, subscription_plans(name)')
                 .eq('user_id', userId)
                 .order('created_at', ascending: false)
                 .limit(1)
                 .maybeSingle();
+            
+            // Extract plan name from joined data
+            final planName = subResponse?['subscription_plans']?['name'] as String? ?? 'PocketBizz';
             
             // Check early adopter status
             final earlyAdopterResponse = await supabase
@@ -88,7 +91,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
               'businessName': user['user_metadata']?['business_name'],
               'created_at': user['created_at'],
               'suspended': user['banned_until'] != null,
-              'plan': subResponse?['plan_name'] ?? 'No Plan',
+              'plan': planName,
               'status': _getStatusLabel(subResponse),
               'expiresAt': subResponse?['expires_at'],
               'isEarlyAdopter': earlyAdopterResponse != null,
@@ -112,7 +115,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
       // Fallback: get from subscriptions with more data
       final response = await supabase
           .from('subscriptions')
-          .select('user_id, created_at, status, plan_name, expires_at, duration_months')
+          .select('user_id, created_at, status, expires_at, duration_months, subscription_plans(name)')
           .order('created_at', ascending: false)
           .limit(1000);
       
@@ -124,6 +127,9 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
         final userId = subData['user_id'] as String;
         if (!userIds.contains(userId)) {
           userIds.add(userId);
+          
+          // Extract plan name from joined data
+          final fallbackPlanName = subData['subscription_plans']?['name'] as String? ?? 'PocketBizz';
           
           // Check early adopter status
           final earlyAdopterResponse = await supabase
@@ -139,7 +145,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
             'businessName': null,
             'created_at': subData['created_at'],
             'suspended': false,
-            'plan': subData['plan_name'] ?? 'No Plan',
+            'plan': fallbackPlanName,
             'status': _getStatusLabel(subData),
             'expiresAt': subData['expires_at'],
             'isEarlyAdopter': earlyAdopterResponse != null,
