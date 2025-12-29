@@ -94,42 +94,27 @@ class _EarlyAdoptersPageState extends State<EarlyAdoptersPage> {
           .select('''
             id,
             user_id,
-            registration_number,
+            user_email,
             registered_at,
-            converted_at,
-            subscription_id
+            subscription_started_at,
+            is_active
           ''')
-          .order('registration_number', ascending: true)
+          .eq('is_active', true)
+          .order('registered_at', ascending: true)
           .limit(100);
       
       final data = (response as List).cast<Map<String, dynamic>>();
       
-      // Enrich with user emails if possible
-      final enrichedData = <Map<String, dynamic>>[];
-      for (final item in data) {
-        final userId = item['user_id'] as String;
-        
-        // Try to get user email from subscriptions table
-        String email = '${userId.substring(0, 8)}...';
-        try {
-          final subResponse = await supabase
-              .from('subscriptions')
-              .select('user_id')
-              .eq('user_id', userId)
-              .limit(1)
-              .maybeSingle();
-          
-          if (subResponse != null) {
-            // For now, use truncated user ID
-            email = '${userId.substring(0, 12)}...';
-          }
-        } catch (_) {}
-        
-        enrichedData.add({
+      // Use the user_email from the table directly
+      final enrichedData = data.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        return {
           ...item,
-          'email': email,
-        });
-      }
+          'registration_number': index + 1, // Sequential number based on order
+          'email': item['user_email'] ?? '${(item['user_id'] as String?)?.substring(0, 8) ?? 'unknown'}...',
+        };
+      }).toList();
       
       if (mounted) {
         setState(() {
@@ -441,8 +426,8 @@ class _EarlyAdoptersPageState extends State<EarlyAdoptersPage> {
                     final registeredAt = adopter['registered_at'] != null
                         ? DateTime.parse(adopter['registered_at'] as String)
                         : null;
-                    final convertedAt = adopter['converted_at'];
-                    final hasConverted = convertedAt != null;
+                    final subscriptionStartedAt = adopter['subscription_started_at'];
+                    final hasConverted = subscriptionStartedAt != null;
                     
                     return DataRow(
                       cells: [

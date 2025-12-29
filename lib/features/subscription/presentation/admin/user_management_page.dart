@@ -78,8 +78,9 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
             // Check early adopter status
             final earlyAdopterResponse = await supabase
                 .from('early_adopters')
-                .select('registration_number')
+                .select('id, registered_at, is_active')
                 .eq('user_id', userId)
+                .eq('is_active', true)
                 .maybeSingle();
             
             usersList.add({
@@ -95,7 +96,6 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
               'status': _getStatusLabel(subResponse),
               'expiresAt': subResponse?['expires_at'],
               'isEarlyAdopter': earlyAdopterResponse != null,
-              'earlyAdopterNumber': earlyAdopterResponse?['registration_number'],
             });
           }
 
@@ -134,8 +134,9 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
           // Check early adopter status
           final earlyAdopterResponse = await supabase
               .from('early_adopters')
-              .select('registration_number')
+              .select('id, is_active')
               .eq('user_id', userId)
+              .eq('is_active', true)
               .maybeSingle();
           
           usersList.add({
@@ -149,7 +150,6 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
             'status': _getStatusLabel(subData),
             'expiresAt': subData['expires_at'],
             'isEarlyAdopter': earlyAdopterResponse != null,
-            'earlyAdopterNumber': earlyAdopterResponse?['registration_number'],
           });
         }
       }
@@ -424,7 +424,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
                                             if (user['isEarlyAdopter'] == true) ...[
                                               const SizedBox(width: 4),
                                               Tooltip(
-                                                message: 'Early Adopter #${user['earlyAdopterNumber']}',
+                                                message: 'Early Adopter',
                                                 child: const Icon(Icons.star, size: 14, color: Colors.amber),
                                               ),
                                             ],
