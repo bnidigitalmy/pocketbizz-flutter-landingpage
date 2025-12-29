@@ -139,6 +139,13 @@ class _LoginPageState extends State<LoginPage> {
         );
 
         if (response.user != null) {
+          // Send welcome email immediately (fire and forget)
+          // This should be sent regardless of email confirmation requirement
+          _sendWelcomeEmail(
+            email: _emailController.text.trim(),
+            name: _nameController.text.trim(),
+          );
+
           // Check if email confirmation is required
           if (response.session == null) {
             // Email confirmation required - user profile will be created by database trigger
@@ -146,7 +153,7 @@ class _LoginPageState extends State<LoginPage> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Account created! Please check your email to confirm your account, then sign in to start your free trial.'),
+                  content: Text('Akaun berjaya dicipta! Sila semak email anda untuk pengesahan, kemudian log masuk untuk mulakan trial percuma.'),
                   backgroundColor: Colors.orange,
                   duration: Duration(seconds: 6),
                 ),
@@ -176,16 +183,10 @@ class _LoginPageState extends State<LoginPage> {
             }
           }
 
-          // Send welcome email (fire and forget)
-          _sendWelcomeEmail(
-            email: _emailController.text.trim(),
-            name: _nameController.text.trim(),
-          );
-
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Account created! Free 7-day trial started.'),
+                content: Text('Akaun berjaya dicipta! Trial percuma 7 hari bermula.'),
                 backgroundColor: Colors.green,
                 duration: Duration(seconds: 4),
               ),
