@@ -133,23 +133,30 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   Future<Map<String, dynamic>> _loadTodaySalesStats() async {
     try {
       final today = DateTime.now();
-      final todayStart = DateTime(today.year, today.month, today.day);
-      final todayEnd = todayStart.add(const Duration(days: 1));
+      // IMPORTANT: DB timestamps are stored as timestamptz (UTC).
+      // Use local day boundaries converted to UTC when querying PostgREST,
+      // otherwise "sales today" can be missed due to timezone mismatch.
+      final todayStartLocal = DateTime(today.year, today.month, today.day);
+      final todayEndLocal = todayStartLocal.add(const Duration(days: 1));
+      final todayStartUtc = todayStartLocal.toUtc();
+      final todayEndUtc = todayEndLocal.toUtc();
 
       final yesterday = today.subtract(const Duration(days: 1));
-      final yesterdayStart = DateTime(yesterday.year, yesterday.month, yesterday.day);
-      final yesterdayEnd = yesterdayStart.add(const Duration(days: 1));
+      final yesterdayStartLocal = DateTime(yesterday.year, yesterday.month, yesterday.day);
+      final yesterdayEndLocal = yesterdayStartLocal.add(const Duration(days: 1));
+      final yesterdayStartUtc = yesterdayStartLocal.toUtc();
+      final yesterdayEndUtc = yesterdayEndLocal.toUtc();
 
       // Get today's sales
       final todaySales = await _salesRepo.listSales(
-        startDate: todayStart,
-        endDate: todayEnd,
+        startDate: todayStartUtc,
+        endDate: todayEndUtc,
       );
 
       // Get yesterday's sales
       final yesterdaySales = await _salesRepo.listSales(
-        startDate: yesterdayStart,
-        endDate: yesterdayEnd,
+        startDate: yesterdayStartUtc,
+        endDate: yesterdayEndUtc,
       );
 
       // Get today's completed bookings (optimized: only fetch what we need)
@@ -159,8 +166,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       );
       final todayBookingsInRange = todayBookings.where((booking) {
         final bookingDate = booking.createdAt;
-        return bookingDate.isAfter(todayStart.subtract(const Duration(days: 1))) &&
-            bookingDate.isBefore(todayEnd);
+        return bookingDate.isAfter(todayStartLocal.subtract(const Duration(days: 1))) &&
+            bookingDate.isBefore(todayEndLocal);
       }).toList();
 
       // Get yesterday's completed bookings (optimized: only fetch what we need)
@@ -170,14 +177,14 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       );
       final yesterdayBookingsInRange = yesterdayBookings.where((booking) {
         final bookingDate = booking.createdAt;
-        return bookingDate.isAfter(yesterdayStart.subtract(const Duration(days: 1))) &&
-            bookingDate.isBefore(yesterdayEnd);
+        return bookingDate.isAfter(yesterdayStartLocal.subtract(const Duration(days: 1))) &&
+            bookingDate.isBefore(yesterdayEndLocal);
       }).toList();
 
       // Get today's consignment revenue (settled claims) - optimized limit
       final todayClaimsResponse = await _claimsRepo.listClaims(
-        fromDate: todayStart,
-        toDate: todayEnd,
+        fromDate: todayStartUtc,
+        toDate: todayEndUtc,
         status: ClaimStatus.settled,
         limit: 100, // Reduced from 10000 - only need today's claims
       );
@@ -192,8 +199,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
       // Get yesterday's consignment revenue - optimized limit
       final yesterdayClaimsResponse = await _claimsRepo.listClaims(
-        fromDate: yesterdayStart,
-        toDate: yesterdayEnd,
+        fromDate: yesterdayStartUtc,
+        toDate: yesterdayEndUtc,
         status: ClaimStatus.settled,
         limit: 100, // Reduced from 10000 - only need yesterday's claims
       );
@@ -274,13 +281,15 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   Future<List<SalesByChannel>> _loadSalesByChannel() async {
     try {
       final today = DateTime.now();
-      final todayStart = DateTime(today.year, today.month, today.day);
-      final todayEnd = todayStart.add(const Duration(days: 1));
+      final todayStartLocal = DateTime(today.year, today.month, today.day);
+      final todayEndLocal = todayStartLocal.add(const Duration(days: 1));
+      final todayStartUtc = todayStartLocal.toUtc();
+      final todayEndUtc = todayEndLocal.toUtc();
 
       // Get sales by channel from reports (already includes bookings and consignment)
       final channels = await _reportsRepo.getSalesByChannel(
-        startDate: todayStart,
-        endDate: todayEnd,
+        startDate: todayStartUtc,
+        endDate: todayEndUtc,
       );
 
       return channels;
