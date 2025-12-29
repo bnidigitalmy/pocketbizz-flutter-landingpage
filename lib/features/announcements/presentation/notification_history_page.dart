@@ -5,6 +5,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/models/announcement.dart';
 import '../../../data/repositories/announcements_repository_supabase.dart';
+import '../../feedback/presentation/user_guide_page.dart';
+import '../../feedback/presentation/community_page.dart';
+import '../../subscription/presentation/subscription_page.dart';
 
 /// Notification history page to view previously viewed announcements
 class NotificationHistoryPage extends StatefulWidget {
@@ -48,8 +51,17 @@ class _NotificationHistoryPageState extends State<NotificationHistoryPage> {
 
   Future<void> _handleAction(Announcement announcement) async {
     if (announcement.actionUrl != null) {
+      final url = announcement.actionUrl!;
+      
+      // Handle internal app navigation (app:// scheme)
+      if (url.startsWith('app://')) {
+        _navigateToInternalPage(url);
+        return;
+      }
+      
+      // External URL - open in browser
       try {
-        final uri = Uri.parse(announcement.actionUrl!);
+        final uri = Uri.parse(url);
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
@@ -64,6 +76,41 @@ class _NotificationHistoryPageState extends State<NotificationHistoryPage> {
         }
       }
     }
+  }
+
+  /// Navigate to internal app pages using app:// scheme
+  void _navigateToInternalPage(String url) {
+    final route = url.replaceFirst('app://', '');
+    
+    Widget? page;
+    switch (route) {
+      case 'user-guide':
+      case 'panduan':
+        page = const UserGuidePage();
+        break;
+      case 'community':
+      case 'komuniti':
+        page = const CommunityPage();
+        break;
+      case 'subscription':
+      case 'langganan':
+        page = const SubscriptionPage();
+        break;
+      default:
+        // Unknown route, show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Halaman tidak dijumpai: $route'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => page!),
+    );
   }
 
   @override
