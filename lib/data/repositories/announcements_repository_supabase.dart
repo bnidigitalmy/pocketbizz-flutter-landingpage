@@ -143,6 +143,7 @@ class AnnouncementsRepositorySupabase {
     String? targetAudience,
     bool? isActive,
     DateTime? showUntil,
+    bool clearShowUntil = false,
     String? actionUrl,
     String? actionLabel,
     List<AnnouncementMedia>? media,
@@ -157,10 +158,10 @@ class AnnouncementsRepositorySupabase {
     if (priority != null) updateData['priority'] = priority;
     if (targetAudience != null) updateData['target_audience'] = targetAudience;
     if (isActive != null) updateData['is_active'] = isActive;
-    if (showUntil != null) {
-      updateData['show_until'] = showUntil.toIso8601String();
-    } else if (showUntil == null && updateData.containsKey('show_until')) {
+    if (clearShowUntil) {
       updateData['show_until'] = null;
+    } else if (showUntil != null) {
+      updateData['show_until'] = showUntil.toIso8601String();
     }
     if (actionUrl != null) updateData['action_url'] = actionUrl;
     if (actionLabel != null) updateData['action_label'] = actionLabel;

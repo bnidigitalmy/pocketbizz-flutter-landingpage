@@ -64,6 +64,372 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
     }
   }
 
+  void _showEditDialog(Announcement announcement) {
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController(text: announcement.title);
+    final messageController = TextEditingController(text: announcement.message);
+    final mediaService = AnnouncementMediaService();
+    String selectedType = announcement.type;
+    String selectedPriority = announcement.priority;
+    String selectedTarget = announcement.targetAudience;
+    bool isActive = announcement.isActive;
+    List<AnnouncementMedia> mediaList = List<AnnouncementMedia>.from(announcement.media);
+    bool isUploadingMedia = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Announcement'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tajuk',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Sila masukkan tajuk' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: messageController,
+                    decoration: const InputDecoration(
+                      labelText: 'Mesej',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 5,
+                    validator: (value) =>
+                        value?.isEmpty ?? true ? 'Sila masukkan mesej' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(
+                      labelText: 'Jenis',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['info', 'success', 'warning', 'error', 'feature', 'maintenance']
+                        .map((type) {
+                      final ann = Announcement(
+                        id: '',
+                        title: '',
+                        message: '',
+                        type: type,
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(ann.typeLabel),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => selectedType = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedPriority,
+                    decoration: const InputDecoration(
+                      labelText: 'Keutamaan',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['low', 'normal', 'high', 'urgent'].map((priority) {
+                      final ann = Announcement(
+                        id: '',
+                        title: '',
+                        message: '',
+                        priority: priority,
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
+                      return DropdownMenuItem(
+                        value: priority,
+                        child: Text(ann.priorityLabel),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => selectedPriority = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedTarget,
+                    decoration: const InputDecoration(
+                      labelText: 'Sasaran',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['all', 'trial', 'active', 'expired', 'grace'].map((target) {
+                      final ann = Announcement(
+                        id: '',
+                        title: '',
+                        message: '',
+                        targetAudience: target,
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
+                      return DropdownMenuItem(
+                        value: target,
+                        child: Text(ann.targetAudienceLabel),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) setDialogState(() => selectedTarget = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  CheckboxListTile(
+                    title: const Text('Aktif'),
+                    value: isActive,
+                    onChanged: (value) {
+                      setDialogState(() => isActive = value ?? true);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Lampiran Media',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final image = await mediaService.pickImage();
+                                    if (image != null) {
+                                      final uploadedMedia =
+                                          await mediaService.uploadImage(image, announcement.id);
+                                      setDialogState(() {
+                                        mediaList.add(uploadedMedia);
+                                        isUploadingMedia = false;
+                                      });
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload gambar: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.image, size: 18),
+                          label: const Text('Gambar'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final video = await mediaService.pickVideo();
+                                    if (video != null) {
+                                      final uploadedMedia =
+                                          await mediaService.uploadVideo(video, announcement.id);
+                                      setDialogState(() {
+                                        mediaList.add(uploadedMedia);
+                                        isUploadingMedia = false;
+                                      });
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload video: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.video_library, size: 18),
+                          label: const Text('Video'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isUploadingMedia
+                              ? null
+                              : () async {
+                                  try {
+                                    setDialogState(() => isUploadingMedia = true);
+                                    final result = await mediaService.pickFile(
+                                      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
+                                    );
+                                    if (result != null && result.files.isNotEmpty) {
+                                      final platformFile = result.files.single;
+                                      final isValidFile =
+                                          platformFile.bytes != null || platformFile.path != null;
+                                      if (isValidFile) {
+                                        final uploadedMedia =
+                                            await mediaService.uploadFile(platformFile, announcement.id);
+                                        setDialogState(() {
+                                          mediaList.add(uploadedMedia);
+                                          isUploadingMedia = false;
+                                        });
+                                      } else {
+                                        setDialogState(() => isUploadingMedia = false);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Text('Fail tidak valid atau tidak boleh diakses'),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } else {
+                                      setDialogState(() => isUploadingMedia = false);
+                                    }
+                                  } catch (e) {
+                                    setDialogState(() => isUploadingMedia = false);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Gagal upload fail: $e'),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: const Icon(Icons.attach_file, size: 18),
+                          label: const Text('Fail'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isUploadingMedia) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
+                  if (mediaList.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    ...mediaList.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final media = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              media.isImage
+                                  ? Icons.image
+                                  : media.isVideo
+                                      ? Icons.video_library
+                                      : Icons.attach_file,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                media.filename,
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                              onPressed: () {
+                                setDialogState(() {
+                                  mediaList.removeAt(index);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: isUploadingMedia
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        try {
+                          await _repo.updateAnnouncement(
+                            id: announcement.id,
+                            title: titleController.text.trim(),
+                            message: messageController.text.trim(),
+                            type: selectedType,
+                            priority: selectedPriority,
+                            targetAudience: selectedTarget,
+                            isActive: isActive,
+                            media: mediaList,
+                          );
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            _loadAnnouncements();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Announcement telah dikemaskini'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal kemaskini announcement: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showAddDialog() {
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController();
@@ -530,7 +896,7 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                     child: const Text('Tidak Aktif', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ),
                 const SizedBox(width: 8),
-                PopupMenuButton(
+                PopupMenuButton<String>(
                   itemBuilder: (context) => [
                     const PopupMenuItem(value: 'edit', child: Text('Edit')),
                     PopupMenuItem(
@@ -540,7 +906,7 @@ class _AdminAnnouncementsPageState extends State<AdminAnnouncementsPage> {
                   ],
                   onSelected: (value) {
                     if (value == 'edit') {
-                      // TODO: Implement edit
+                      _showEditDialog(announcement);
                     } else if (value == 'delete') {
                       _deleteAnnouncement(announcement);
                     }
