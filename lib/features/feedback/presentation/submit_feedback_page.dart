@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/services/announcement_media_service.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/announcement_media.dart';
 import '../../../data/models/feedback_request.dart';
 import '../../../data/repositories/feedback_repository_supabase.dart';
 
@@ -15,6 +18,7 @@ class SubmitFeedbackPage extends StatefulWidget {
 class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
   final _formKey = GlobalKey<FormState>();
   final _repo = FeedbackRepositorySupabase();
+  final _mediaService = AnnouncementMediaService();
   
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -22,6 +26,8 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
   String _selectedType = 'suggestion';
   String _selectedPriority = 'normal';
   bool _isSubmitting = false;
+  bool _isUploadingAttachment = false;
+  final List<AnnouncementMedia> _attachments = [];
 
   @override
   void dispose() {
@@ -41,6 +47,7 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         priority: _selectedPriority,
+        attachments: _attachments,
       );
 
       if (mounted) {
@@ -200,9 +207,111 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
               ),
               const SizedBox(height: 24),
 
+              // Attachments
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.attach_file, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Lampiran (Opsyenal)',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Boleh attach gambar/video/fail (PDF) untuk bantu admin faham masalah.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isUploadingAttachment ? null : _pickAndUploadImage,
+                            icon: const Icon(Icons.image, size: 18),
+                            label: const Text('Gambar'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isUploadingAttachment ? null : _pickAndUploadVideo,
+                            icon: const Icon(Icons.video_library, size: 18),
+                            label: const Text('Video'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isUploadingAttachment ? null : _pickAndUploadFile,
+                            icon: const Icon(Icons.picture_as_pdf, size: 18),
+                            label: const Text('Fail'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_isUploadingAttachment) ...[
+                      const SizedBox(height: 10),
+                      const LinearProgressIndicator(),
+                    ],
+                    if (_attachments.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ..._attachments.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final a = entry.value;
+                        final icon = a.isImage
+                            ? Icons.image
+                            : a.isVideo
+                                ? Icons.video_library
+                                : Icons.insert_drive_file;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(icon, size: 18, color: Colors.grey[700]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  a.filename,
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                                onPressed: () => setState(() => _attachments.removeAt(idx)),
+                                tooltip: 'Buang',
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Submit button
               ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitFeedback,
+                onPressed: (_isSubmitting || _isUploadingAttachment) ? null : _submitFeedback,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -270,6 +379,83 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
       selectedColor: color.withOpacity(0.2),
       checkmarkColor: color,
     );
+  }
+
+  String _folderPrefix() {
+    final uid = supabase.auth.currentUser?.id ?? 'unknown';
+    return 'feedback/$uid';
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    try {
+      setState(() => _isUploadingAttachment = true);
+      final img = await _mediaService.pickImage();
+      if (img == null) return;
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final uploaded = await _mediaService.uploadImage(
+        img,
+        'fb-$tempId',
+        folderPrefix: _folderPrefix(),
+      );
+      if (!mounted) return;
+      setState(() => _attachments.add(uploaded));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload gambar: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingAttachment = false);
+    }
+  }
+
+  Future<void> _pickAndUploadVideo() async {
+    try {
+      setState(() => _isUploadingAttachment = true);
+      final vid = await _mediaService.pickVideo();
+      if (vid == null) return;
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final uploaded = await _mediaService.uploadVideo(
+        vid,
+        'fb-$tempId',
+        folderPrefix: _folderPrefix(),
+      );
+      if (!mounted) return;
+      setState(() => _attachments.add(uploaded));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload video: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingAttachment = false);
+    }
+  }
+
+  Future<void> _pickAndUploadFile() async {
+    try {
+      setState(() => _isUploadingAttachment = true);
+      final result = await _mediaService.pickFile(
+        allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'jpg', 'jpeg', 'png', 'mp4', 'mov'],
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      final uploaded = await _mediaService.uploadFile(
+        file,
+        'fb-$tempId',
+        folderPrefix: _folderPrefix(),
+      );
+      if (!mounted) return;
+      setState(() => _attachments.add(uploaded));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload fail: $e'), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingAttachment = false);
+    }
   }
 }
 

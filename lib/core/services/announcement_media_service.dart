@@ -15,6 +15,11 @@ class AnnouncementMediaService {
   static const String _bucketName = 'announcement-media';
   final ImagePicker _imagePicker = ImagePicker();
 
+  String _normalizePrefix(String prefix) {
+    if (prefix.isEmpty) return '';
+    return prefix.endsWith('/') ? prefix : '$prefix/';
+  }
+
   /// Pick image from gallery or camera
   Future<XFile?> pickImage({bool fromCamera = false}) async {
     try {
@@ -59,10 +64,14 @@ class AnnouncementMediaService {
   }
 
   /// Upload image and return AnnouncementMedia
-  Future<AnnouncementMedia> uploadImage(XFile imageFile, String announcementId) async {
+  Future<AnnouncementMedia> uploadImage(
+    XFile imageFile,
+    String announcementId, {
+    String folderPrefix = '',
+  }) async {
     try {
       final String fileName = '${announcementId}-${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final String filePath = 'images/$fileName';
+      final String filePath = '${_normalizePrefix(folderPrefix)}images/$fileName';
 
       final String url = await _uploadFile(
         file: imageFile,
@@ -83,11 +92,15 @@ class AnnouncementMediaService {
   }
 
   /// Upload video and return AnnouncementMedia
-  Future<AnnouncementMedia> uploadVideo(XFile videoFile, String announcementId) async {
+  Future<AnnouncementMedia> uploadVideo(
+    XFile videoFile,
+    String announcementId, {
+    String folderPrefix = '',
+  }) async {
     try {
       final String extension = videoFile.path.split('.').last;
       final String fileName = '${announcementId}-${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final String filePath = 'videos/$fileName';
+      final String filePath = '${_normalizePrefix(folderPrefix)}videos/$fileName';
 
       final String url = await _uploadFile(
         file: videoFile,
@@ -110,12 +123,14 @@ class AnnouncementMediaService {
   /// Upload file and return AnnouncementMedia
   Future<AnnouncementMedia> uploadFile(
     PlatformFile platformFile,
-    String announcementId,
+    String announcementId, {
+    String folderPrefix = '',
+  }
   ) async {
     try {
       final String extension = platformFile.extension ?? 'bin';
       final String fileName = '${announcementId}-${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final String filePath = 'files/$fileName';
+      final String filePath = '${_normalizePrefix(folderPrefix)}files/$fileName';
 
       String url;
       if (kIsWeb) {

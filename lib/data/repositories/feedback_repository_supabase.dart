@@ -1,5 +1,6 @@
 import '../../core/supabase/supabase_client.dart';
 import '../models/feedback_request.dart';
+import '../models/announcement_media.dart';
 
 /// Feedback Repository for managing feedback requests
 class FeedbackRepositorySupabase {
@@ -46,6 +47,7 @@ class FeedbackRepositorySupabase {
     required String title,
     required String description,
     String priority = 'normal',
+    List<AnnouncementMedia>? attachments,
   }) async {
     final userId = supabase.auth.currentUser!.id;
 
@@ -55,6 +57,7 @@ class FeedbackRepositorySupabase {
       'title': title,
       'description': description,
       'priority': priority,
+      'attachments': (attachments ?? const []).map((a) => a.toJson()).toList(),
     };
 
     final response = await supabase

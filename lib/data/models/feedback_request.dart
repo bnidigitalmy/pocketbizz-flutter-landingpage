@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'announcement_media.dart';
 
 /// Feedback Request Model
 /// Represents user feedback, bug reports, feature requests, and suggestions
@@ -27,6 +28,9 @@ class FeedbackRequest {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Attachments (image/video/file)
+  final List<AnnouncementMedia> attachments;
+
   FeedbackRequest({
     required this.id,
     required this.businessOwnerId,
@@ -41,9 +45,18 @@ class FeedbackRequest {
     this.completedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.attachments = const [],
   });
 
   factory FeedbackRequest.fromJson(Map<String, dynamic> json) {
+    List<AnnouncementMedia> attachments = [];
+    final raw = json['attachments'];
+    if (raw is List) {
+      attachments = raw
+          .whereType<Map<String, dynamic>>()
+          .map(AnnouncementMedia.fromJson)
+          .toList();
+    }
     return FeedbackRequest(
       id: json['id'] as String,
       businessOwnerId: json['business_owner_id'] as String,
@@ -60,6 +73,7 @@ class FeedbackRequest {
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      attachments: attachments,
     );
   }
 
@@ -78,6 +92,7 @@ class FeedbackRequest {
       'completed_at': completedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'attachments': attachments.map((a) => a.toJson()).toList(),
     };
   }
 
@@ -88,6 +103,7 @@ class FeedbackRequest {
       'title': title,
       'description': description,
       'priority': priority,
+      'attachments': attachments.map((a) => a.toJson()).toList(),
     };
   }
 
