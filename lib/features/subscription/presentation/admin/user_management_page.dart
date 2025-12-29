@@ -66,7 +66,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
             // Get latest subscription for this user with plan info
             final subResponse = await supabase
                 .from('subscriptions')
-                .select('status, expires_at, duration_months, subscription_plans(name)')
+                .select('status, expires_at, subscription_plans(name, duration_months)')
                 .eq('user_id', userId)
                 .order('created_at', ascending: false)
                 .limit(1)
@@ -115,7 +115,7 @@ class _AdminUserManagementPageState extends State<AdminUserManagementPage> {
       // Fallback: get from subscriptions with more data
       final response = await supabase
           .from('subscriptions')
-          .select('user_id, created_at, status, expires_at, duration_months, subscription_plans(name)')
+          .select('user_id, created_at, status, expires_at, subscription_plans(name, duration_months)')
           .order('created_at', ascending: false)
           .limit(1000);
       
