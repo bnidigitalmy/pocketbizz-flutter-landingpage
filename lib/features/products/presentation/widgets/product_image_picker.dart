@@ -49,7 +49,9 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
+          const SnackBar(
+            content: Text('Gambar gagal dipilih. Sila cuba lagi.'),
+          ),
         );
       }
     } finally {
@@ -66,7 +68,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
+              title: const Text('Pilih dari Galeri'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
@@ -74,7 +76,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a Photo'),
+              title: const Text('Ambil Gambar'),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(ImageSource.camera);
@@ -83,7 +85,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
             if (_currentImageUrl != null || _pendingImage != null)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Remove Image'),
+                title: const Text('Padam Gambar'),
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {
@@ -95,7 +97,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
               ),
             ListTile(
               leading: const Icon(Icons.cancel),
-              title: const Text('Cancel'),
+              title: const Text('Batal'),
               onTap: () => Navigator.pop(context),
             ),
           ],
@@ -199,7 +201,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
           Icon(Icons.image, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 8),
           Text(
-            'No Image',
+            'Tiada Gambar',
             style: TextStyle(color: Colors.grey[600]),
           ),
         ],
@@ -213,7 +215,7 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Product Image',
+          'Gambar Produk',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -231,8 +233,8 @@ class _ProductImagePickerState extends State<ProductImagePicker> {
             icon: const Icon(Icons.add_photo_alternate),
             label: Text(
               _currentImageUrl != null || _pendingImage != null
-                  ? 'Change Image'
-                  : 'Add Image',
+                  ? 'Tukar Gambar'
+                  : 'Tambah Gambar',
             ),
           ),
         ),

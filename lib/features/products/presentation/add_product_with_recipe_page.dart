@@ -316,7 +316,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ralat memilih gambar: $e'),
+            content: const Text(
+              'Gambar gagal dipilih. Sila cuba lagi (pilih semula gambar dari galeri).',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -427,7 +429,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Gambar tidak dapat dimuat naik: $e'),
+                  content: const Text(
+                    'Gambar tidak berjaya dimuat naik. Anda boleh cuba tukar gambar sekali lagi.',
+                  ),
                   backgroundColor: Colors.orange,
                 ),
               );

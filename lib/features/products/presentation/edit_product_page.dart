@@ -100,7 +100,9 @@ class _EditProductPageState extends State<EditProductPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ralat memilih gambar: $e'),
+            content: const Text(
+              'Gambar gagal dipilih. Sila cuba lagi (pilih semula gambar dari galeri).',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -176,7 +178,9 @@ class _EditProductPageState extends State<EditProductPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Ralat memuat naik gambar: $e'),
+                content: const Text(
+                  'Gambar tidak berjaya dimuat naik. Produk tetap disimpan, tapi sila cuba tukar gambar sekali lagi.',
+                ),
                 backgroundColor: Colors.orange,
               ),
             );
@@ -223,7 +227,9 @@ class _EditProductPageState extends State<EditProductPage> {
         if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ralat: $e'),
+              content: const Text(
+                'Ada masalah semasa simpan produk. Sila cuba lagi.',
+              ),
             backgroundColor: Colors.red,
           ),
         );

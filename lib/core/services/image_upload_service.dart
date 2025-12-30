@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../supabase/supabase_client.dart';
@@ -14,9 +15,33 @@ class ImageUploadService {
   static const String _bucketName = 'product-images';
   final ImagePicker _picker = ImagePicker();
 
+  XFile _xFileFromPickedBytes(PlatformFile f) {
+    final bytes = f.bytes;
+    if (bytes == null) {
+      throw Exception('Fail gambar tidak dapat dibaca');
+    }
+    final ext = (f.extension ?? 'jpg').toLowerCase();
+    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+    return XFile.fromData(
+      bytes,
+      name: f.name,
+      mimeType: mime,
+    );
+  }
+
   /// Pick image from gallery
   Future<XFile?> pickImageFromGallery() async {
     try {
+      // Web (especially iOS Safari/PWA): avoid ImagePicker blob: URLs that can get revoked.
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return null;
+        return _xFileFromPickedBytes(result.files.single);
+      }
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1024,
@@ -32,6 +57,16 @@ class ImageUploadService {
   /// Pick image from camera
   Future<XFile?> pickImageFromCamera() async {
     try {
+      // Web: use FilePicker too. Most browsers will still allow camera capture via file input.
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return null;
+        return _xFileFromPickedBytes(result.files.single);
+      }
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1024,
