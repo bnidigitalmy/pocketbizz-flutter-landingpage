@@ -309,6 +309,49 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 16),
 
+                  // Sales by Channel Card
+                  if (_salesByChannel.isNotEmpty) ...[
+                    SalesByChannelCard(
+                      salesByChannel: _salesByChannel,
+                      totalRevenue: _salesByChannel.fold<double>(
+                        0.0,
+                        (sum, channel) => sum + channel.revenue,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Planner mini widget (moved below performance for less stress)
+                  PlannerTodayCard(
+                    onViewAll: () => Navigator.of(context).pushNamed('/planner'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Tindakan Segera (action-first)
+                  UrgentActionsWidget(
+                    pendingBookings: _stats?['pending'] ?? 0,
+                    pendingPOs: _pendingTasks?['pendingPOs'] ?? 0,
+                    lowStockCount: _pendingTasks?['lowStockCount'] ?? 0,
+                    onViewBookings: () => Navigator.of(context).pushNamed('/bookings'),
+                    onViewPOs: () => Navigator.of(context).pushNamed('/purchase-orders'),
+                    onViewStock: () => Navigator.of(context).pushNamed('/stock'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // V2: Stok produk siap (alert awal)
+                  FinishedProductsAlertsV2(
+                    onViewAll: () => Navigator.of(context).pushNamed('/finished-products'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Stok bahan mentah (low stock)
+                  const LowStockAlertsWidget(),
+
+                  const SizedBox(height: 20),
+
                   // V2: Cashflow Minggu Ini (Ahad–Sabtu)
                   if (_v2 != null)
                     WeeklyCashflowCardV2(
@@ -336,44 +379,6 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                       onStartProduction: () => Navigator.of(context).pushNamed('/production'),
                     ),
 
-                  const SizedBox(height: 16),
-
-                  // Sales by Channel Card
-                  if (_salesByChannel.isNotEmpty) ...[
-                    SalesByChannelCard(
-                      salesByChannel: _salesByChannel,
-                      totalRevenue: _salesByChannel.fold<double>(
-                        0.0,
-                        (sum, channel) => sum + channel.revenue,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Planner mini widget (moved below performance for less stress)
-                  PlannerTodayCard(
-                    onViewAll: () => Navigator.of(context).pushNamed('/planner'),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Urgent Actions
-                  UrgentActionsWidget(
-                    pendingBookings: _stats?['pending'] ?? 0,
-                    pendingPOs: _pendingTasks?['pendingPOs'] ?? 0,
-                    lowStockCount: _pendingTasks?['lowStockCount'] ?? 0,
-                    onViewBookings: () => Navigator.of(context).pushNamed('/bookings'),
-                    onViewPOs: () => Navigator.of(context).pushNamed('/purchase-orders'),
-                    onViewStock: () => Navigator.of(context).pushNamed('/stock'),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // V2: Stok produk siap (alert awal)
-                  FinishedProductsAlertsV2(
-                    onViewAll: () => Navigator.of(context).pushNamed('/finished-products'),
-                  ),
-
                   const SizedBox(height: 20),
 
                   // V2: Insight ringkas (rule-based)
@@ -382,7 +387,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                       data: _v2!,
                       onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
                       onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
-                      onAddStock: () => Navigator.of(context).pushNamed('/stock'),
+                      onViewFinishedStock: () => Navigator.of(context).pushNamed('/finished-products'),
                       onViewSales: () => Navigator.of(context).pushNamed('/sales'),
                     ),
 
@@ -456,9 +461,6 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   ),
 
                   const SizedBox(height: 20),
-
-                  // Low Stock Alerts
-                  const LowStockAlertsWidget(),
 
                   const SizedBox(height: 24),
                 ],

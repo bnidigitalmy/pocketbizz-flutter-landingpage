@@ -7,7 +7,7 @@ class SmartInsightsCardV2 extends StatelessWidget {
   final SmeDashboardV2Data data;
   final VoidCallback onAddSale;
   final VoidCallback onAddExpense;
-  final VoidCallback onAddStock;
+  final VoidCallback onViewFinishedStock;
   final VoidCallback onViewSales;
 
   const SmartInsightsCardV2({
@@ -15,7 +15,7 @@ class SmartInsightsCardV2 extends StatelessWidget {
     required this.data,
     required this.onAddSale,
     required this.onAddExpense,
-    required this.onAddStock,
+    required this.onViewFinishedStock,
     required this.onViewSales,
   });
 
@@ -115,8 +115,8 @@ class SmartInsightsCardV2 extends StatelessWidget {
           color: AppColors.success,
           title: 'Produk paling perform hari ini',
           message: '"$name" dah terjual ${DashboardV2Format.units(top.units)} unit. Pastikan stok cukup.',
-          actionLabel: 'Tambah Stok',
-          onAction: onAddStock,
+          actionLabel: 'Semak Stok Siap',
+          onAction: onViewFinishedStock,
         ),
       );
     }

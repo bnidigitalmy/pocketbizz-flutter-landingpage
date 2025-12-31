@@ -93,7 +93,9 @@ class _FinishedProductsAlertsV2State extends State<FinishedProductsAlertsV2> {
         .where((p) => p.totalRemaining > 0)
         .toList()
       ..sort((a, b) => a.totalRemaining.compareTo(b.totalRemaining));
-    final lowTop3 = low.take(3).toList();
+    // Heuristic threshold (no user config yet): only warn if stock is truly low.
+    // Default: ≤ 5 unit remaining.
+    final lowTop3 = low.where((p) => p.totalRemaining <= 5).take(3).toList();
 
     final now = DateTime.now();
     final expiryCutoff = now.add(const Duration(days: 3));
