@@ -433,6 +433,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                         onTap: () => Navigator.of(context).pushNamed('/community'),
                       ),
                       MoreQuickActionV2(
+                        label: 'Langganan',
+                        icon: Icons.workspace_premium_rounded,
+                        color: Colors.amber,
+                        onTap: () => Navigator.of(context).pushNamed('/subscription'),
+                      ),
+                      MoreQuickActionV2(
                         label: 'Tetapan',
                         icon: Icons.settings_rounded,
                         color: Colors.grey,

@@ -50,6 +50,7 @@ import 'features/subscription/presentation/admin/widgets/admin_layout.dart';
 import 'features/feedback/presentation/submit_feedback_page.dart';
 import 'features/feedback/presentation/my_feedback_page.dart';
 import 'features/feedback/presentation/community_links_page.dart';
+import 'features/feedback/presentation/community_page.dart';
 import 'features/feedback/presentation/admin/admin_feedback_page.dart';
 import 'features/announcements/presentation/notifications_page.dart';
 import 'features/announcements/presentation/admin/admin_announcements_page.dart';
@@ -210,7 +211,8 @@ class PocketBizzApp extends StatelessWidget {
         '/admin/users': (context) => const AdminLayout(initialRoute: '/admin/users'),
         '/feedback/submit': (context) => const SubmitFeedbackPage(),
         '/feedback/my': (context) => const MyFeedbackPage(),
-        '/community': (context) => const CommunityLinksPage(),
+        // Use static community page (never empty) for end users.
+        '/community': (context) => const CommunityPage(),
         '/admin/feedback': (context) => const AdminFeedbackPage(),
         '/notifications': (context) => const NotificationsPage(),
         '/admin/announcements': (context) => const AdminAnnouncementsPage(),
