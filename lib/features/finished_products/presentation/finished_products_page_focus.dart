@@ -300,126 +300,154 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
     final isFocused = _highlightActive && (_focusedProductId == product.productId);
     final focusedBorder =
         isFocused ? BorderSide(color: _withAlpha(_accent, 0.70), width: 2) : BorderSide.none;
+    final glowShadow = isFocused
+        ? [
+            BoxShadow(
+              color: _withAlpha(_accent, 0.22),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 8),
+            ),
+          ]
+        : const <BoxShadow>[];
 
-    return Card(
-      elevation: isFocused ? 3 : 2,
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        side: focusedBorder,
+        boxShadow: glowShadow,
       ),
-      color: isFocused ? _withAlpha(_accent, 0.08) : null,
-      child: InkWell(
-        onTap: () => _showBatchDetails(product),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!, width: 1),
-                ),
-                child: CachedProductImage(
-                  imageUrl: productInfo?.imageUrl,
+      child: Card(
+        elevation: isFocused ? 4 : 2,
+        shadowColor: isFocused ? _withAlpha(_accent, 0.25) : null,
+        surfaceTintColor: Colors.transparent,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: focusedBorder,
+        ),
+        child: InkWell(
+          onTap: () => _showBatchDetails(product),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (isFocused)
+                  Container(
+                    width: 4,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                if (isFocused) const SizedBox(width: 12),
+                Container(
                   width: 80,
                   height: 80,
-                  borderRadius: BorderRadius.circular(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: CachedProductImage(
+                    imageUrl: productInfo?.imageUrl,
+                    width: 80,
+                    height: 80,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            product.productName,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isFocused) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _withAlpha(_accent, 0.14),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: _withAlpha(_accent, 0.28)),
-                            ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              'TOP',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: _accent,
+                              product.productName,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isFocused) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _withAlpha(_accent, 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: _withAlpha(_accent, 0.30)),
+                              ),
+                              child: Text(
+                                'TOP',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: _accent,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          product.totalRemaining.toStringAsFixed(0),
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            fontFeatures: [FontFeature.tabularFigures()],
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text('unit', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Chip(
-                          label: Text('${product.batchCount} batch'),
-                          backgroundColor: Colors.grey[200],
-                          labelStyle: const TextStyle(fontSize: 11),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        if (product.nearestExpiry != null)
-                          Chip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_getExpiryIcon(expiryStatus.status), size: 14, color: expiryStatus.color),
-                                const SizedBox(width: 4),
-                                Text(
-                                  expiryStatus.label,
-                                  style: TextStyle(fontSize: 11, color: expiryStatus.color),
-                                ),
-                              ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            product.totalRemaining.toStringAsFixed(0),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                              color: AppColors.primary,
                             ),
-                            backgroundColor: expiryStatus.backgroundColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text('unit', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Chip(
+                            label: Text('${product.batchCount} batch'),
+                            backgroundColor: Colors.grey[200],
+                            labelStyle: const TextStyle(fontSize: 11),
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                           ),
-                      ],
-                    ),
-                  ],
+                          if (product.nearestExpiry != null)
+                            Chip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_getExpiryIcon(expiryStatus.status), size: 14, color: expiryStatus.color),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    expiryStatus.label,
+                                    style: TextStyle(fontSize: 11, color: expiryStatus.color),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: expiryStatus.backgroundColor,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
           ),
         ),
       ),
