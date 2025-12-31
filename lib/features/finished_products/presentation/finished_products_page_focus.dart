@@ -15,11 +15,13 @@ import 'package:pocketbizz/features/finished_products/presentation/batch_details
 class FinishedProductsFocusPage extends StatefulWidget {
   final String focusKey; // normalized: trim + lowercase + collapse spaces
   final String? focusLabel;
+  final Color? focusAccent;
 
   const FinishedProductsFocusPage({
     super.key,
     required this.focusKey,
     this.focusLabel,
+    this.focusAccent,
   });
 
   @override
@@ -44,6 +46,7 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
   bool _highlightActive = true;
 
   Color _withAlpha(Color c, double opacity01) => c.withAlpha((opacity01 * 255).round());
+  Color get _accent => widget.focusAccent ?? AppColors.primary;
 
   @override
   void initState() {
@@ -169,14 +172,14 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: _withAlpha(AppColors.primary, 0.08),
+                              color: _withAlpha(_accent, 0.10),
                               border: Border(
                                 bottom: BorderSide(color: Colors.grey.shade200),
                               ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.touch_app_rounded, size: 18, color: AppColors.primary),
+                                Icon(Icons.touch_app_rounded, size: 18, color: _accent),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -296,7 +299,7 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
 
     final isFocused = _highlightActive && (_focusedProductId == product.productId);
     final focusedBorder =
-        isFocused ? BorderSide(color: _withAlpha(AppColors.primary, 0.75), width: 2) : BorderSide.none;
+        isFocused ? BorderSide(color: _withAlpha(_accent, 0.70), width: 2) : BorderSide.none;
 
     return Card(
       elevation: isFocused ? 3 : 2,
@@ -304,7 +307,7 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
         borderRadius: BorderRadius.circular(12),
         side: focusedBorder,
       ),
-      color: isFocused ? _withAlpha(AppColors.primary, 0.06) : null,
+      color: isFocused ? _withAlpha(_accent, 0.08) : null,
       child: InkWell(
         onTap: () => _showBatchDetails(product),
         borderRadius: BorderRadius.circular(12),
@@ -349,13 +352,17 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: _withAlpha(AppColors.primary, 0.12),
+                              color: _withAlpha(_accent, 0.14),
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: _withAlpha(AppColors.primary, 0.25)),
+                              border: Border.all(color: _withAlpha(_accent, 0.28)),
                             ),
-                            child: const Text(
+                            child: Text(
                               'TOP',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _accent,
+                              ),
                             ),
                           ),
                         ],

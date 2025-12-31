@@ -150,6 +150,7 @@ class _TopListCard extends StatelessWidget {
                           arguments: <String, dynamic>{
                             'focusKey': item.key,
                             'focusLabel': display,
+                            'focusColorValue': color.toARGB32(),
                           },
                         );
                       },

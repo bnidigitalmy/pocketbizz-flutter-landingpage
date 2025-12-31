@@ -202,10 +202,12 @@ class PocketBizzApp extends StatelessWidget {
           if (args is Map) {
             final focusKey = (args['focusKey'] as String?)?.trim();
             final focusLabel = (args['focusLabel'] as String?)?.trim();
+            final focusColorValue = args['focusColorValue'] as int?;
             if (focusKey != null && focusKey.isNotEmpty) {
               return FinishedProductsFocusPage(
                 focusKey: focusKey,
                 focusLabel: focusLabel,
+                focusAccent: focusColorValue != null ? Color(focusColorValue) : null,
               );
             }
           }
