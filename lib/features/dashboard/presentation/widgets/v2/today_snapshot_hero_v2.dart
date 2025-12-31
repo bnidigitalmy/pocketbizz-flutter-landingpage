@@ -153,7 +153,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Masuk - Belanja (tanpa COGS)',
+                              'Masuk - Belanja',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 10,

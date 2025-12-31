@@ -383,12 +383,62 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   // V2: Primary quick actions (5)
                   PrimaryQuickActionsV2(
                     onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
-                    onScanReceipt: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ReceiptScanPage()),
-                    ),
-                    onStartProduction: () => Navigator.of(context).pushNamed('/production'),
                     onAddStock: () => Navigator.of(context).pushNamed('/stock'),
+                    onStartProduction: () => Navigator.of(context).pushNamed('/production'),
+                    onDelivery: () => Navigator.of(context).pushNamed('/deliveries'),
                     onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
+                    moreActions: [
+                      MoreQuickActionV2(
+                        label: 'Scan Resit',
+                        icon: Icons.document_scanner_rounded,
+                        color: Colors.orange,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const ReceiptScanPage()),
+                        ),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Tempahan',
+                        icon: Icons.event_note_rounded,
+                        color: Colors.indigo,
+                        onTap: () => Navigator.of(context).pushNamed('/bookings'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'PO',
+                        icon: Icons.shopping_bag_rounded,
+                        color: Colors.blue,
+                        onTap: () => Navigator.of(context).pushNamed('/purchase-orders'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Tuntutan',
+                        icon: Icons.receipt_long_rounded,
+                        color: Colors.deepOrange,
+                        onTap: () => Navigator.of(context).pushNamed('/claims'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Laporan',
+                        icon: Icons.bar_chart_rounded,
+                        color: Colors.purple,
+                        onTap: () => Navigator.of(context).pushNamed('/reports'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Dokumen',
+                        icon: Icons.folder_open_rounded,
+                        color: Colors.teal,
+                        onTap: () => Navigator.of(context).pushNamed('/documents'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Komuniti',
+                        icon: Icons.groups_rounded,
+                        color: Colors.green,
+                        onTap: () => Navigator.of(context).pushNamed('/community'),
+                      ),
+                      MoreQuickActionV2(
+                        label: 'Tetapan',
+                        icon: Icons.settings_rounded,
+                        color: Colors.grey,
+                        onTap: () => Navigator.of(context).pushNamed('/settings'),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 20),

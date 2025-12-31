@@ -3,18 +3,20 @@ import 'package:pocketbizz/core/theme/app_colors.dart';
 
 class PrimaryQuickActionsV2 extends StatelessWidget {
   final VoidCallback onAddSale;
-  final VoidCallback onScanReceipt;
-  final VoidCallback onStartProduction;
   final VoidCallback onAddStock;
+  final VoidCallback onStartProduction;
+  final VoidCallback onDelivery;
   final VoidCallback onAddExpense;
+  final List<MoreQuickActionV2> moreActions;
 
   const PrimaryQuickActionsV2({
     super.key,
     required this.onAddSale,
-    required this.onScanReceipt,
-    required this.onStartProduction,
     required this.onAddStock,
+    required this.onStartProduction,
+    required this.onDelivery,
     required this.onAddExpense,
+    required this.moreActions,
   });
 
   @override
@@ -61,16 +63,16 @@ class PrimaryQuickActionsV2 extends StatelessWidget {
             childAspectRatio: isMobile ? 1.05 : 1.25,
             children: [
               _ActionTile(
-                label: 'Add Sale',
+                label: 'Tambah Jualan',
                 icon: Icons.add_shopping_cart_rounded,
                 color: AppColors.primary,
                 onTap: onAddSale,
               ),
               _ActionTile(
-                label: 'Scan Receipt',
-                icon: Icons.document_scanner_rounded,
-                color: Colors.orange,
-                onTap: onScanReceipt,
+                label: 'Tambah Stok',
+                icon: Icons.inventory_2_rounded,
+                color: Colors.blue,
+                onTap: onAddStock,
               ),
               _ActionTile(
                 label: 'Produksi',
@@ -79,16 +81,22 @@ class PrimaryQuickActionsV2 extends StatelessWidget {
                 onTap: onStartProduction,
               ),
               _ActionTile(
-                label: 'Add Stock',
-                icon: Icons.inventory_2_rounded,
-                color: Colors.blue,
-                onTap: onAddStock,
+                label: 'Penghantaran',
+                icon: Icons.local_shipping_rounded,
+                color: Colors.orange,
+                onTap: onDelivery,
               ),
               _ActionTile(
-                label: 'Add Expense',
+                label: 'Belanja',
                 icon: Icons.payments_rounded,
                 color: Colors.red,
                 onTap: onAddExpense,
+              ),
+              _ActionTile(
+                label: 'Lain-lain',
+                icon: Icons.grid_view_rounded,
+                color: Colors.teal,
+                onTap: () => _openMoreMenu(context),
               ),
             ],
           ),
@@ -96,6 +104,94 @@ class PrimaryQuickActionsV2 extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openMoreMenu(BuildContext context) async {
+    if (moreActions.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isMobile = MediaQuery.of(context).size.width < 768;
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Menu Lain',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Tutup',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: isMobile ? 3 : 5,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: isMobile ? 1.05 : 1.25,
+                  children: moreActions
+                      .map(
+                        (a) => _ActionTile(
+                          label: a.label,
+                          icon: a.icon,
+                          color: a.color,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            a.onTap();
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MoreQuickActionV2 {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  MoreQuickActionV2({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 }
 
 class _ActionTile extends StatelessWidget {
