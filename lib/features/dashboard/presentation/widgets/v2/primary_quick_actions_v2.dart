@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import 'package:pocketbizz/core/theme/app_colors.dart';
 
 class PrimaryQuickActionsV2 extends StatelessWidget {
   final VoidCallback onAddSale;

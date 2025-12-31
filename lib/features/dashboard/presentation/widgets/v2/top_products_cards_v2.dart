@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import 'package:pocketbizz/core/theme/app_colors.dart';
 import '../../../domain/sme_dashboard_v2_models.dart';
 import 'dashboard_v2_format.dart';
 
