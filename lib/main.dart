@@ -38,6 +38,7 @@ import 'features/settings/presentation/settings_page.dart';
 import 'features/suppliers/presentation/suppliers_page.dart';
 import 'features/expenses/presentation/expenses_page.dart';
 import 'features/finished_products/presentation/finished_products_page.dart';
+import 'features/finished_products/presentation/finished_products_page_focus.dart';
 import 'features/products/presentation/test_image_upload_page.dart';
 import 'features/planner/presentation/planner_page.dart';
 import 'features/planner/presentation/enhanced_planner_page.dart';
@@ -49,7 +50,7 @@ import 'features/subscription/presentation/payment_success_page.dart';
 import 'features/subscription/presentation/admin/widgets/admin_layout.dart';
 import 'features/feedback/presentation/submit_feedback_page.dart';
 import 'features/feedback/presentation/my_feedback_page.dart';
-import 'features/feedback/presentation/community_links_page.dart';
+import 'features/feedback/presentation/community_page.dart';
 import 'features/feedback/presentation/admin/admin_feedback_page.dart';
 import 'features/announcements/presentation/notifications_page.dart';
 import 'features/announcements/presentation/admin/admin_announcements_page.dart';
@@ -196,7 +197,22 @@ class PocketBizzApp extends StatelessWidget {
         '/settings': (context) => const SettingsPage(),
         '/suppliers': (context) => const SuppliersPage(),
         '/expenses': (context) => const ExpensesPage(),
-        '/finished-products': (context) => const FinishedProductsPage(),
+        '/finished-products': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map) {
+            final focusKey = (args['focusKey'] as String?)?.trim();
+            final focusLabel = (args['focusLabel'] as String?)?.trim();
+            final focusColorValue = args['focusColorValue'] as int?;
+            if (focusKey != null && focusKey.isNotEmpty) {
+              return FinishedProductsFocusPage(
+                focusKey: focusKey,
+                focusLabel: focusLabel,
+                focusAccent: focusColorValue != null ? Color(focusColorValue) : null,
+              );
+            }
+          }
+          return const FinishedProductsPage();
+        },
         '/test-upload': (context) => const TestImageUploadPage(),
         '/planner': (context) => const EnhancedPlannerPage(),
         '/planner/old': (context) => const PlannerPage(), // Keep old for reference
@@ -210,7 +226,8 @@ class PocketBizzApp extends StatelessWidget {
         '/admin/users': (context) => const AdminLayout(initialRoute: '/admin/users'),
         '/feedback/submit': (context) => const SubmitFeedbackPage(),
         '/feedback/my': (context) => const MyFeedbackPage(),
-        '/community': (context) => const CommunityLinksPage(),
+        // Use static community page (never empty) for end users.
+        '/community': (context) => const CommunityPage(),
         '/admin/feedback': (context) => const AdminFeedbackPage(),
         '/notifications': (context) => const NotificationsPage(),
         '/admin/announcements': (context) => const AdminAnnouncementsPage(),

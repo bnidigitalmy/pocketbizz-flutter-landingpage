@@ -164,81 +164,80 @@ class _EditProductPageState extends State<EditProductPage> {
       setState(() => _loading = true);
 
       try {
-      String? imageUrl = _currentImageUrl;
+        String? imageUrl = _currentImageUrl;
 
-      // Upload image if there's a pending one
-      if (_pendingImage != null) {
-        try {
-          imageUrl = await _imageService.updateProductImage(
-            _pendingImage!,
-            widget.product.id,
-            _currentImageUrl,
-          );
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'Gambar tidak berjaya dimuat naik. Produk tetap disimpan, tapi sila cuba tukar gambar sekali lagi.',
-                ),
-                backgroundColor: Colors.orange,
-              ),
+        // Upload image if there's a pending one
+        if (_pendingImage != null) {
+          try {
+            imageUrl = await _imageService.updateProductImage(
+              _pendingImage!,
+              widget.product.id,
+              _currentImageUrl,
             );
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Gambar tidak berjaya dimuat naik. Produk tetap disimpan, tapi sila cuba tukar gambar sekali lagi.',
+                  ),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+            // Continue with save even if image upload fails
           }
-          // Continue with save even if image upload fails
+        }
+
+        final costPrice = double.parse(_costPriceController.text);
+        final salePrice = double.parse(_salePriceController.text);
+
+        final updates = {
+          'sku': _skuController.text.trim(),
+          'name': _nameController.text.trim(),
+          'unit': _unitController.text.trim(),
+          'cost_price': costPrice,
+          'sale_price': salePrice,
+          'description': _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          'category': _selectedCategory,
+          if (imageUrl != null) 'image_url': imageUrl,
+          if (_pendingImage != null && imageUrl == null) 'image_url': null,
+        };
+
+        await _repo.updateProduct(widget.product.id, updates);
+
+        if (mounted) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Produk berjaya dikemaskini!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Edit Produk',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ada masalah semasa simpan produk. Sila cuba lagi.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _loading = false);
         }
       }
-
-      final costPrice = double.parse(_costPriceController.text);
-      final salePrice = double.parse(_salePriceController.text);
-      
-      final updates = {
-        'sku': _skuController.text.trim(),
-        'name': _nameController.text.trim(),
-        'unit': _unitController.text.trim(),
-        'cost_price': costPrice,
-        'sale_price': salePrice,
-        'description': _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        'category': _selectedCategory,
-        if (imageUrl != null) 'image_url': imageUrl,
-        if (_pendingImage != null && imageUrl == null) 'image_url': null,
-      };
-
-      await _repo.updateProduct(widget.product.id, updates);
-
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Produk berjaya dikemaskini!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Edit Produk',
-          error: e,
-        );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: const Text(
-                'Ada masalah semasa simpan produk. Sila cuba lagi.',
-              ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+    });
   }
 
   @override
