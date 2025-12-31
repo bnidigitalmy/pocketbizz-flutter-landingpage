@@ -87,6 +87,9 @@ class _TopListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final softBg = color.withAlpha((0.10 * 255).round());
+    final softBorder = color.withAlpha((0.18 * 255).round());
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -103,7 +106,7 @@ class _TopListCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.10),
+                  color: softBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 22),
@@ -137,46 +140,64 @@ class _TopListCard extends StatelessWidget {
 
                 return Padding(
                   padding: EdgeInsets.only(bottom: idx == items.length - 1 ? 0 : 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: color.withOpacity(0.18)),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$rank',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: color),
-                          ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.of(context).pushNamed(
+                          '/finished-products',
+                          arguments: <String, dynamic>{
+                            'focusKey': item.key,
+                            'focusLabel': display,
+                          },
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                          color: softBg,
+                                borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: softBorder),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '$rank',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                display,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Text(
+                                '${DashboardV2Format.units(item.units)} unit',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          display,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Text(
-                          '${DashboardV2Format.units(item.units)} unit',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               }).toList(),
