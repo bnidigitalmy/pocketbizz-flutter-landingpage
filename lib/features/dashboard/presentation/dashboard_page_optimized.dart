@@ -27,6 +27,15 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../data/repositories/announcements_repository_supabase.dart';
 import '../../announcements/presentation/notifications_page.dart';
+import '../../expenses/presentation/receipt_scan_page.dart';
+import '../domain/sme_dashboard_v2_models.dart';
+import '../services/sme_dashboard_v2_service.dart';
+import 'widgets/v2/production_suggestion_card_v2.dart';
+import 'widgets/v2/primary_quick_actions_v2.dart';
+import 'widgets/v2/smart_insights_card_v2.dart';
+import 'widgets/v2/today_snapshot_hero_v2.dart';
+import 'widgets/v2/top_products_cards_v2.dart';
+import 'widgets/v2/weekly_cashflow_card_v2.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -48,14 +57,16 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
   final _businessProfileRepo = BusinessProfileRepository();
   final _announcementsRepo = AnnouncementsRepositorySupabase();
+  final _v2Service = SmeDashboardV2Service();
 
   Map<String, dynamic>? _stats;
-  Map<String, dynamic>? _todayStats;
+  Map<String, dynamic>? _pendingTasks;
   List<SalesByChannel> _salesByChannel = [];
   Subscription? _subscription;
   BusinessProfile? _businessProfile;
   int _unreadNotifications = 0;
   bool _loading = true;
+  SmeDashboardV2Data? _v2;
 
   @override
   void initState() {
@@ -85,35 +96,29 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       // Load all stats in parallel
       final results = await Future.wait([
         _bookingsRepo.getStatistics(),
-        _loadTodaySalesStats(),
         _loadPendingTasks(),
         _loadSalesByChannel(),
         SubscriptionService().getCurrentSubscription(),
         _businessProfileRepo.getBusinessProfile(),
+        _v2Service.load(),
       ]);
 
       if (!mounted) return; // Check again after async operations
 
-      // Merge pending tasks into todayStats
-      final pendingTasks = results[2] as Map<String, dynamic>;
-      final todayStats = results[1] as Map<String, dynamic>;
-      final mergedTodayStats = {
-        ...todayStats,
-        ...pendingTasks,
-      };
-
-      final subscription = results[4] as Subscription?;
+      final subscription = results[3] as Subscription?;
       
       // Load unread notifications after subscription is loaded
       final unreadCount = await _loadUnreadNotifications(subscription);
+      final v2 = results[5] as SmeDashboardV2Data;
 
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
-        _todayStats = mergedTodayStats;
-        _salesByChannel = results[3] as List<SalesByChannel>;
+        _pendingTasks = results[1] as Map<String, dynamic>;
+        _salesByChannel = results[2] as List<SalesByChannel>;
         _subscription = subscription;
-        _businessProfile = results[5] as BusinessProfile?;
+        _businessProfile = results[4] as BusinessProfile?;
         _unreadNotifications = unreadCount;
+        _v2 = v2;
         _loading = false;
       });
     } catch (e) {
@@ -127,133 +132,6 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
           ),
         );
       }
-    }
-  }
-
-  Future<Map<String, dynamic>> _loadTodaySalesStats() async {
-    try {
-      final today = DateTime.now();
-      // IMPORTANT: DB timestamps are stored as timestamptz (UTC).
-      // Use local day boundaries converted to UTC when querying PostgREST,
-      // otherwise "sales today" can be missed due to timezone mismatch.
-      final todayStartLocal = DateTime(today.year, today.month, today.day);
-      final todayEndLocal = todayStartLocal.add(const Duration(days: 1));
-      final todayStartUtc = todayStartLocal.toUtc();
-      final todayEndUtc = todayEndLocal.toUtc();
-
-      final yesterday = today.subtract(const Duration(days: 1));
-      final yesterdayStartLocal = DateTime(yesterday.year, yesterday.month, yesterday.day);
-      final yesterdayEndLocal = yesterdayStartLocal.add(const Duration(days: 1));
-      final yesterdayStartUtc = yesterdayStartLocal.toUtc();
-      final yesterdayEndUtc = yesterdayEndLocal.toUtc();
-
-      // Get today's sales
-      final todaySales = await _salesRepo.listSales(
-        startDate: todayStartUtc,
-        endDate: todayEndUtc,
-      );
-
-      // Get yesterday's sales
-      final yesterdaySales = await _salesRepo.listSales(
-        startDate: yesterdayStartUtc,
-        endDate: yesterdayEndUtc,
-      );
-
-      // Get today's completed bookings (optimized: only fetch what we need)
-      final todayBookings = await _bookingsRepo.listBookings(
-        status: 'completed',
-        limit: 100, // Reduced from 10000 - only need recent bookings
-      );
-      final todayBookingsInRange = todayBookings.where((booking) {
-        final bookingDate = booking.createdAt;
-        return bookingDate.isAfter(todayStartLocal.subtract(const Duration(days: 1))) &&
-            bookingDate.isBefore(todayEndLocal);
-      }).toList();
-
-      // Get yesterday's completed bookings (optimized: only fetch what we need)
-      final yesterdayBookings = await _bookingsRepo.listBookings(
-        status: 'completed',
-        limit: 100, // Reduced from 10000 - only need recent bookings
-      );
-      final yesterdayBookingsInRange = yesterdayBookings.where((booking) {
-        final bookingDate = booking.createdAt;
-        return bookingDate.isAfter(yesterdayStartLocal.subtract(const Duration(days: 1))) &&
-            bookingDate.isBefore(yesterdayEndLocal);
-      }).toList();
-
-      // Get today's consignment revenue (settled claims) - optimized limit
-      final todayClaimsResponse = await _claimsRepo.listClaims(
-        fromDate: todayStartUtc,
-        toDate: todayEndUtc,
-        status: ClaimStatus.settled,
-        limit: 100, // Reduced from 10000 - only need today's claims
-      );
-      final todaySettledClaims = (todayClaimsResponse['data'] as List)
-          .cast<ConsignmentClaim>()
-          .where((claim) => claim.status == ClaimStatus.settled)
-          .toList();
-      final todayConsignmentRevenue = todaySettledClaims.fold<double>(
-        0.0,
-        (sum, claim) => sum + claim.netAmount,
-      );
-
-      // Get yesterday's consignment revenue - optimized limit
-      final yesterdayClaimsResponse = await _claimsRepo.listClaims(
-        fromDate: yesterdayStartUtc,
-        toDate: yesterdayEndUtc,
-        status: ClaimStatus.settled,
-        limit: 100, // Reduced from 10000 - only need yesterday's claims
-      );
-      final yesterdaySettledClaims = (yesterdayClaimsResponse['data'] as List)
-          .cast<ConsignmentClaim>()
-          .where((claim) => claim.status == ClaimStatus.settled)
-          .toList();
-      final yesterdayConsignmentRevenue = yesterdaySettledClaims.fold<double>(
-        0.0,
-        (sum, claim) => sum + claim.netAmount,
-      );
-
-      // Calculate revenue including bookings and consignment
-      // Use finalAmount (after discount) for consistency with sales by channel
-      final todaySalesRevenue = todaySales.fold<double>(
-        0.0,
-        (sum, sale) => sum + sale.finalAmount,
-      );
-      final todayBookingRevenue = todayBookingsInRange.fold<double>(
-        0.0,
-        (sum, booking) => sum + booking.totalAmount,
-      );
-      final todayRevenue = todaySalesRevenue + todayBookingRevenue + todayConsignmentRevenue;
-
-      final yesterdaySalesRevenue = yesterdaySales.fold<double>(
-        0.0,
-        (sum, sale) => sum + sale.finalAmount,
-      );
-      final yesterdayBookingRevenue = yesterdayBookingsInRange.fold<double>(
-        0.0,
-        (sum, booking) => sum + booking.totalAmount,
-      );
-      final yesterdayRevenue = yesterdaySalesRevenue + yesterdayBookingRevenue + yesterdayConsignmentRevenue;
-
-      final revenueChange = yesterdayRevenue > 0
-          ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100)
-          : (todayRevenue > 0 ? 100.0 : 0.0);
-
-      return {
-        'todayRevenue': todayRevenue,
-        'yesterdayRevenue': yesterdayRevenue,
-        'revenueChange': revenueChange,
-        'todaySalesCount': todaySales.length + todayBookingsInRange.length,
-        'yesterdaySalesCount': yesterdaySales.length + yesterdayBookingsInRange.length,
-      };
-    } catch (e) {
-      return {
-        'todayRevenue': 0.0,
-        'yesterdayRevenue': 0.0,
-        'revenueChange': 0.0,
-        'todaySalesCount': 0,
-        'yesterdaySalesCount': 0,
-      };
     }
   }
 
@@ -419,14 +297,42 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 20),
 
-                  // Today's Performance
-                  if (_todayStats != null)
-                    TodayPerformanceCard(
-                      todayRevenue: _todayStats!['todayRevenue'] ?? 0.0,
-                      yesterdayRevenue: _todayStats!['yesterdayRevenue'] ?? 0.0,
-                      revenueChange: _todayStats!['revenueChange'] ?? 0.0,
-                      todaySalesCount: _todayStats!['todaySalesCount'] ?? 0,
-                      yesterdaySalesCount: _todayStats!['yesterdaySalesCount'] ?? 0,
+                  // V2: Today Snapshot (Masuk/Belanja/Untung/Transaksi)
+                  if (_v2 != null)
+                    TodaySnapshotHeroV2(
+                      inflow: _v2!.today.inflow,
+                      expense: _v2!.today.expense,
+                      profit: _v2!.today.profit,
+                      transactions: _v2!.today.transactions,
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // V2: Cashflow Minggu Ini (Ahad–Sabtu)
+                  if (_v2 != null)
+                    WeeklyCashflowCardV2(
+                      inflow: _v2!.week.inflow,
+                      expense: _v2!.week.expense,
+                      net: _v2!.week.net,
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // V2: Top Produk (cross-channel)
+                  if (_v2 != null)
+                    TopProductsCardsV2(
+                      todayTop3: _v2!.topProducts.todayTop3,
+                      weekTop3: _v2!.topProducts.weekTop3,
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // V2: Cadangan produksi (rule-based)
+                  if (_v2?.productionSuggestion.show == true)
+                    ProductionSuggestionCardV2(
+                      title: _v2!.productionSuggestion.title,
+                      message: _v2!.productionSuggestion.message,
+                      onStartProduction: () => Navigator.of(context).pushNamed('/production'),
                     ),
 
                   const SizedBox(height: 16),
@@ -453,8 +359,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   // Urgent Actions
                   UrgentActionsWidget(
                     pendingBookings: _stats?['pending'] ?? 0,
-                    pendingPOs: _todayStats?['pendingPOs'] ?? 0,
-                    lowStockCount: _todayStats?['lowStockCount'] ?? 0,
+                    pendingPOs: _pendingTasks?['pendingPOs'] ?? 0,
+                    lowStockCount: _pendingTasks?['lowStockCount'] ?? 0,
                     onViewBookings: () => Navigator.of(context).pushNamed('/bookings'),
                     onViewPOs: () => Navigator.of(context).pushNamed('/purchase-orders'),
                     onViewStock: () => Navigator.of(context).pushNamed('/stock'),
@@ -462,16 +368,28 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 20),
 
-                  // Smart Suggestions
-                  SmartSuggestionsWidget(
-                    stats: _stats,
-                    todayStats: _todayStats,
-                  ),
+                  // V2: Insight ringkas (rule-based)
+                  if (_v2 != null)
+                    SmartInsightsCardV2(
+                      data: _v2!,
+                      onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
+                      onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
+                      onAddStock: () => Navigator.of(context).pushNamed('/stock'),
+                      onViewSales: () => Navigator.of(context).pushNamed('/sales'),
+                    ),
 
                   const SizedBox(height: 20),
 
-                  // Quick Actions
-                  const QuickActionGrid(),
+                  // V2: Primary quick actions (5)
+                  PrimaryQuickActionsV2(
+                    onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
+                    onScanReceipt: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ReceiptScanPage()),
+                    ),
+                    onStartProduction: () => Navigator.of(context).pushNamed('/production'),
+                    onAddStock: () => Navigator.of(context).pushNamed('/stock'),
+                    onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
+                  ),
 
                   const SizedBox(height: 20),
 

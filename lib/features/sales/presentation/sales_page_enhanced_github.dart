@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import 'sale_details_dialog.dart';
 import 'create_sale_page_enhanced.dart';
