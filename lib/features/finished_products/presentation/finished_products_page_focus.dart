@@ -28,7 +28,8 @@ class FinishedProductsFocusPage extends StatefulWidget {
   State<FinishedProductsFocusPage> createState() => _FinishedProductsFocusPageState();
 }
 
-class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
+class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage>
+    with SingleTickerProviderStateMixin {
   final _repository = FinishedProductsRepository();
   final _productsRepo = ProductsRepositorySupabase();
 
@@ -45,17 +46,27 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
   bool _didAutoScroll = false;
   bool _highlightActive = true;
 
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulse;
+  bool _pulseOn = false;
+
   Color _withAlpha(Color c, double opacity01) => c.withAlpha((opacity01 * 255).round());
   Color get _accent => widget.focusAccent ?? AppColors.primary;
 
   @override
   void initState() {
     super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _pulse = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
     _loadProducts();
   }
 
   @override
   void dispose() {
+    _pulseCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -66,7 +77,9 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
       _error = null;
       _didAutoScroll = false;
       _highlightActive = true;
+      _pulseOn = false;
     });
+    _pulseCtrl.stop();
 
     try {
       final [finishedProducts, allProducts] = await Future.wait([
@@ -133,6 +146,17 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
       curve: Curves.easeOutCubic,
       alignment: 0.20,
     );
+
+    // Pulse highlight briefly to draw attention (then keep steady highlight).
+    if (mounted) {
+      setState(() => _pulseOn = true);
+      _pulseCtrl.repeat(reverse: true);
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        _pulseCtrl.stop();
+        setState(() => _pulseOn = false);
+      });
+    }
 
     // Turn off highlight after a short delay.
     Future.delayed(const Duration(seconds: 3), () {
@@ -298,159 +322,185 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage> {
     final productInfo = _productMap[product.productId];
 
     final isFocused = _highlightActive && (_focusedProductId == product.productId);
-    final focusedBorder =
-        isFocused ? BorderSide(color: _withAlpha(_accent, 0.70), width: 2) : BorderSide.none;
-    final glowShadow = isFocused
-        ? [
-            BoxShadow(
-              color: _withAlpha(_accent, 0.22),
-              blurRadius: 18,
-              spreadRadius: 1,
-              offset: const Offset(0, 8),
-            ),
-          ]
-        : const <BoxShadow>[];
+    Widget buildCard({required double pulseT}) {
+      // pulseT: 0..1 (higher = stronger)
+      final borderAlpha = isFocused ? (0.55 + 0.25 * pulseT) : 0.0;
+      final shadowAlpha = isFocused ? (0.12 + 0.18 * pulseT) : 0.0;
+      final stripeAlpha = isFocused ? (0.85 + 0.15 * pulseT) : 1.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: glowShadow,
-      ),
-      child: Card(
-        elevation: isFocused ? 4 : 2,
-        shadowColor: isFocused ? _withAlpha(_accent, 0.25) : null,
-        surfaceTintColor: Colors.transparent,
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
+      final focusedBorder = isFocused
+          ? BorderSide(
+              color: _withAlpha(_accent, borderAlpha),
+              width: 2,
+            )
+          : BorderSide.none;
+
+      final glowShadow = isFocused
+          ? [
+              BoxShadow(
+                color: _withAlpha(_accent, shadowAlpha),
+                blurRadius: 18 + (6 * pulseT),
+                spreadRadius: 1,
+                offset: const Offset(0, 8),
+              ),
+            ]
+          : const <BoxShadow>[];
+
+      return Container(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          side: focusedBorder,
+          boxShadow: glowShadow,
         ),
-        child: InkWell(
-          onTap: () => _showBatchDetails(product),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (isFocused)
-                  Container(
-                    width: 4,
-                    height: 84,
-                    decoration: BoxDecoration(
-                      color: _accent,
-                      borderRadius: BorderRadius.circular(999),
+        child: Card(
+          elevation: isFocused ? 4 : 2,
+          shadowColor: isFocused ? _withAlpha(_accent, shadowAlpha) : null,
+          surfaceTintColor: Colors.transparent,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: focusedBorder,
+          ),
+          child: InkWell(
+            onTap: () => _showBatchDetails(product),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (isFocused)
+                    Container(
+                      width: 4,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: _withAlpha(_accent, stripeAlpha),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
-                  ),
-                if (isFocused) const SizedBox(width: 12),
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!, width: 1),
-                  ),
-                  child: CachedProductImage(
-                    imageUrl: productInfo?.imageUrl,
+                  if (isFocused) const SizedBox(width: 12),
+                  Container(
                     width: 80,
                     height: 80,
-                    borderRadius: BorderRadius.circular(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!, width: 1),
+                    ),
+                    child: CachedProductImage(
+                      imageUrl: productInfo?.imageUrl,
+                      width: 80,
+                      height: 80,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              product.productName,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (isFocused) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _withAlpha(_accent, 0.12),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: _withAlpha(_accent, 0.30)),
-                              ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
                               child: Text(
-                                'TOP',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _accent,
+                                product.productName,
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isFocused) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _withAlpha(_accent, 0.12 + 0.05 * pulseT),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: _withAlpha(_accent, 0.30 + 0.10 * pulseT)),
+                                ),
+                                child: Text(
+                                  'TOP',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _withAlpha(_accent, 0.90),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            product.totalRemaining.toStringAsFixed(0),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text('unit', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Chip(
-                            label: Text('${product.batchCount} batch'),
-                            backgroundColor: Colors.grey[200],
-                            labelStyle: const TextStyle(fontSize: 11),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          if (product.nearestExpiry != null)
-                            Chip(
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(_getExpiryIcon(expiryStatus.status), size: 14, color: expiryStatus.color),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    expiryStatus.label,
-                                    style: TextStyle(fontSize: 11, color: expiryStatus.color),
-                                  ),
-                                ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              product.totalRemaining.toStringAsFixed(0),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                                color: AppColors.primary,
                               ),
-                              backgroundColor: expiryStatus.backgroundColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text('unit', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            Chip(
+                              label: Text('${product.batchCount} batch'),
+                              backgroundColor: Colors.grey[200],
+                              labelStyle: const TextStyle(fontSize: 11),
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                             ),
-                        ],
-                      ),
-                    ],
+                            if (product.nearestExpiry != null)
+                              Chip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _getExpiryIcon(expiryStatus.status),
+                                      size: 14,
+                                      color: expiryStatus.color,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      expiryStatus.label,
+                                      style: TextStyle(fontSize: 11, color: expiryStatus.color),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: expiryStatus.backgroundColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Icon(Icons.chevron_right, color: Colors.grey),
-              ],
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      );
+    }
+
+    if (!isFocused) return buildCard(pulseT: 0);
+
+    // If pulsing, animate; otherwise show steady focused card.
+    if (!_pulseOn) return buildCard(pulseT: 0.2);
+
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) => buildCard(pulseT: _pulse.value),
     );
   }
 
