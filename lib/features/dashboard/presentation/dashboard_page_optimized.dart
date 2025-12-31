@@ -32,6 +32,7 @@ import '../domain/sme_dashboard_v2_models.dart';
 import '../services/sme_dashboard_v2_service.dart';
 import 'widgets/v2/production_suggestion_card_v2.dart';
 import 'widgets/v2/primary_quick_actions_v2.dart';
+import 'widgets/v2/finished_products_alerts_v2.dart';
 import 'widgets/v2/smart_insights_card_v2.dart';
 import 'widgets/v2/today_snapshot_hero_v2.dart';
 import 'widgets/v2/top_products_cards_v2.dart';
@@ -364,6 +365,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                     onViewBookings: () => Navigator.of(context).pushNamed('/bookings'),
                     onViewPOs: () => Navigator.of(context).pushNamed('/purchase-orders'),
                     onViewStock: () => Navigator.of(context).pushNamed('/stock'),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // V2: Stok produk siap (alert awal)
+                  FinishedProductsAlertsV2(
+                    onViewAll: () => Navigator.of(context).pushNamed('/finished-products'),
                   ),
 
                   const SizedBox(height: 20),
