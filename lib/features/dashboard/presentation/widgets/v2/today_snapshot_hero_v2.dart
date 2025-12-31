@@ -19,15 +19,24 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profitColor = profit >= 0 ? AppColors.success : Colors.red;
+    final bgGradient = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFFF0FDFA), // teal-50 (soft)
+        Color(0xFFEFF6FF), // blue-50 (soft)
+      ],
+    );
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: bgGradient,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withOpacity(0.12)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.25),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
@@ -42,7 +51,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                 child: Text(
                   'Hari Ini',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -53,19 +62,26 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.22)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.info_outline, size: 14, color: Colors.white),
+                      Icon(Icons.info_outline, size: 14, color: AppColors.primary),
                       SizedBox(width: 6),
                       Text(
                         'Termasuk tempahan & vendor',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -84,7 +100,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                   label: 'Masuk',
                   value: DashboardV2Format.currency(inflow),
                   icon: Icons.savings_rounded,
-                  accent: Colors.white,
+                  accent: AppColors.success,
                 ),
               ),
               const SizedBox(width: 12),
@@ -93,7 +109,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                   label: 'Belanja',
                   value: DashboardV2Format.currency(expense),
                   icon: Icons.payments_rounded,
-                  accent: Colors.white,
+                  accent: Colors.red,
                 ),
               ),
             ],
@@ -105,16 +121,17 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.14),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    border: Border.all(color: profitColor.withOpacity(0.22)),
+                    boxShadow: AppColors.cardShadow,
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: profitColor.withOpacity(0.10),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Icon(Icons.auto_graph_rounded, color: profitColor, size: 22),
@@ -124,14 +141,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Untung',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.92),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            Text('Untung', style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 4),
                             Text(
                               DashboardV2Format.currency(profit),
@@ -145,7 +155,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                             Text(
                               'Masuk - Belanja (tanpa COGS)',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.72),
+                                color: Colors.grey.shade600,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -163,7 +173,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                   label: 'Transaksi',
                   value: transactions.toString(),
                   icon: Icons.shopping_cart_checkout_rounded,
-                  accent: Colors.white,
+                  accent: AppColors.primary,
                 ),
               ),
             ],
@@ -192,16 +202,17 @@ class _MetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
+        border: Border.all(color: accent.withOpacity(0.20)),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: accent.withOpacity(0.10),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(icon, color: accent, size: 20),
@@ -214,7 +225,7 @@ class _MetricTile extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.92),
+                    color: Colors.grey.shade700,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -222,11 +233,7 @@ class _MetricTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
               ],
             ),
