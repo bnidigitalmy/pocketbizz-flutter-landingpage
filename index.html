@@ -36,11 +36,17 @@
   <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
   <link rel="dns-prefetch" href="https://unpkg.com">
   
+  <!-- Preload critical images -->
+  <link rel="preload" as="image" href="assets/images/Dashboard.png" fetchpriority="high">
+  <link rel="preload" as="image" href="transparentlogo2.png">
+  
+  <!-- Google Fonts - Optimized loading -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
   
   <!-- Structured Data for SEO -->
   <script type="application/ld+json">
@@ -101,7 +107,6 @@
     }
   </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     :root {
       --primary: #14b8a6;
       --primary-dark: #0d9488;
@@ -184,7 +189,7 @@
   <header class="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60" role="banner">
     <div class="max-w-7xl mx-auto flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
       <a href="#" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="PocketBizz Home">
-        <img src="transparentlogo2.png" alt="PocketBizz Logo" class="h-8 w-auto sm:h-9" loading="eager">
+        <img src="transparentlogo2.png" alt="PocketBizz Logo" class="h-8 w-auto sm:h-9" loading="eager" width="200" height="50" fetchpriority="high">
       </a>
       <nav class="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Main navigation">
         <a href="#features" class="text-sm font-medium hover:opacity-80 transition-colors">Features</a>
@@ -245,7 +250,10 @@
                 alt="PocketBizz Dashboard - Urus bisnes dari poket tanpa stress. Lihat untung rugi hari ini, tindakan segera, dan semua operasi bisnes dalam satu skrin." 
                 class="w-full h-auto object-cover"
                 loading="eager"
+                width="1200"
+                height="600"
                 style="max-height: 600px;"
+                fetchpriority="high"
                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
               <div class="hidden w-full aspect-[4/3] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-8">
                 <div class="text-center p-8">
@@ -2482,7 +2490,7 @@
   </div>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@latest" defer></script>
   <script>
     // Initialize Lucide icons - multiple attempts to ensure they load
     function initLucideIcons() {
