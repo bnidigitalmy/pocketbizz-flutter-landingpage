@@ -8,11 +8,7 @@
   "rewrites": [
     {
       "source": "/landing-v2",
-      "destination": "/landing-v2/index.html"
-    },
-    {
-      "source": "/landing-v2/(.*)",
-      "destination": "/landing-v2/$1"
+      "destination": "/landing-v2.html"
     },
     {
       "source": "/(.*)",
