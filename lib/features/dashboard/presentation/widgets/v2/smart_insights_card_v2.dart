@@ -7,6 +7,7 @@ import 'dashboard_v2_format.dart';
 
 class SmartInsightsCardV2 extends StatelessWidget {
   final SmeDashboardV2Data data;
+  final bool hasUrgentIssues; // Pass from parent
   final VoidCallback onAddSale;
   final VoidCallback onAddExpense;
   final VoidCallback onViewFinishedStock;
@@ -15,6 +16,7 @@ class SmartInsightsCardV2 extends StatelessWidget {
   const SmartInsightsCardV2({
     super.key,
     required this.data,
+    this.hasUrgentIssues = false,
     required this.onAddSale,
     required this.onAddExpense,
     required this.onViewFinishedStock,
@@ -23,15 +25,9 @@ class SmartInsightsCardV2 extends StatelessWidget {
 
   DashboardMode get _mode => DashboardMoodEngine.getCurrentMode();
   
-  bool get _hasUrgentIssues {
-    // Check for urgent issues: stok = 0, order overdue, batch expired
-    // TODO: Implement actual checks from data
-    return false;
-  }
-  
   MoodTone get _mood => DashboardMoodEngine.getMoodTone(
     mode: _mode,
-    hasUrgentIssues: _hasUrgentIssues,
+    hasUrgentIssues: hasUrgentIssues,
   );
 
   @override

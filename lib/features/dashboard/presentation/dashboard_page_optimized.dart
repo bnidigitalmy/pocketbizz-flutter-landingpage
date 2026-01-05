@@ -30,6 +30,8 @@ import '../../announcements/presentation/notifications_page.dart';
 import '../../expenses/presentation/receipt_scan_page.dart';
 import '../domain/sme_dashboard_v2_models.dart';
 import '../services/sme_dashboard_v2_service.dart';
+import '../../../data/repositories/finished_products_repository_supabase.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'widgets/v2/production_suggestion_card_v2.dart';
 import 'widgets/v2/primary_quick_actions_v2.dart';
 import 'widgets/v2/finished_products_alerts_v2.dart';
@@ -68,6 +70,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   int _unreadNotifications = 0;
   bool _loading = true;
   SmeDashboardV2Data? _v2;
+  bool _hasUrgentIssuesFlag = false; // Cached urgent issues flag
 
   @override
   void initState() {
@@ -102,6 +105,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         SubscriptionService().getCurrentSubscription(),
         _businessProfileRepo.getBusinessProfile(),
         _v2Service.load(),
+        _checkUrgentIssues(), // Check for urgent issues
       ]);
 
       if (!mounted) return; // Check again after async operations
@@ -111,6 +115,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       // Load unread notifications after subscription is loaded
       final unreadCount = await _loadUnreadNotifications(subscription);
       final v2 = results[5] as SmeDashboardV2Data;
+      final hasUrgentIssues = results[6] as bool;
 
       setState(() {
         _stats = results[0] as Map<String, dynamic>;
@@ -120,6 +125,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _businessProfile = results[4] as BusinessProfile?;
         _unreadNotifications = unreadCount;
         _v2 = v2;
+        _hasUrgentIssuesFlag = hasUrgentIssues;
         _loading = false;
       });
     } catch (e) {
@@ -310,6 +316,19 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 16),
 
+                  // V2: Smart Insights (CADANGAN) - Adaptive suggestions
+                  if (_v2 != null)
+                    SmartInsightsCardV2(
+                      data: _v2!,
+                      hasUrgentIssues: _hasUrgentIssues(),
+                      onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
+                      onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
+                      onViewFinishedStock: () => Navigator.of(context).pushNamed('/finished-products'),
+                      onViewSales: () => Navigator.of(context).pushNamed('/sales'),
+                    ),
+
+                  const SizedBox(height: 16),
+
                   // V2: Primary quick actions (moved up for action-first)
                   PrimaryQuickActionsV2(
                     onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
@@ -458,19 +477,53 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
   /// Check for urgent issues that require immediate attention
   /// Returns true if: stok = 0, order overdue, batch expired
+  Future<bool> _checkUrgentIssues() async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // Check 1: Stock items with quantity = 0 (critical)
+      final allStockItems = await _stockRepo.getAllStockItems(limit: 200);
+      final hasZeroStock = allStockItems.any((item) => item.currentQuantity <= 0);
+
+      // Check 2: Bookings with delivery_date < today and status pending/confirmed (overdue)
+      final pendingBookings = await _bookingsRepo.listBookings(status: 'pending', limit: 100);
+      final confirmedBookings = await _bookingsRepo.listBookings(status: 'confirmed', limit: 100);
+      final allActiveBookings = [...pendingBookings, ...confirmedBookings];
+      
+      final hasOverdueBookings = allActiveBookings.any((booking) {
+        try {
+          final deliveryDate = DateTime.parse(booking.deliveryDate);
+          final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+          return deliveryDateOnly.isBefore(today);
+        } catch (e) {
+          return false; // Skip if date parsing fails
+        }
+      });
+
+      // Check 3: Finished products with expired batches
+      final finishedProductsRepo = FinishedProductsRepository();
+      final finishedProducts = await finishedProductsRepo.getFinishedProductsSummary();
+      final hasExpiredBatches = finishedProducts.any((product) {
+        if (product.nearestExpiry == null || product.totalRemaining <= 0) {
+          return false;
+        }
+        final expiryDate = product.nearestExpiry!;
+        final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+        return expiryDateOnly.isBefore(today);
+      });
+
+      return hasZeroStock || hasOverdueBookings || hasExpiredBatches;
+    } catch (e) {
+      // If check fails, return false to avoid blocking dashboard
+      debugPrint('Error checking urgent issues: $e');
+      return false;
+    }
+  }
+
+  /// Get cached urgent issues flag
   bool _hasUrgentIssues() {
-    // TODO: Implement actual checks:
-    // 1. Check if any stock items have quantity = 0 (critical)
-    // 2. Check if any orders are overdue
-    // 3. Check if any batches are expired
-    
-    // For now, return false (will be enhanced with actual data checks)
-    // This can be enhanced by checking:
-    // - _pendingTasks?['lowStockCount'] == 0 (but need to check if any are actually 0, not just low)
-    // - _stats?['overdue'] ?? 0 > 0
-    // - Check finished products for expired batches
-    
-    return false;
+    return _hasUrgentIssuesFlag;
   }
 
   Widget _buildSubscriptionAlert() {

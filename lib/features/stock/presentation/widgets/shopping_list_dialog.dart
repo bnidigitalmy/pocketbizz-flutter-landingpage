@@ -272,6 +272,7 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white, // Ensure text color is white
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -285,11 +286,15 @@ class _ShoppingListDialogState extends State<ShoppingListDialog> {
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.shopping_cart, size: 20),
+                                const Icon(Icons.shopping_cart, size: 20, color: Colors.white),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Tambah ${widget.selectedItems.length} Item',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  'Tambah ${widget.selectedItems.length} ke Senarai',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ],
                             ),
