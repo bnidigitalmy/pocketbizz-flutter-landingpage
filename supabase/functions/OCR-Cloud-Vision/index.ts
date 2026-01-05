@@ -325,11 +325,27 @@ function parseReceiptText(text: string): ParsedReceipt {
   
   // Last resort: Find largest amount (but exclude CASH/TUNAI amounts)
   // CASH/TUNAI is payment amount, not expense amount
-  // FIX: Only fallback if NO TOTAL-like amount was found (LOCK TOTAL even if smaller than CASH)
-  // IMPROVED: Simplified check (amountSource always set when totalAmount is set)
+  // CRITICAL: Only fallback if NO explicit label found (NET TOTAL, TOTAL, JUMLAH, SUBTOTAL)
+  // EXPLICIT LABELS ALWAYS WIN - even if largest amount is bigger
+  // This check ensures fallback NEVER runs if we found an explicit label
   if (!totalAmount) {
-    console.log("⚠️ No TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found, using fallback (largest amount)");
-    const allAmounts: Array<{ value: number; line: string }> = [];
+    // SAFETY CHECK: Verify no explicit labels exist in text (double-check pattern matching)
+    const hasExplicitLabel = /(?:NET\s*TOTAL|NETT|NET|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUBTOTAL)[:\s]*RM?\s*\d/i.test(text);
+    if (hasExplicitLabel) {
+      console.error("⚠️ WARNING: Explicit label detected in text but not matched by patterns!");
+      console.error("   This suggests a pattern matching issue - patterns may need adjustment");
+      console.error("   NOT using fallback to prevent override of explicit labels");
+      // Don't use fallback if explicit label exists - this prevents override
+      // Set to null to indicate pattern matching failed
+      totalAmount = null;
+      amountSource = null;
+    } else {
+      console.log("⚠️ No TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found, using fallback (largest amount)");
+    }
+    
+    // Only proceed with fallback if no explicit label was found
+    if (!totalAmount && !hasExplicitLabel) {
+      const allAmounts: Array<{ value: number; line: string }> = [];
     // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
     const amountPattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/g;
     
@@ -366,14 +382,16 @@ function parseReceiptText(text: string): ParsedReceipt {
       }
     }
     
-    if (allAmounts.length > 0) {
-      // Get the largest amount (usually the total, excluding cash payments)
-      totalAmount = Math.max(...allAmounts.map(a => a.value));
-      amountSource = "fallback";
-      console.log(`⚠️ Fallback: Using largest amount ${totalAmount} from ${allAmounts.length} candidates`);
-      console.log(`   Candidates:`, allAmounts.map(a => `${a.value} (${a.line.substring(0, 30)})`).join(", "));
-    } else {
-      console.log("⚠️ Fallback: No amounts found in receipt");
+      if (allAmounts.length > 0) {
+        // Get the largest amount (usually the total, excluding cash payments)
+        totalAmount = Math.max(...allAmounts.map(a => a.value));
+        amountSource = "fallback";
+        console.log(`⚠️ Fallback: Using largest amount ${totalAmount} from ${allAmounts.length} candidates`);
+        console.log(`   Candidates:`, allAmounts.map(a => `${a.value} (${a.line.substring(0, 30)})`).join(", "));
+        console.log(`   ⚠️ Note: Fallback is used ONLY when no explicit labels (TOTAL/NET TOTAL/JUMLAH) are found`);
+      } else {
+        console.log("⚠️ Fallback: No amounts found in receipt");
+      }
     }
   }
   
@@ -393,14 +411,37 @@ function parseReceiptText(text: string): ParsedReceipt {
   }
   
   // FIX #3: Lock TOTAL - Never allow fallback to override explicit TOTAL
-  // If we found TOTAL/NET TOTAL/JUMLAH, it's LOCKED regardless of CASH amount
+  // CRITICAL: If we found ANY explicit label (NET TOTAL, TOTAL, JUMLAH, SUBTOTAL), it's LOCKED
+  // Fallback CANNOT override even if largest amount is bigger
   if (amountSource && ["net", "total", "jumlah", "subtotal"].includes(amountSource)) {
-    // Amount is locked - do nothing
-    console.log(`✅ Amount locked from source: ${amountSource}, value: ${totalAmount}`);
+    // Amount is locked - EXPLICIT LABEL FOUND, NEVER USE FALLBACK
+    console.log(`✅ Amount LOCKED from source: ${amountSource}, value: ${totalAmount}`);
+    console.log(`   ⚠️ Fallback will NOT override this amount, even if larger amounts exist`);
+    
+    // DOUBLE-CHECK: Verify we didn't accidentally use fallback
+    if (amountSource === "fallback") {
+      console.error("❌ ERROR: Fallback should not be set when explicit label found!");
+      // This should never happen, but just in case
+    }
   } else if (!totalAmount) {
     console.log("❌ No amount found - all patterns failed to match");
   } else if (amountSource === "fallback") {
-    console.log(`⚠️ Using fallback amount: ${totalAmount} (no explicit TOTAL found in receipt)`);
+    console.log(`⚠️ Using fallback amount: ${totalAmount} (no explicit TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found in receipt)`);
+    console.log(`   ℹ️ Fallback is used ONLY when no explicit labels are found`);
+  }
+  
+  // FINAL ENFORCEMENT: Triple-check that explicit labels always win
+  // This is the ultimate safety net - if explicit label exists in text but fallback was used, something is wrong
+  const explicitLabelExists = /(?:NET\s*TOTAL|NETT|NET|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUBTOTAL)[:\s]*RM?\s*\d/i.test(text);
+  if (explicitLabelExists && amountSource === "fallback" && totalAmount) {
+    console.error("❌ CRITICAL: Explicit label found in text but fallback was used!");
+    console.error("   This indicates a pattern matching failure - patterns need to be fixed");
+    console.error("   For safety, we should NOT use fallback amount when explicit label exists");
+    // SAFETY: Reject fallback to prevent override of explicit labels
+    // This ensures explicit labels ALWAYS win, even if pattern matching failed
+    totalAmount = null;
+    amountSource = null;
+    console.error("   ⚠️ Amount set to null - pattern matching needs investigation");
   }
   
   result.amount = totalAmount;
