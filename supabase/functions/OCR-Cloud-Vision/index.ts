@@ -250,58 +250,75 @@ function parseReceiptText(text: string): ParsedReceipt {
   
   // Priority 1: NET TOTAL / NETT (most accurate - amount after discounts/tax)
   // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
-  const netTotalPattern = /(?:NET\s*TOTAL|NETT|NET)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
-  let match = netTotalPattern.exec(text);
-  if (match) {
+  // FIX: Use match() instead of exec() to avoid global flag issues
+  const netTotalPattern = /(?:NET\s*TOTAL|NETT|NET)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+  let match = text.match(netTotalPattern);
+  if (match && match[1]) {
     const num = normalizeAmountString(match[1]);
     const normalized = parseFloat(num.toFixed(2));
     if (!isNaN(normalized) && normalized > 0) {
       totalAmount = normalized;
       amountSource = "net";
+      console.log(`✅ Found NET TOTAL: ${normalized}`);
     }
   }
   
   // Priority 2: TOTAL / GRAND TOTAL / JUMLAH BESAR (if net total not found)
   // IMPROVED: Handles 1,234.50 format
+  // FIX: Use match() to get first match, not continue from previous
+  // FIX: More flexible pattern - handles various spacing and formats
   if (!totalAmount) {
-    const totalPattern = /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
-    match = totalPattern.exec(text);
-    if (match) {
-      const num = normalizeAmountString(match[1]);
-      const normalized = parseFloat(num.toFixed(2));
-      if (!isNaN(normalized) && normalized > 0) {
-        totalAmount = normalized;
-        amountSource = "total";
+    // Try multiple patterns for better matching
+    const totalPatterns = [
+      /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i,
+      /(?:TOTAL|JUMLAH)[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i, // Simpler pattern without RM
+    ];
+    
+    for (const totalPattern of totalPatterns) {
+      match = text.match(totalPattern);
+      if (match && match[1]) {
+        const num = normalizeAmountString(match[1]);
+        const normalized = parseFloat(num.toFixed(2));
+        if (!isNaN(normalized) && normalized > 0) {
+          totalAmount = normalized;
+          amountSource = "total";
+          console.log(`✅ Found TOTAL: ${normalized} (matched pattern: ${totalPattern})`);
+          break;
+        }
       }
     }
   }
   
   // Priority 3: JUMLAH (if total not found)
   // IMPROVED: Handles 1,234.50 format
+  // FIX: Use match() to avoid regex state issues
   if (!totalAmount) {
-    const jumlahPattern = /(?:JUMLAH)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
-    match = jumlahPattern.exec(text);
-    if (match) {
+    const jumlahPattern = /(?:JUMLAH)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+    match = text.match(jumlahPattern);
+    if (match && match[1]) {
       const num = normalizeAmountString(match[1]);
       const normalized = parseFloat(num.toFixed(2));
       if (!isNaN(normalized) && normalized > 0) {
         totalAmount = normalized;
         amountSource = "jumlah";
+        console.log(`✅ Found JUMLAH: ${normalized}`);
       }
     }
   }
   
   // Priority 4: SUBTOTAL (if nothing else found - less ideal but better than cash)
   // IMPROVED: Handles 1,234.50 format
+  // FIX: Use match() to avoid regex state issues
   if (!totalAmount) {
-    const subtotalPattern = /(?:SUBTOTAL)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
-    match = subtotalPattern.exec(text);
-    if (match) {
+    const subtotalPattern = /(?:SUBTOTAL)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+    match = text.match(subtotalPattern);
+    if (match && match[1]) {
       const num = normalizeAmountString(match[1]);
       const normalized = parseFloat(num.toFixed(2));
       if (!isNaN(normalized) && normalized > 0) {
         totalAmount = normalized;
         amountSource = "subtotal";
+        console.log(`✅ Found SUBTOTAL: ${normalized}`);
       }
     }
   }
@@ -311,6 +328,7 @@ function parseReceiptText(text: string): ParsedReceipt {
   // FIX: Only fallback if NO TOTAL-like amount was found (LOCK TOTAL even if smaller than CASH)
   // IMPROVED: Simplified check (amountSource always set when totalAmount is set)
   if (!totalAmount) {
+    console.log("⚠️ No TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found, using fallback (largest amount)");
     const allAmounts: Array<{ value: number; line: string }> = [];
     // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
     const amountPattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/g;
@@ -352,6 +370,10 @@ function parseReceiptText(text: string): ParsedReceipt {
       // Get the largest amount (usually the total, excluding cash payments)
       totalAmount = Math.max(...allAmounts.map(a => a.value));
       amountSource = "fallback";
+      console.log(`⚠️ Fallback: Using largest amount ${totalAmount} from ${allAmounts.length} candidates`);
+      console.log(`   Candidates:`, allAmounts.map(a => `${a.value} (${a.line.substring(0, 30)})`).join(", "));
+    } else {
+      console.log("⚠️ Fallback: No amounts found in receipt");
     }
   }
   
@@ -375,6 +397,10 @@ function parseReceiptText(text: string): ParsedReceipt {
   if (amountSource && ["net", "total", "jumlah", "subtotal"].includes(amountSource)) {
     // Amount is locked - do nothing
     console.log(`✅ Amount locked from source: ${amountSource}, value: ${totalAmount}`);
+  } else if (!totalAmount) {
+    console.log("❌ No amount found - all patterns failed to match");
+  } else if (amountSource === "fallback") {
+    console.log(`⚠️ Using fallback amount: ${totalAmount} (no explicit TOTAL found in receipt)`);
   }
   
   result.amount = totalAmount;
