@@ -44,6 +44,8 @@ interface ParsedReceipt {
   items: Array<{ name: string; price: number }>;
   rawText: string;
   category: string;
+  amountSource?: "net" | "total" | "jumlah" | "subtotal" | "fallback" | null; // For debugging/UI display
+  confidence?: number; // 0.0 - 1.0, for UX display (0.95 = high, 0.8 = medium, 0.6 = low)
 }
 
 serve(async (req) => {
@@ -214,6 +216,17 @@ serve(async (req) => {
   }
 });
 
+/**
+ * Normalize amount string to number
+ * Handles: 1,234.50 (comma as thousand separator) and 1234.50
+ * Malaysian receipts typically use: comma = thousand separator, period = decimal
+ */
+function normalizeAmountString(amountStr: string): number {
+  // Remove all commas (thousand separators), keep period as decimal
+  const cleaned = amountStr.replace(/,/g, "");
+  return parseFloat(cleaned);
+}
+
 function parseReceiptText(text: string): ParsedReceipt {
   const result: ParsedReceipt = {
     amount: null,
@@ -228,80 +241,109 @@ function parseReceiptText(text: string): ParsedReceipt {
   const fullTextLower = text.toLowerCase();
 
   // ===== EXTRACT TOTAL AMOUNT =====
-  // Priority order: NET TOTAL > TOTAL > JUMLAH > CASH (cash is payment, not expense amount)
+  // Priority order: NET TOTAL > TOTAL > JUMLAH > SUBTOTAL > Fallback (largest non-payment)
   // We want the amount SPENT, not the amount PAID
+  // CRITICAL: TOTAL is LOCKED - CASH cannot override even if larger
   
   let totalAmount: number | null = null;
+  let amountSource: "net" | "total" | "jumlah" | "subtotal" | "fallback" | null = null;
   
   // Priority 1: NET TOTAL / NETT (most accurate - amount after discounts/tax)
-  const netTotalPattern = /(?:NET\s*TOTAL|NETT|NET)[:\s]*RM?\s*(\d+[.,]\d{2,4})/gi;
+  // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
+  const netTotalPattern = /(?:NET\s*TOTAL|NETT|NET)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
   let match = netTotalPattern.exec(text);
   if (match) {
-    const numStr = match[1].replace(",", ".");
-    const num = parseFloat(parseFloat(numStr).toFixed(2));
-    if (!isNaN(num) && num > 0) {
-      totalAmount = num;
+    const num = normalizeAmountString(match[1]);
+    const normalized = parseFloat(num.toFixed(2));
+    if (!isNaN(normalized) && normalized > 0) {
+      totalAmount = normalized;
+      amountSource = "net";
     }
   }
   
   // Priority 2: TOTAL / GRAND TOTAL / JUMLAH BESAR (if net total not found)
+  // IMPROVED: Handles 1,234.50 format
   if (!totalAmount) {
-    const totalPattern = /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE)[:\s]*RM?\s*(\d+[.,]\d{2,4})/gi;
+    const totalPattern = /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
     match = totalPattern.exec(text);
     if (match) {
-      const numStr = match[1].replace(",", ".");
-      const num = parseFloat(parseFloat(numStr).toFixed(2));
-      if (!isNaN(num) && num > 0) {
-        totalAmount = num;
+      const num = normalizeAmountString(match[1]);
+      const normalized = parseFloat(num.toFixed(2));
+      if (!isNaN(normalized) && normalized > 0) {
+        totalAmount = normalized;
+        amountSource = "total";
       }
     }
   }
   
   // Priority 3: JUMLAH (if total not found)
+  // IMPROVED: Handles 1,234.50 format
   if (!totalAmount) {
-    const jumlahPattern = /(?:JUMLAH)[:\s]*RM?\s*(\d+[.,]\d{2,4})/gi;
+    const jumlahPattern = /(?:JUMLAH)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
     match = jumlahPattern.exec(text);
     if (match) {
-      const numStr = match[1].replace(",", ".");
-      const num = parseFloat(parseFloat(numStr).toFixed(2));
-      if (!isNaN(num) && num > 0) {
-        totalAmount = num;
+      const num = normalizeAmountString(match[1]);
+      const normalized = parseFloat(num.toFixed(2));
+      if (!isNaN(normalized) && normalized > 0) {
+        totalAmount = normalized;
+        amountSource = "jumlah";
       }
     }
   }
   
   // Priority 4: SUBTOTAL (if nothing else found - less ideal but better than cash)
+  // IMPROVED: Handles 1,234.50 format
   if (!totalAmount) {
-    const subtotalPattern = /(?:SUBTOTAL)[:\s]*RM?\s*(\d+[.,]\d{2,4})/gi;
+    const subtotalPattern = /(?:SUBTOTAL)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/gi;
     match = subtotalPattern.exec(text);
     if (match) {
-      const numStr = match[1].replace(",", ".");
-      const num = parseFloat(parseFloat(numStr).toFixed(2));
-      if (!isNaN(num) && num > 0) {
-        totalAmount = num;
+      const num = normalizeAmountString(match[1]);
+      const normalized = parseFloat(num.toFixed(2));
+      if (!isNaN(normalized) && normalized > 0) {
+        totalAmount = normalized;
+        amountSource = "subtotal";
       }
     }
   }
   
   // Last resort: Find largest amount (but exclude CASH/TUNAI amounts)
   // CASH/TUNAI is payment amount, not expense amount
+  // FIX: Only fallback if NO TOTAL-like amount was found (LOCK TOTAL even if smaller than CASH)
+  // IMPROVED: Simplified check (amountSource always set when totalAmount is set)
   if (!totalAmount) {
     const allAmounts: Array<{ value: number; line: string }> = [];
-    const amountPattern = /(\d+[.,]\d{2,4})/g;
+    // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
+    const amountPattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/g;
     
-    // Extract all amounts with their context
+    // FIX #1: Payment Context Window - Skip lines after CASH/TUNAI keywords
+    // OCR often puts CASH and amount on separate lines:
+    //   "TOTAL 23.50"
+    //   "CASH"
+    //   "50.00"  ← This gets captured without context window
+    let skipNextLines = 0;
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Skip lines that contain CASH/TUNAI/BAYAR (these are payment amounts)
-      if (/(?:TUNAI|CASH|BAYAR|CHANGE|BAKI)/i.test(line)) {
+      
+      // If payment keyword found, skip this line + next 2 lines (payment context window)
+      if (/(?:TUNAI|CASH|BAYAR|PAYMENT|CHANGE|BAKI)/i.test(line)) {
+        skipNextLines = 2; // Skip current line + next 2 lines
         continue;
       }
       
+      // Skip lines in payment context window
+      if (skipNextLines > 0) {
+        skipNextLines--;
+        continue;
+      }
+      
+      // Extract amounts from non-payment lines
       let lineMatch;
       while ((lineMatch = amountPattern.exec(line)) !== null) {
-        const num = parseFloat(lineMatch[1].replace(",", "."));
-        if (!isNaN(num) && num > 0 && num < 100000) {
-          allAmounts.push({ value: parseFloat(num.toFixed(2)), line });
+        const num = normalizeAmountString(lineMatch[1]);
+        const normalized = parseFloat(num.toFixed(2));
+        if (!isNaN(normalized) && normalized > 0 && normalized < 100000) {
+          allAmounts.push({ value: normalized, line });
         }
       }
     }
@@ -309,7 +351,30 @@ function parseReceiptText(text: string): ParsedReceipt {
     if (allAmounts.length > 0) {
       // Get the largest amount (usually the total, excluding cash payments)
       totalAmount = Math.max(...allAmounts.map(a => a.value));
+      amountSource = "fallback";
     }
+  }
+  
+  // FIX #2: Final Safety Guard - Prevent CASH from overriding TOTAL
+  // Even if fallback found an amount, if it matches CASH value, reject it
+  if (totalAmount && amountSource === "fallback" && /(?:CASH|TUNAI)/i.test(text)) {
+    const cashMatch = text.match(/(?:CASH|TUNAI)[^\d]*(\d+[.,]\d{2,4})/i);
+    if (cashMatch) {
+      const cashValue = parseFloat(cashMatch[1].replace(",", "."));
+      if (Math.abs(totalAmount - cashValue) < 0.01) { // Allow small floating point differences
+        // This amount is likely CASH payment, not expense total
+        totalAmount = null;
+        amountSource = null;
+        console.log("⚠️ Rejected amount matching CASH payment:", cashValue);
+      }
+    }
+  }
+  
+  // FIX #3: Lock TOTAL - Never allow fallback to override explicit TOTAL
+  // If we found TOTAL/NET TOTAL/JUMLAH, it's LOCKED regardless of CASH amount
+  if (amountSource && ["net", "total", "jumlah", "subtotal"].includes(amountSource)) {
+    // Amount is locked - do nothing
+    console.log(`✅ Amount locked from source: ${amountSource}, value: ${totalAmount}`);
   }
   
   result.amount = totalAmount;
@@ -390,6 +455,23 @@ function parseReceiptText(text: string): ParsedReceipt {
 
   // ===== AUTO-DETECT CATEGORY =====
   result.category = detectCategory(fullTextLower, result.merchant || "");
+
+  // Include amount source for debugging/UI display
+  result.amountSource = amountSource;
+
+  // Calculate confidence score based on source (UX booster)
+  // High confidence: net, total (explicit labels)
+  // Medium confidence: jumlah, subtotal (less explicit)
+  // Low confidence: fallback (estimated)
+  if (amountSource === "net" || amountSource === "total") {
+    result.confidence = 0.95; // 🟢 High confidence
+  } else if (amountSource === "jumlah" || amountSource === "subtotal") {
+    result.confidence = 0.8; // 🟡 Medium confidence
+  } else if (amountSource === "fallback") {
+    result.confidence = 0.6; // 🔴 Low confidence (needs review)
+  } else {
+    result.confidence = 0.0; // No amount found
+  }
 
   return result;
 }
