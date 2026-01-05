@@ -7,6 +7,14 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/landing-v2",
+      "destination": "/landing-v2/index.html"
+    },
+    {
+      "source": "/landing-v2/(.*)",
+      "destination": "/landing-v2/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

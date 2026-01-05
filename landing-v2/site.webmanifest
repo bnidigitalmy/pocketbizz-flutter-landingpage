@@ -1,0 +1,21 @@
+{
+  "name": "PocketBizz - Sistem Operasi Lengkap untuk SME & F&B",
+  "short_name": "PocketBizz",
+  "description": "Urus stok, pengeluaran, jualan, konsainan, vendor claims & laporan dalam satu platform",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "504x504",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#14b8a6",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}
+
+
+
+
