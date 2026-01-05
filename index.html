@@ -37,7 +37,7 @@
   <link rel="dns-prefetch" href="https://unpkg.com">
   
   <!-- Preload critical images -->
-  <link rel="preload" as="image" href="assets/images/Dashboard.png" fetchpriority="high">
+  <link rel="preload" as="image" href="assets/images/dashboard_baru.png" fetchpriority="high">
   <link rel="preload" as="image" href="transparentlogo2.png">
   
   <!-- Google Fonts - Optimized loading -->
@@ -243,23 +243,19 @@
             </div>
           </div>
           <div class="relative order-first lg:order-last">
-            <div class="absolute inset-0 rounded-2xl sm:rounded-3xl blur-3xl opacity-50" style="background: var(--logo-gradient);" aria-hidden="true"></div>
-            <div class="relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden bg-white hover-elevate" role="img" aria-label="PocketBizz Dashboard Preview">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/Dashboard.png" 
+                src="assets/images/dashboard_baru.png" 
                 alt="PocketBizz Dashboard - Urus bisnes dari poket tanpa stress. Lihat untung rugi hari ini, tindakan segera, dan semua operasi bisnes dalam satu skrin." 
-                class="w-full h-auto object-cover"
+                class="w-full h-auto object-contain"
                 loading="eager"
-                width="1200"
-                height="600"
-                style="max-height: 600px;"
                 fetchpriority="high"
                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-              <div class="hidden w-full aspect-[4/3] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-8">
-                <div class="text-center p-8">
-                  <i data-lucide="smartphone" class="h-16 w-16 text-slate-400 mx-auto mb-4" aria-hidden="true"></i>
-                  <p class="text-sm text-slate-500">PocketBizz Dashboard</p>
-                  <p class="text-xs text-slate-400 mt-2">Semua dalam telefon pintar anda</p>
+              <div class="hidden aspect-[9/16] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-dashed border-slate-300">
+                <div class="text-center p-4">
+                  <i data-lucide="smartphone" class="h-16 w-16 text-slate-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-slate-600 mb-1">DASHBOARD_PREVIEW</p>
+                  <p class="text-xs text-slate-500">Screenshot: Dashboard utama dengan untung rugi hari ini</p>
                 </div>
               </div>
             </div>
@@ -421,7 +417,7 @@
           <div class="relative">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/produksi.png" 
+                src="assets/images/Production2.png" 
                 alt="PocketBizz Production Module - Produksi automatik dengan kiraan bahan mentah, tolakan stok, dan tracking tarikh luput. Production planning yang pantas dan tersusun." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -446,7 +442,7 @@
           <div class="relative order-2 lg:order-1">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/kira_kos.png" 
+                src="assets/images/produk_kos3.png" 
                 alt="PocketBizz Cost Calculation - Kira kos produk secara automatik berdasarkan resepi, cadangan harga jualan, dan margin untung. Auto cost calculation yang tepat dan mudah." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -566,7 +562,7 @@
           <div class="relative">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/stok_management.png" 
+                src="assets/images/stok2.png" 
                 alt="PocketBizz Stock Management - Alert automatik apabila stok rendah, cadangan bahan mentah yang perlu dibeli, dan senarai pembelian dijana secara automatik. Stock management yang terancang dan terkawal." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -591,7 +587,7 @@
           <div class="relative order-2 lg:order-1">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/vendor_delivery.png" 
+                src="assets/images/delivery.png" 
                 alt="PocketBizz Delivery & Vendor Management - Rekod setiap penghantaran produk, track pergerakan produk, dan generate invois penghantaran secara automatik. Delivery management yang mudah dan teratur." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -705,7 +701,7 @@
           <div class="relative">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/booking_planner.png" 
+                src="assets/images/booking.png" 
                 alt="PocketBizz Booking & Planner - Sistem tempahan yang link terus dengan produk, invois dan resit dijana automatik, dan planner untuk tugasan dan peringatan. Operasi bisnes lengkap dalam satu sistem." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -730,7 +726,7 @@
           <div class="relative order-2 lg:order-1">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/laporan.png" 
+                src="assets/images/laporan2.png" 
                 alt="PocketBizz Reports & Dashboard - Laporan lengkap tanpa perlu Excel yang rumit. Lihat jualan, kos, untung, pergerakan stok, dan semua maklumat penting dalam format yang mudah difahami." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -787,57 +783,47 @@
     <!-- 📱 SECTION: PENGURUSAN & REKOD PERBELANJAAN DENGAN OCR -->
     <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="expenses-heading">
       <div class="max-w-7xl mx-auto">
-        <div class="space-y-4 sm:space-y-6">
-          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
-            <i data-lucide="scan-line" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
-            Smart OCR Technology
-          </div>
-          <h2 id="expenses-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
-            Rekod Perbelanjaan Dengan <span style="color: var(--primary);">Scan OCR</span> - Auto & Pantas
-          </h2>
-          <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Tak perlu lagi key-in manual setiap resit. Dengan teknologi OCR (Optical Character Recognition) PocketBizz, 
-            <span class="font-semibold text-slate-900">hanya ambil gambar resit</span>, sistem akan:
-          </p>
-          <ul class="space-y-3 text-slate-700">
-            <li class="flex items-start gap-3">
-              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-              <div>
-                <span class="font-semibold text-slate-900">Detect nama kedai/merchant</span> secara automatik dari resit
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-              <div>
-                <span class="font-semibold text-slate-900">Extract jumlah perbelanjaan</span> dengan tepat
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-              <div>
-                <span class="font-semibold text-slate-900">Detect tarikh transaksi</span> dari resit
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-              <div>
-                <span class="font-semibold text-slate-900">Auto suggest kategori perbelanjaan</span> berdasarkan merchant atau pattern sebelumnya
-              </div>
-            </li>
-          </ul>
-          <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
-            Semua data akan <span class="font-semibold text-slate-900">direkod secara automatik</span> dalam sistem cloud yang selamat. 
-            Anda boleh <span class="font-semibold text-slate-900">rujuk pada bila-bila masa dan dimana-mana</span> dari telefon atau komputer.
-          </p>
-          <div class="p-4 rounded-lg bg-primary-50 border border-primary-200">
-            <p class="text-base font-semibold text-slate-900">
-              <strong>Hasil:</strong> Rekod perbelanjaan jadi lebih cepat, teratur dan senang untuk audit atau buat laporan kos.
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="expenses-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Rekod Perbelanjaan Dengan <span style="color: var(--primary);">Scan OCR</span> - Auto & Pantas.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Tak perlu lagi key-in manual setiap resit. Dengan teknologi OCR (Optical Character Recognition) PocketBizz, 
+              <span class="font-semibold text-slate-900">hanya ambil gambar resit</span>, sistem akan:
             </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Detect nama kedai/merchant secara automatik dari resit</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Extract jumlah perbelanjaan dengan tepat</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Detect tarikh transaksi dari resit</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Auto suggest kategori perbelanjaan berdasarkan merchant atau pattern sebelumnya</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua data akan <strong>direkod secara automatik</strong> dalam sistem cloud yang selamat. 
+              Anda boleh <strong>rujuk pada bila-bila masa dan dimana-mana</strong> dari telefon atau komputer.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Rekod perbelanjaan jadi lebih cepat, teratur dan senang untuk audit atau buat laporan kos.
+              </p>
+            </div>
           </div>
           <div class="relative">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
-                src="assets/images/scanner.png" 
+                src="assets/images/scan_resit.png" 
                 alt="PocketBizz OCR Scanner - Scan resit dengan teknologi OCR, auto-detect nama kedai, jumlah perbelanjaan, tarikh transaksi, dan auto suggest kategori. Rekod perbelanjaan automatik dan pantas." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
@@ -850,31 +836,6 @@
                 </div>
               </div>
             </div>
-            <!-- Feature highlights -->
-            <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
-                <i data-lucide="camera" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
-                <p class="text-xs font-semibold text-slate-700">Scan Resit</p>
-              </div>
-              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
-                <i data-lucide="sparkles" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
-                <p class="text-xs font-semibold text-slate-700">Auto Extract</p>
-              </div>
-              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
-                <i data-lucide="tag" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
-                <p class="text-xs font-semibold text-slate-700">Auto Categorize</p>
-              </div>
-              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
-                <i data-lucide="cloud" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
-                <p class="text-xs font-semibold text-slate-700">Cloud Save</p>
-              </div>
-            </div>
-          </div>
-          <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center justify-center gap-2 rounded-md px-6 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba Percuma 7 Hari">
-              Cuba Percuma 7 Hari
-              <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
-            </a>
           </div>
         </div>
       </div>
