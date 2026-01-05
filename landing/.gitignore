@@ -1,23 +1,26 @@
-# Dependencies
-node_modules/
-package-lock.json
-
-# Next.js (not needed for static HTML)
-.next/
+# Next.js files (not needed for static HTML)
 app/
 components/
-next.config.mjs
 next-env.d.ts
+next.config.mjs
+package-lock.json
+package.json
 postcss.config.mjs
 tailwind.config.ts
 tsconfig.json
+
+# Encore files (not needed)
+encore.app
+encore.service.ts
+
+# Node modules
+node_modules/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store

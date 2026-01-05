@@ -289,11 +289,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   if (_subscription != null && _subscription!.isExpiringSoon)
                     _buildSubscriptionAlert(),
 
-                  // Morning Briefing Card
+                  // Morning Briefing Card (Adaptive based on mood)
                   MorningBriefingCard(
                     userName: _businessProfile?.businessName ?? 
                               user?.email?.split('@').first ?? 
                               'SME Owner',
+                    hasUrgentIssues: _hasUrgentIssues(),
                   ),
 
                   const SizedBox(height: 20),
@@ -376,7 +377,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Sales by Channel Card
                   if (_salesByChannel.isNotEmpty) ...[
@@ -448,25 +449,28 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                       onStartProduction: () => Navigator.of(context).pushNamed('/production'),
                     ),
 
-                  const SizedBox(height: 20),
-
-                  // V2: Insight ringkas (rule-based)
-                  if (_v2 != null)
-                    SmartInsightsCardV2(
-                      data: _v2!,
-                      onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
-                      onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
-                      onViewFinishedStock: () => Navigator.of(context).pushNamed('/finished-products'),
-                      onViewSales: () => Navigator.of(context).pushNamed('/sales'),
-                    ),
-
-                  const SizedBox(height: 20),
-
                   const SizedBox(height: 24),
                 ],
               ),
             ),
     );
+  }
+
+  /// Check for urgent issues that require immediate attention
+  /// Returns true if: stok = 0, order overdue, batch expired
+  bool _hasUrgentIssues() {
+    // TODO: Implement actual checks:
+    // 1. Check if any stock items have quantity = 0 (critical)
+    // 2. Check if any orders are overdue
+    // 3. Check if any batches are expired
+    
+    // For now, return false (will be enhanced with actual data checks)
+    // This can be enhanced by checking:
+    // - _pendingTasks?['lowStockCount'] == 0 (but need to check if any are actually 0, not just low)
+    // - _stats?['overdue'] ?? 0 > 0
+    // - Check finished products for expired batches
+    
+    return false;
   }
 
   Widget _buildSubscriptionAlert() {

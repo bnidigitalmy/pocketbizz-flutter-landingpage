@@ -1,52 +1,65 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/date_time_helper.dart';
+import '../../domain/dashboard_mood_engine.dart';
 
 /// Morning Briefing Card
-/// Personalized greeting based on time of day
-/// Shows motivational message for SME owners
+/// Adaptive greeting based on time of day and business state
+/// Implements "tenang bila boleh, tegas bila perlu" philosophy
 class MorningBriefingCard extends StatelessWidget {
   final String userName;
+  final bool hasUrgentIssues; // stok = 0, order overdue, batch expired
 
   const MorningBriefingCard({
     super.key,
     required this.userName,
+    this.hasUrgentIssues = false,
   });
 
-  int get _hour => DateTimeHelper.now().hour;
+  DashboardMode get _mode => DashboardMoodEngine.getCurrentMode();
+  
+  MoodTone get _mood => DashboardMoodEngine.getMoodTone(
+    mode: _mode,
+    hasUrgentIssues: hasUrgentIssues,
+  );
 
   String _getGreeting() {
-    if (_hour < 12) {
-      return 'Selamat Pagi';
-    } else if (_hour < 15) {
-      return 'Selamat Tengah Hari';
-    } else if (_hour < 19) {
-      return 'Selamat Petang';
-    } else {
-      return 'Selamat Malam';
-    }
+    return DashboardMoodEngine.getGreeting(
+      mode: _mode,
+      mood: _mood,
+      userName: userName,
+    );
   }
 
-  String _getMotivationalMessage() {
-    if (_hour < 12) {
-      return 'Mari kita mulakan hari dengan produktif! 💪';
-    } else if (_hour < 15) {
-      return 'Teruskan momentum hari ini! 🚀';
-    } else if (_hour < 19) {
-      return 'Hampir selesai, teruskan usaha! 💼';
-    } else {
-      return 'Terima kasih atas usaha hari ini! 🙏';
-    }
+  String _getReassuranceMessage() {
+    return DashboardMoodEngine.getReassuranceMessage(
+      mode: _mode,
+      mood: _mood,
+    );
   }
 
   IconData _getTimeIcon() {
-    if (_hour < 12) {
-      return Icons.wb_sunny;
-    } else if (_hour < 19) {
-      return Icons.wb_twilight;
-    } else {
-      return Icons.nightlight_round;
+    switch (_mode) {
+      case DashboardMode.morning:
+        return Icons.wb_sunny;
+      case DashboardMode.afternoon:
+        return Icons.wb_twilight;
+      case DashboardMode.evening:
+        return Icons.nightlight_round;
+      case DashboardMode.urgent:
+        return Icons.warning_rounded;
     }
+  }
+
+  LinearGradient _getGradient() {
+    final primaryColor = DashboardMoodEngine.getPrimaryColor(_mood);
+    return LinearGradient(
+      colors: [
+        primaryColor,
+        primaryColor.withOpacity(0.8),
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
   }
 
   @override
@@ -54,11 +67,11 @@ class MorningBriefingCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: _getGradient(),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: DashboardMoodEngine.getPrimaryColor(_mood).withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -100,18 +113,24 @@ class MorningBriefingCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.rocket_launch,
+                      Icon(
+                        _mood == MoodTone.urgent 
+                            ? Icons.warning_rounded 
+                            : Icons.check_circle_outline_rounded,
                         size: 16,
                         color: Colors.white,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        _getMotivationalMessage(),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          _getReassuranceMessage(),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

@@ -37,7 +37,7 @@
   <link rel="dns-prefetch" href="https://unpkg.com">
   
   <!-- Preload critical images -->
-  <link rel="preload" as="image" href="assets/images/dashboard_baru.png" fetchpriority="high">
+  <link rel="preload" as="image" href="assets/images/Dashboard 3d.png" fetchpriority="high">
   <link rel="preload" as="image" href="transparentlogo2.png">
   
   <!-- Google Fonts - Optimized loading -->
@@ -161,6 +161,23 @@
         padding: 5rem 2rem;
       }
     }
+    /* Hero Dashboard Image - Responsive Sizing */
+    .hero-dashboard-image {
+      max-height: 350px;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+    @media (min-width: 640px) {
+      .hero-dashboard-image {
+        max-height: 450px;
+      }
+    }
+    @media (min-width: 1024px) {
+      .hero-dashboard-image {
+        max-height: 600px;
+      }
+    }
     /* FAQ Accordion Styles */
     .faq-content {
       max-height: 0;
@@ -213,8 +230,8 @@
     <!-- 🔥 HERO SECTION -->
     <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-28 bg-gradient-to-b from-white to-slate-50" aria-labelledby="hero-heading">
       <div class="max-w-7xl mx-auto">
-        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 lg:gap-16 items-center">
-          <div class="space-y-4 sm:space-y-6">
+        <div class="flex flex-col gap-8 md:gap-12 lg:gap-16">
+          <div class="space-y-4 sm:space-y-6 text-center lg:text-left">
             <div class="space-y-3 sm:space-y-4">
               <h1 id="hero-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight">
                 Urus Bisnes Kecil Jadi Lebih <span style="color: var(--primary);">Teratur, Cepat & Jelas</span>
@@ -223,6 +240,34 @@
                 Jualan, stok, kos, produksi dan penghantaran —<br>
                 semuanya dalam satu sistem ringkas.
               </p>
+            </div>
+            
+            <!-- Dashboard Image - Right after the two main texts -->
+            <div class="relative flex justify-center lg:justify-start pt-4">
+              <div class="relative w-full max-w-4xl">
+                <div class="absolute inset-0 rounded-2xl sm:rounded-3xl blur-3xl opacity-50" style="background: var(--logo-gradient);" aria-hidden="true"></div>
+                <div class="relative rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden bg-white hover-elevate" role="img" aria-label="PocketBizz Dashboard Preview">
+                  <img 
+                    src="assets/images/Dashboard 3d.png" 
+                    alt="PocketBizz Dashboard - Urus bisnes dari poket tanpa stress. Lihat untung rugi hari ini, tindakan segera, dan semua operasi bisnes dalam satu skrin." 
+                    class="hero-dashboard-image"
+                    loading="eager"
+                    width="1200"
+                    height="600"
+                    fetchpriority="high"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <div class="hidden w-full aspect-[4/3] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-8">
+                    <div class="text-center p-8">
+                      <i data-lucide="smartphone" class="h-16 w-16 text-slate-400 mx-auto mb-4" aria-hidden="true"></i>
+                      <p class="text-sm text-slate-500">PocketBizz Dashboard</p>
+                      <p class="text-xs text-slate-400 mt-2">Semua dalam telefon pintar anda</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="space-y-3 sm:space-y-4">
               <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
                 <strong>Direka khas untuk usahawan kecil dan SME di Malaysia.</strong>
               </p>
@@ -232,7 +277,7 @@
                 Cukup guna telefon pintar.
               </p>
             </div>
-            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
               <a href="https://app.pocketbizz.my/auth/register" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md px-8 text-base sm:text-lg font-semibold text-white transition-all will-change-transform shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Mula Percuma 7 Hari">
                 Cuba Percuma 7 Hari
                 <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
@@ -240,24 +285,6 @@
               <a href="#features" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md border border-slate-300 px-8 text-base sm:text-lg font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
                 Lihat Bagaimana PocketBizz Berfungsi
               </a>
-            </div>
-          </div>
-          <div class="relative order-first lg:order-last">
-            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
-              <img 
-                src="assets/images/dashboard_baru.png" 
-                alt="PocketBizz Dashboard - Urus bisnes dari poket tanpa stress. Lihat untung rugi hari ini, tindakan segera, dan semua operasi bisnes dalam satu skrin." 
-                class="w-full h-auto object-contain"
-                loading="eager"
-                fetchpriority="high"
-                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-              <div class="hidden aspect-[9/16] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-dashed border-slate-300">
-                <div class="text-center p-4">
-                  <i data-lucide="smartphone" class="h-16 w-16 text-slate-400 mx-auto mb-2" aria-hidden="true"></i>
-                  <p class="text-sm font-mono text-slate-600 mb-1">DASHBOARD_PREVIEW</p>
-                  <p class="text-xs text-slate-500">Screenshot: Dashboard utama dengan untung rugi hari ini</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -669,7 +696,7 @@
         <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
           <div class="space-y-4">
             <h2 id="tempahan-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
-              Operasi Bisnes Lengkap Dalam Satu Sistem.
+              Urus Tempahan & Planner Dengan Lebih Teratur.
             </h2>
             <p class="text-base sm:text-lg text-slate-600">
               PocketBizz menyediakan:
@@ -702,7 +729,7 @@
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
               <img 
                 src="assets/images/booking.png" 
-                alt="PocketBizz Booking & Planner - Sistem tempahan yang link terus dengan produk, invois dan resit dijana automatik, dan planner untuk tugasan dan peringatan. Operasi bisnes lengkap dalam satu sistem." 
+                alt="PocketBizz Booking & Planner - Sistem tempahan yang link terus dengan produk, invois dan resit dijana automatik, dan planner untuk tugasan dan peringatan. Urus tempahan dan planner dengan lebih teratur." 
                 class="w-full h-auto object-cover"
                 loading="lazy"
                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -783,42 +810,52 @@
     <!-- 📱 SECTION: PENGURUSAN & REKOD PERBELANJAAN DENGAN OCR -->
     <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="expenses-heading">
       <div class="max-w-7xl mx-auto">
-        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
-          <div class="space-y-4">
-            <h2 id="expenses-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
-              Rekod Perbelanjaan Dengan <span style="color: var(--primary);">Scan OCR</span> - Auto & Pantas.
-            </h2>
-            <p class="text-base sm:text-lg text-slate-600">
-              Tak perlu lagi key-in manual setiap resit. Dengan teknologi OCR (Optical Character Recognition) PocketBizz, 
-              <span class="font-semibold text-slate-900">hanya ambil gambar resit</span>, sistem akan:
+        <div class="space-y-4 sm:space-y-6">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+            <i data-lucide="scan-line" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+            Smart OCR Technology
+          </div>
+          <h2 id="expenses-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            Rekod Perbelanjaan Dengan <span style="color: var(--primary);">Scan OCR</span> - Auto & Pantas
+          </h2>
+          <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
+            Tak perlu lagi key-in manual setiap resit. Dengan teknologi OCR (Optical Character Recognition) PocketBizz, 
+            <span class="font-semibold text-slate-900">hanya ambil gambar resit</span>, sistem akan:
+          </p>
+          <ul class="space-y-3 text-slate-700">
+            <li class="flex items-start gap-3">
+              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+              <div>
+                <span class="font-semibold text-slate-900">Detect nama kedai/merchant</span> secara automatik dari resit
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+              <div>
+                <span class="font-semibold text-slate-900">Extract jumlah perbelanjaan</span> dengan tepat
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+              <div>
+                <span class="font-semibold text-slate-900">Detect tarikh transaksi</span> dari resit
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+              <div>
+                <span class="font-semibold text-slate-900">Auto suggest kategori perbelanjaan</span> berdasarkan merchant atau pattern sebelumnya
+              </div>
+            </li>
+          </ul>
+          <p class="text-base sm:text-lg text-slate-600 leading-relaxed">
+            Semua data akan <span class="font-semibold text-slate-900">direkod secara automatik</span> dalam sistem cloud yang selamat. 
+            Anda boleh <span class="font-semibold text-slate-900">rujuk pada bila-bila masa dan dimana-mana</span> dari telefon atau komputer.
+          </p>
+          <div class="p-4 rounded-lg bg-primary-50 border border-primary-200">
+            <p class="text-base font-semibold text-slate-900">
+              <strong>Hasil:</strong> Rekod perbelanjaan jadi lebih cepat, teratur dan senang untuk audit atau buat laporan kos.
             </p>
-            <ul class="space-y-3">
-              <li class="flex items-start gap-3">
-                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-                <span class="text-base text-slate-700">Detect nama kedai/merchant secara automatik dari resit</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-                <span class="text-base text-slate-700">Extract jumlah perbelanjaan dengan tepat</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-                <span class="text-base text-slate-700">Detect tarikh transaksi dari resit</span>
-              </li>
-              <li class="flex items-start gap-3">
-                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
-                <span class="text-base text-slate-700">Auto suggest kategori perbelanjaan berdasarkan merchant atau pattern sebelumnya</span>
-              </li>
-            </ul>
-            <p class="text-base text-slate-700">
-              Semua data akan <strong>direkod secara automatik</strong> dalam sistem cloud yang selamat. 
-              Anda boleh <strong>rujuk pada bila-bila masa dan dimana-mana</strong> dari telefon atau komputer.
-            </p>
-            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
-              <p class="text-base font-semibold text-slate-900">
-                <strong>Hasil:</strong> Rekod perbelanjaan jadi lebih cepat, teratur dan senang untuk audit atau buat laporan kos.
-              </p>
-            </div>
           </div>
           <div class="relative">
             <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
@@ -833,6 +870,954 @@
                   <i data-lucide="scan-line" class="h-16 w-16 text-emerald-400 mx-auto mb-2" aria-hidden="true"></i>
                   <p class="text-sm font-mono text-emerald-600 mb-1">OCR_SCAN_RECEIPT</p>
                   <p class="text-xs text-emerald-500">Screenshot: OCR Scan Receipt Feature</p>
+                </div>
+              </div>
+            </div>
+            <!-- Feature highlights -->
+            <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
+                <i data-lucide="camera" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-xs font-semibold text-slate-700">Scan Resit</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
+                <i data-lucide="sparkles" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-xs font-semibold text-slate-700">Auto Extract</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
+                <i data-lucide="tag" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-xs font-semibold text-slate-700">Auto Categorize</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 p-3 text-center border border-slate-200">
+                <i data-lucide="cloud" class="h-6 w-6 mx-auto mb-1" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-xs font-semibold text-slate-700">Cloud Save</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center justify-center gap-2 rounded-md px-6 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba Percuma 7 Hari">
+              Cuba Percuma 7 Hari
+              <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💳 SECTION: JUALAN MULTI-CHANNEL DALAM SATU SISTEM -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="sales-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+              <i data-lucide="shopping-cart" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+              POS System
+            </div>
+            <h2 id="sales-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Jualan Multi-Channel Dalam <span style="color: var(--primary);">Satu Sistem</span>
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz menyokong pelbagai saluran jualan untuk memudahkan operasi harian anda.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem jualan PocketBizz menyokong:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Walk-in sales</strong> - Jualan terus di kedai dengan POS system</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>MyShop (Online)</strong> - Jualan melalui platform online</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Consignment sales</strong> - Jualan melalui vendor konsainan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Setiap jualan akan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Check stok secara real-time (FIFO)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Auto-deduct stok selepas jualan</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Kira untung/rugi secara automatik</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Track jualan mengikut channel untuk analitik</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Sistem juga menyokong <strong>diskaun</strong>, <strong>pengurusan pelanggan</strong>, dan <strong>sejarah jualan</strong> dengan filtering yang mudah.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Urus semua saluran jualan dalam satu tempat, analitik yang jelas, dan operasi lebih efisien.
+              </p>
+            </div>
+            <div class="pt-4">
+              <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-6 py-3 text-base font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" aria-label="Cuba Percuma 7 Hari">
+                Cuba Percuma 7 Hari
+                <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/sales_pos.png" 
+                alt="PocketBizz Sales POS System - Multi-channel sales (Walk-in, MyShop, Consignment), real-time stock checking, discount management, customer management, dan sales analytics per channel." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 border-2 border-dashed border-blue-300">
+                <div class="text-center p-4">
+                  <i data-lucide="shopping-cart" class="h-16 w-16 text-blue-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-blue-600 mb-1">SALES_POS_SYSTEM</p>
+                  <p class="text-xs text-blue-500">Screenshot: Multi-channel sales dengan POS</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📦 SECTION: URUS PRODUK & RESEPI DENGAN MUDAH -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="products-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/products_recipe.png" 
+                alt="PocketBizz Products & Recipe Management - Product catalog dengan images, product categories, recipe builder linked to products, product pricing & margin tracking, dan product performance analytics." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-dashed border-purple-300">
+                <div class="text-center p-4">
+                  <i data-lucide="package" class="h-16 w-16 text-purple-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-purple-600 mb-1">PRODUCTS_RECIPE</p>
+                  <p class="text-xs text-purple-500">Screenshot: Product catalog & Recipe builder</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="products-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Urus Produk & Resepi Dengan Mudah.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz menyediakan sistem pengurusan produk yang lengkap dengan resepi builder.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Dengan PocketBizz, anda boleh:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Bina katalog produk dengan gambar</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Urus kategori produk untuk organisasi yang lebih baik</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Bina resepi dengan link terus ke bahan mentah</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Auto-calculate kos produk berdasarkan resepi</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem juga track:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Harga jualan & margin untung</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Prestasi produk (jualan, untung, populariti)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Versi resepi untuk tracking perubahan kos</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua produk boleh diakses dengan mudah untuk jualan, produksi, dan analitik.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Katalog produk yang teratur, kos yang tepat, dan keputusan bisnes yang lebih baik.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💰 SECTION: SISTEM TUNTUTAN KONSAINAN YANG TRANSPARENT -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="claims-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+              <i data-lucide="file-text" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+              Consignment System
+            </div>
+            <h2 id="claims-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Sistem Tuntutan Konsainan Yang <span style="color: var(--primary);">Transparent</span>
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Urus vendor konsainan dengan sistem yang jelas dan automatik.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Dengan PocketBizz, anda boleh:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Buat tuntutan dari penghantaran yang telah dibuat</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Auto-calculate komisyen berdasarkan kadar yang ditetapkan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Rekod bayaran dari vendor dengan mudah</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Track rejection, expired, dan carry-forward items</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem juga boleh:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Generate PDF claim untuk rujukan</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Share claim via WhatsApp kepada vendor</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Filter claims mengikut vendor, tarikh, dan status</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua calculation adalah transparent dan boleh disemak oleh vendor pada bila-bila masa.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Kurang dispute dengan vendor, rekod yang jelas, dan urusan konsainan yang lebih lancar.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/claims_consignment.png" 
+                alt="PocketBizz Claims & Consignment System - Create claims from deliveries, auto-calculate commission, payment recording, claims history & filtering, carry-forward items, rejection tracking, PDF claim generation, dan WhatsApp share claims." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 border-2 border-dashed border-amber-300">
+                <div class="text-center p-4">
+                  <i data-lucide="file-text" class="h-16 w-16 text-amber-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-amber-600 mb-1">CLAIMS_CONSIGNMENT</p>
+                  <p class="text-xs text-amber-500">Screenshot: Claims management dengan auto calculation</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-8 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" aria-label="Cuba Percuma 7 Hari">
+            Cuba Percuma 7 Hari
+            <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+          </a>
+          <p class="text-sm text-slate-600 mt-3">Tiada kad kredit diperlukan • Batal bila-bila masa</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📦 SECTION: STOK SIAP DENGAN TRACKING BATCH & EXPIRY -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="finished-products-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/finished_products.png" 
+                alt="PocketBizz Finished Products - Batch tracking untuk finished products, expiry date management, batch details dengan production date, stock levels untuk finished goods, dan link ke production batches." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-cyan-50 to-blue-100 border-2 border-dashed border-cyan-300">
+                <div class="text-center p-4">
+                  <i data-lucide="check-circle" class="h-16 w-16 text-cyan-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-cyan-600 mb-1">FINISHED_PRODUCTS</p>
+                  <p class="text-xs text-cyan-500">Screenshot: Finished products dengan batch tracking</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="finished-products-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Stok Siap Dengan Tracking Batch & Expiry.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Urus produk siap dengan tracking batch dan tarikh luput yang tepat.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              PocketBizz membantu anda:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Track setiap batch produk siap dengan tarikh produksi</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Urus tarikh luput (expiry date) untuk setiap batch</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Lihat stok siap mengikut batch dan tarikh luput</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Link terus ke production batch untuk rujukan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem akan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Alert apabila batch hampir expired</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Auto-deduct stok siap mengikut FIFO (First In First Out)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Track batch details termasuk production date</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Penting untuk bisnes F&B yang perlu track expiry date dengan tepat.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Kurang waste, compliance yang lebih baik, dan pengurusan stok siap yang lebih teratur.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📋 SECTION: PESANAN BELIAN (PO) YANG LENGKAP -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="po-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="po-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Pesanan Belian (PO) Yang Lengkap & Professional.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Buat Purchase Order dengan mudah dan professional untuk supplier anda.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Dengan PocketBizz, anda boleh:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Buat PO terus dari shopping list dengan satu klik</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Guna PO templates untuk proses yang lebih cepat</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Share PO via WhatsApp kepada supplier</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Email PO terus kepada supplier</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem juga menyediakan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Thermal print format untuk PO</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• PO status tracking (Draft, Sent, Received, Completed)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• PO history dengan filtering</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua PO disimpan dalam sistem untuk rujukan dan audit.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Proses pembelian lebih professional, komunikasi dengan supplier lebih jelas, dan rekod yang teratur.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/purchase_orders.png" 
+                alt="PocketBizz Purchase Orders - Create PO from shopping list, PO templates, share PO via WhatsApp, email PO to suppliers, PO status tracking, print PO (thermal format), dan PO history & filtering." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-dashed border-green-300">
+                <div class="text-center p-4">
+                  <i data-lucide="file-text" class="h-16 w-16 text-green-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-green-600 mb-1">PURCHASE_ORDERS</p>
+                  <p class="text-xs text-green-500">Screenshot: PO management dengan templates</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🛒 SECTION: SENARAI BELIAN AUTO-GENERATED -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="shopping-list-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/shopping_list.png" 
+                alt="PocketBizz Shopping List - Auto-generate dari low stock, auto-generate dari production planning, manual add items, convert to Purchase Order, share via WhatsApp, dan print shopping list." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-dashed border-yellow-300">
+                <div class="text-center p-4">
+                  <i data-lucide="shopping-bag" class="h-16 w-16 text-yellow-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-yellow-600 mb-1">SHOPPING_LIST</p>
+                  <p class="text-xs text-yellow-500">Screenshot: Auto-generated shopping list</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="shopping-list-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Senarai Belian Auto-Generated — Tak Perlu Tulis Manual.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz menjana senarai belian secara automatik berdasarkan keperluan anda.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem akan auto-generate senarai belian dari:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Low stock alerts</strong> - Bahan yang stok rendah</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Production planning</strong> - Bahan yang diperlukan untuk produksi</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Anda juga boleh:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Tambah item secara manual</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Convert shopping list terus ke Purchase Order</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Share shopping list via WhatsApp</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Print shopping list untuk rujukan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Tak perlu lagi tulis manual atau risau lupa beli sesuatu.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Pembelian lebih terancang, kurang lupa item, dan proses lebih cepat.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📅 SECTION: PLANNER YANG MEMBANTU OPERASI HARIAN -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="planner-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="planner-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Planner Yang Membantu Operasi Harian.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Urus tugas dan peringatan dengan planner yang fleksibel dan powerful.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              PocketBizz Planner menyediakan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>3 views</strong> - List, Calendar, dan Kanban board</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Auto-generated tasks</strong> - Dari low stock, PO, bookings, claims, expiry</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Task categories & projects</strong> - Organize tugas dengan lebih baik</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Recurring tasks</strong> - Tugas berulang (harian, mingguan, bulanan)</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Features tambahan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Subtasks/checklist untuk break down tugas besar</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Task reminders & notifications</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Time tracking untuk monitor masa yang digunakan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua dalam satu tempat untuk operasi harian yang lebih teratur.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Operasi lebih teratur, kurang lupa tugas penting, dan produktiviti yang lebih tinggi.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/planner_kanban.png" 
+                alt="PocketBizz Planner - List view, Calendar view, Kanban view, auto-generated tasks, task categories, recurring tasks, task reminders, dan time tracking." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-indigo-50 to-violet-100 border-2 border-dashed border-indigo-300">
+                <div class="text-center p-4">
+                  <i data-lucide="calendar" class="h-16 w-16 text-indigo-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-indigo-600 mb-1">PLANNER_KANBAN</p>
+                  <p class="text-xs text-indigo-500">Screenshot: Planner dengan Kanban view</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📊 SECTION: LAPORAN & ANALITIK YANG MENDALAM -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="advanced-reports-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/reports_advanced.png" 
+                alt="PocketBizz Advanced Reports - Profit & Loss statement, top products by profit, top vendors by activity, monthly trends (Sales vs Costs), sales channel analysis, product performance, vendor performance, PDF export, custom date ranges, dan filtering options." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-rose-50 to-pink-100 border-2 border-dashed border-rose-300">
+                <div class="text-center p-4">
+                  <i data-lucide="bar-chart-3" class="h-16 w-16 text-rose-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-rose-600 mb-1">REPORTS_ADVANCED</p>
+                  <p class="text-xs text-rose-500">Screenshot: Advanced reports dengan charts</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="advanced-reports-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Laporan & Analitik Yang Mendalam.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Dapatkan insights yang mendalam tentang prestasi bisnes anda.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              PocketBizz menyediakan laporan lengkap:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Profit & Loss Statement</strong> - Untung rugi dengan breakdown lengkap</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Top Products/Vendors</strong> - Ranking berdasarkan profit dan aktiviti</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Monthly Trends</strong> - Sales vs Costs dengan charts</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Sales Channel Analysis</strong> - Prestasi setiap channel jualan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Features tambahan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• PDF export untuk laporan</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Custom date ranges untuk analisis fleksibel</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Filtering options (product, category, channel, vendor)</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua data dalam format yang mudah difahami dengan visual charts.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Keputusan bisnes yang lebih tepat berdasarkan data sebenar, bukan anggaran.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-8 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" aria-label="Cuba Percuma 7 Hari">
+            Cuba Percuma 7 Hari
+            <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+          </a>
+          <p class="text-sm text-slate-600 mt-3">Tiada kad kredit diperlukan • Batal bila-bila masa</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🖨️ SECTION: INTEGRASI WHATSAPP & THERMAL PRINT -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="integration-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+              <i data-lucide="message-circle" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+              Integration
+            </div>
+            <h2 id="integration-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Integrasi WhatsApp & Thermal Print — Workflow Yang Lancar.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz memudahkan komunikasi dan printing dengan integrasi yang seamless.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Share via WhatsApp:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Invoices & resit kepada pelanggan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Purchase Orders kepada supplier</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Claims kepada vendor</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Shopping list kepada staff</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Thermal Printing:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Thermal invoice printing untuk jualan</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Thermal PO printing untuk supplier</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Print preview sebelum print</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua dalam format yang sesuai untuk thermal printer dan mudah untuk share.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Komunikasi lebih cepat, workflow lebih lancar, dan operasi lebih professional.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/whatsapp_thermal.png" 
+                alt="PocketBizz WhatsApp & Thermal Print Integration - Share invoices/PO/claims via WhatsApp, thermal printing untuk invoices, print preview, dan WhatsApp workflow." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-green-50 to-teal-100 border-2 border-dashed border-green-300">
+                <div class="text-center p-4">
+                  <i data-lucide="printer" class="h-16 w-16 text-green-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-green-600 mb-1">WHATSAPP_THERMAL</p>
+                  <p class="text-xs text-green-500">Screenshot: WhatsApp share & Thermal print</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📊 SECTION: DASHBOARD DENGAN REAL-TIME INSIGHTS -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="dashboard-advanced-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="dashboard-advanced-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Dashboard Dengan Real-Time Insights.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Lihat semua maklumat penting bisnes anda dalam satu skrin.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Dashboard PocketBizz menunjukkan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Today's Snapshot</strong> - Untung/rugi hari ini, jualan, kos</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Weekly Cashflow</strong> - Aliran tunai mingguan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Top Products</strong> - Produk terlaris dan paling untung</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700"><strong>Smart Insights</strong> - Cadangan dan alert automatik</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Features tambahan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Urgent actions - Tindakan segera yang perlu dibuat</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Quick actions - Shortcut ke fungsi penting</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Morning briefing - Personalized greeting dengan summary</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua data adalah real-time dan update secara automatik.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Buat keputusan lebih cepat dengan maklumat yang tepat dan terkini.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/Dashboard 3d.png" 
+                alt="PocketBizz Dashboard Advanced - Real-time profit/loss, today's snapshot, weekly cashflow, top products, smart insights, urgent actions, quick actions, dan morning briefing." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-dashed border-slate-300">
+                <div class="text-center p-4">
+                  <i data-lucide="layout-dashboard" class="h-16 w-16 text-slate-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-slate-600 mb-1">DASHBOARD_ADVANCED</p>
+                  <p class="text-xs text-slate-500">Screenshot: Dashboard dengan real-time insights</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🏢 SECTION: PEMBEKAL & SUPPLIERS MANAGEMENT -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="suppliers-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/suppliers.png" 
+                alt="PocketBizz Suppliers Management - Supplier database, supplier contact info, link suppliers to PO, dan supplier history." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-slate-50 to-gray-100 border-2 border-dashed border-slate-300">
+                <div class="text-center p-4">
+                  <i data-lucide="building" class="h-16 w-16 text-slate-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-slate-600 mb-1">SUPPLIERS</p>
+                  <p class="text-xs text-slate-500">Screenshot: Suppliers management</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="suppliers-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Urus Pembekal & Suppliers Dengan Teratur.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Simpan maklumat pembekal dalam satu tempat untuk rujukan mudah.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Dengan PocketBizz, anda boleh:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Simpan database pembekal dengan maklumat lengkap</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Link pembekal terus ke Purchase Order</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Track sejarah pembelian dengan setiap pembekal</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Maklumat pembekal termasuk nama, telefon, email, alamat, dan nota penting.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Komunikasi dengan pembekal lebih mudah, rekod yang teratur, dan proses pembelian lebih cepat.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📁 SECTION: DOKUMEN & BACKUP AUTOMATIK -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="documents-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="documents-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Dokumen & Backup Automatik — Data Selamat.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Semua dokumen penting disimpan dengan selamat dan boleh diakses bila-bila masa.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              PocketBizz menyimpan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Invoices & resit dari semua jualan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Purchase Orders dan dokumen pembelian</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Claims dan dokumen konsainan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Receipt images dari OCR scanner</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Features:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Auto-backup harian ke cloud (Supabase)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Document search untuk cari dokumen dengan mudah</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Download dokumen bila-bila masa</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Google Drive sync (optional) untuk backup tambahan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Data anda selamat dengan encryption dan backup automatik.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Tiada risau data hilang, akses dokumen mudah, dan compliance yang lebih baik.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="assets/images/documents.png" 
+                alt="PocketBizz Documents Management - Document storage (invoices, receipts, PO, claims), auto-backup to Supabase, document search, document download, dan Google Drive sync (optional)." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-100 border-2 border-dashed border-blue-300">
+                <div class="text-center p-4">
+                  <i data-lucide="folder" class="h-16 w-16 text-blue-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-blue-600 mb-1">DOCUMENTS</p>
+                  <p class="text-xs text-blue-500">Screenshot: Documents management</p>
                 </div>
               </div>
             </div>
@@ -2323,7 +3308,7 @@
     </div>
   </footer>
 
-  <!-- Floating WhatsApp Button -->
+  <!-- Floating WhatsApp Button (Bottom Right) -->
   <a href="https://wa.me/60107827802?text=Hai%2C%20saya%20berminat%20nak%20tahu%20lebih%20lanjut%20tentang%20PocketBizz" 
      target="_blank" 
      rel="noopener noreferrer"
@@ -2571,7 +3556,10 @@
     } else {
       initFAQAccordion();
     }
+
   </script>
 </body>
 </html>
+
+
 
