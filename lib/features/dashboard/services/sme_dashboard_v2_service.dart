@@ -11,7 +11,8 @@ import '../domain/sme_dashboard_v2_models.dart';
 /// SME Dashboard V2 data loader.
 ///
 /// Goals:
-/// - Keep "accounting-lite": profit = Masuk - Belanja (no COGS).
+/// - Accurate profit calculation: profit = Jualan - Kos Pengeluaran (COGS).
+/// - Kos Pengeluaran = kos untuk produk yang dijual (quantity * cost_per_unit).
 /// - Week is Ahad–Sabtu.
 /// - Top products are cross-channel and grouped by normalized product_name.
 /// - Avoid modifying stable core modules; this is a thin wrapper/aggregator.
@@ -39,8 +40,10 @@ class SmeDashboardV2Service {
 
     final results = await Future.wait([
       _loadInflowAndTransactions(startUtc: todayStartUtc, endUtc: todayEndUtc),
+      _loadProductionCost(startUtc: todayStartUtc, endUtc: todayEndUtc),
       _loadExpenseTotal(startLocal: todayStartLocal, endLocalExclusive: todayEndLocal),
       _loadInflowTotal(startUtc: weekStartUtc, endUtc: weekEndUtc),
+      _loadProductionCost(startUtc: weekStartUtc, endUtc: weekEndUtc),
       _loadExpenseTotal(startLocal: weekStartLocal, endLocalExclusive: weekEndLocal),
       _loadTopProducts(
         todayStartUtc: todayStartUtc,
@@ -51,13 +54,17 @@ class SmeDashboardV2Service {
     ]);
 
     final todayInflowAndTx = results[0] as _InflowAndTransactions;
-    final todayExpense = results[1] as double;
-    final weekInflow = results[2] as double;
-    final weekExpense = results[3] as double;
-    final topProducts = results[4] as DashboardTopProducts;
+    final todayProductionCost = results[1] as double;
+    final todayExpense = results[2] as double;
+    final weekInflow = results[3] as double;
+    final weekProductionCost = results[4] as double;
+    final weekExpense = results[5] as double;
+    final topProducts = results[6] as DashboardTopProducts;
 
-    final todayProfit = todayInflowAndTx.inflow - todayExpense;
-    final weekNet = weekInflow - weekExpense;
+    // FIX: Untung = Jualan - Kos Pengeluaran (bukan Masuk - Belanja)
+    // Kos Pengeluaran = kos untuk produk yang dijual hari ini
+    final todayProfit = todayInflowAndTx.inflow - todayProductionCost;
+    final weekNet = weekInflow - weekProductionCost;
 
     final productionSuggestion = _buildProductionSuggestion(
       topProducts: topProducts,
@@ -68,8 +75,9 @@ class SmeDashboardV2Service {
     return SmeDashboardV2Data(
       today: DashboardMoneySummary(
         inflow: todayInflowAndTx.inflow,
-        expense: todayExpense,
+        productionCost: todayProductionCost,
         profit: todayProfit,
+        expense: todayExpense,
         transactions: todayInflowAndTx.transactions,
       ),
       week: DashboardCashflowWeekly(
@@ -203,6 +211,139 @@ class SmeDashboardV2Service {
     final mm = d.month.toString().padLeft(2, '0');
     final dd = d.day.toString().padLeft(2, '0');
     return '${d.year}-$mm-$dd';
+  }
+
+  /// Calculate production cost for products sold in the given time range
+  /// Production Cost = Sum(quantity * cost_per_unit) for all sold items
+  /// This is the actual cost of goods sold (COGS) for products
+  Future<double> _loadProductionCost({
+    required DateTime startUtc,
+    required DateTime endUtc,
+  }) async {
+    double totalCost = 0.0;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return 0.0;
+
+    // Cache product costs to avoid multiple queries for same product
+    final Map<String, double> productCostCache = {};
+
+    try {
+      // 1. Get production cost from sales items
+      final salesItems = await supabase
+          .from('sale_items')
+          .select('quantity, product_id, sales!inner(created_at)')
+          .eq('sales.business_owner_id', userId)
+          .gte('sales.created_at', startUtc.toIso8601String())
+          .lt('sales.created_at', endUtc.toIso8601String())
+          .limit(2000);
+
+      for (final item in (salesItems as List).cast<Map<String, dynamic>>()) {
+        final productId = item['product_id'] as String?;
+        final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+        if (productId != null && quantity > 0) {
+          final cost = productCostCache[productId] ?? 
+              await _getProductCostPerUnit(productId);
+          if (!productCostCache.containsKey(productId)) {
+            productCostCache[productId] = cost;
+          }
+          totalCost += quantity * cost;
+        }
+      }
+    } catch (e) {
+      debugPrint('SmeDashboardV2Service: failed to load sales production cost: $e');
+    }
+
+    try {
+      // 2. Get production cost from completed booking items
+      final bookingItems = await supabase
+          .from('booking_items')
+          .select('quantity, product_id, bookings!inner(status, created_at, business_owner_id)')
+          .eq('bookings.status', 'completed')
+          .eq('bookings.business_owner_id', userId)
+          .gte('bookings.created_at', startUtc.toIso8601String())
+          .lt('bookings.created_at', endUtc.toIso8601String())
+          .limit(2000);
+
+      for (final item in (bookingItems as List).cast<Map<String, dynamic>>()) {
+        final productId = item['product_id'] as String?;
+        final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+        if (productId != null && quantity > 0) {
+          final cost = productCostCache[productId] ?? 
+              await _getProductCostPerUnit(productId);
+          if (!productCostCache.containsKey(productId)) {
+            productCostCache[productId] = cost;
+          }
+          totalCost += quantity * cost;
+        }
+      }
+    } catch (e) {
+      debugPrint('SmeDashboardV2Service: failed to load booking production cost: $e');
+    }
+
+    try {
+      // 3. Get production cost from settled consignment claim items
+      final startLocal = startUtc.toLocal();
+      final endLocalExclusive = endUtc.toLocal();
+      final startDateStr = _dateOnly(startLocal);
+      final endDateStr = _dateOnly(endLocalExclusive.subtract(const Duration(days: 1)));
+
+      final claimItems = await supabase
+          .from('consignment_claim_items')
+          .select('''
+            quantity_sold,
+            delivery_item:vendor_delivery_items(product_id),
+            claim:consignment_claims!inner(status, claim_date, business_owner_id)
+          ''')
+          .eq('claim.status', 'settled')
+          .eq('claim.business_owner_id', userId)
+          .gte('claim.claim_date', startDateStr)
+          .lte('claim.claim_date', endDateStr)
+          .limit(2000);
+
+      for (final item in (claimItems as List).cast<Map<String, dynamic>>()) {
+        final quantity = (item['quantity_sold'] as num?)?.toDouble() ?? 0.0;
+        final deliveryItem = item['delivery_item'];
+        String? productId;
+        if (deliveryItem is Map<String, dynamic>) {
+          productId = deliveryItem['product_id'] as String?;
+        }
+        if (productId != null && quantity > 0) {
+          final cost = productCostCache[productId] ?? 
+              await _getProductCostPerUnit(productId);
+          if (!productCostCache.containsKey(productId)) {
+            productCostCache[productId] = cost;
+          }
+          totalCost += quantity * cost;
+        }
+      }
+    } catch (e) {
+      debugPrint('SmeDashboardV2Service: failed to load consignment production cost: $e');
+    }
+
+    return totalCost;
+  }
+
+  /// Get product cost_per_unit from products table
+  /// Falls back to cost_price if cost_per_unit is null
+  Future<double> _getProductCostPerUnit(String productId) async {
+    try {
+      final product = await supabase
+          .from('products')
+          .select('cost_per_unit, cost_price')
+          .eq('id', productId)
+          .single();
+
+      if (product == null) return 0.0;
+
+      final costPerUnit = (product['cost_per_unit'] as num?)?.toDouble();
+      final costPrice = (product['cost_price'] as num?)?.toDouble() ?? 0.0;
+
+      // Use cost_per_unit if available (includes packaging), otherwise fallback to cost_price
+      return costPerUnit ?? costPrice;
+    } catch (e) {
+      debugPrint('SmeDashboardV2Service: failed to get product cost for $productId: $e');
+      return 0.0;
+    }
   }
 
   Future<DashboardTopProducts> _loadTopProducts({

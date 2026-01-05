@@ -4,16 +4,16 @@ import 'dashboard_v2_format.dart';
 
 class TodaySnapshotHeroV2 extends StatelessWidget {
   final double inflow;
-  final double expense;
+  final double productionCost; // Kos Pengeluaran
   final double profit;
-  final int transactions;
+  final double expense; // Belanja (untuk info sahaja)
 
   const TodaySnapshotHeroV2({
     super.key,
     required this.inflow,
-    required this.expense,
+    required this.productionCost,
     required this.profit,
-    required this.transactions,
+    required this.expense,
   });
 
   @override
@@ -86,6 +86,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // Row 1: Masuk & Kos
           Row(
             children: [
               Expanded(
@@ -99,15 +100,16 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _MetricTile(
-                  label: 'Belanja',
-                  value: DashboardV2Format.currency(expense),
-                  icon: Icons.payments_rounded,
-                  accent: Colors.red,
+                  label: 'Kos',
+                  value: DashboardV2Format.currency(productionCost),
+                  icon: Icons.factory_rounded,
+                  accent: Colors.orange,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
+          // Row 2: Untung & Belanja
           Row(
             children: [
               Expanded(
@@ -146,7 +148,7 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
                             ),
                             const SizedBox(height: 1),
                             Text(
-                              'Masuk - Belanja',
+                              'Masuk - Kos',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 9,
@@ -162,11 +164,15 @@ class TodaySnapshotHeroV2 extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _MetricTile(
-                  label: 'Transaksi',
-                  value: transactions.toString(),
-                  icon: Icons.shopping_cart_checkout_rounded,
-                  accent: AppColors.primary,
+                child: Tooltip(
+                  message: 'Jumlah duit keluar hari ini (untuk info sahaja)',
+                  child: _MetricTile(
+                    label: 'Belanja',
+                    value: DashboardV2Format.currency(expense),
+                    icon: Icons.payments_rounded,
+                    accent: Colors.red,
+                    isInfo: true, // Mark as info only
+                  ),
                 ),
               ),
             ],
@@ -182,12 +188,14 @@ class _MetricTile extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color accent;
+  final bool isInfo; // For "Belanja" - info only, not part of profit calculation
 
   const _MetricTile({
     required this.label,
     required this.value,
     required this.icon,
     required this.accent,
+    this.isInfo = false,
   });
 
   @override

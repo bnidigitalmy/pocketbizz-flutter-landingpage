@@ -15,15 +15,17 @@ class TopProductUnits {
 
 @immutable
 class DashboardMoneySummary {
-  final double inflow; // Masuk
-  final double expense; // Belanja
-  final double profit; // inflow - expense
-  final int transactions; // transaksi
+  final double inflow; // Masuk (Sales)
+  final double productionCost; // Kos Pengeluaran (COGS)
+  final double profit; // inflow - productionCost
+  final double expense; // Belanja (Expenses - untuk info sahaja)
+  final int transactions; // transaksi (kept for internal use)
 
   const DashboardMoneySummary({
     required this.inflow,
-    required this.expense,
+    required this.productionCost,
     required this.profit,
+    required this.expense,
     required this.transactions,
   });
 }

@@ -305,26 +305,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 20),
 
-                  // V2: Today Snapshot (Masuk/Belanja/Untung/Transaksi)
+                  // V2: Today Snapshot (Masuk/Kos/Untung/Belanja)
                   if (_v2 != null)
                     TodaySnapshotHeroV2(
                       inflow: _v2!.today.inflow,
-                      expense: _v2!.today.expense,
+                      productionCost: _v2!.today.productionCost,
                       profit: _v2!.today.profit,
-                      transactions: _v2!.today.transactions,
-                    ),
-
-                  const SizedBox(height: 16),
-
-                  // V2: Smart Insights (CADANGAN) - Adaptive suggestions
-                  if (_v2 != null)
-                    SmartInsightsCardV2(
-                      data: _v2!,
-                      hasUrgentIssues: _hasUrgentIssues(),
-                      onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
-                      onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
-                      onViewFinishedStock: () => Navigator.of(context).pushNamed('/finished-products'),
-                      onViewSales: () => Navigator.of(context).pushNamed('/sales'),
+                      expense: _v2!.today.expense,
                     ),
 
                   const SizedBox(height: 16),
@@ -406,6 +393,19 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                         0.0,
                         (sum, channel) => sum + channel.revenue,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // V2: Smart Insights (CADANGAN) - Adaptive suggestions (moved below Sales by Channel)
+                  if (_v2 != null) ...[
+                    SmartInsightsCardV2(
+                      data: _v2!,
+                      hasUrgentIssues: _hasUrgentIssues(),
+                      onAddSale: () => Navigator.of(context).pushNamed('/sales/create'),
+                      onAddExpense: () => Navigator.of(context).pushNamed('/expenses'),
+                      onViewFinishedStock: () => Navigator.of(context).pushNamed('/finished-products'),
+                      onViewSales: () => Navigator.of(context).pushNamed('/sales'),
                     ),
                     const SizedBox(height: 16),
                   ],
