@@ -127,13 +127,12 @@ Future<void> main() async {
         anonKey: supabaseAnonKey,
       ).timeout(
         const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('⚠️ Supabase initialization timeout');
-          // Don't throw - let it continue and check status
-        },
       );
     } on TimeoutException {
       debugPrint('⚠️ Supabase initialization timeout - checking status');
+      // Continue to check if it initialized anyway
+    } catch (e) {
+      debugPrint('⚠️ Supabase initialization error: $e');
       // Continue to check if it initialized anyway
     }
     
