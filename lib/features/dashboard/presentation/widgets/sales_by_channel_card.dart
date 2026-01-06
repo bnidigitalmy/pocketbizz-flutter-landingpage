@@ -89,6 +89,15 @@ class SalesByChannelCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Jualan untuk hari ini sahaja',
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
                 const Spacer(),
                 Text(
                   'RM ${NumberFormat('#,##0.00').format(totalRevenue)}',

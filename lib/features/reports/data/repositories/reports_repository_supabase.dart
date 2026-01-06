@@ -375,10 +375,18 @@ class ReportsRepositorySupabase {
     );
 
     // Group sales by channel
+    // IMPORTANT: Exclude sales with channel='booking' to avoid double counting
+    // Bookings are tracked separately below
     final channelMap = <String, Map<String, dynamic>>{};
 
     for (final sale in sales) {
       final channel = sale.channel.toLowerCase();
+      
+      // Skip booking channel sales - they're tracked via bookings table
+      if (channel == 'booking' || channel == 'tempahan') {
+        continue;
+      }
+      
       final channelLabel = _getChannelLabel(channel);
 
       if (!channelMap.containsKey(channel)) {
