@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -139,10 +139,14 @@ Future<void> main() async {
       }
     }
   } catch (e) {
-    print('Error initializing Supabase: $e');
+    debugPrint('Error initializing Supabase: $e');
     // Verify initialization even after error
-    if (!Supabase.instance.isInitialized && !kIsWeb) {
-      throw Exception('Supabase initialization failed - cannot continue: $e');
+    if (!Supabase.instance.isInitialized) {
+      if (!kIsWeb) {
+        throw Exception('Supabase initialization failed - cannot continue: $e');
+      }
+      // For web, log error but continue - app will handle gracefully
+      debugPrint('⚠️ Supabase not initialized on web - app will show loading state');
     }
     // Don't rethrow for web - allow app to continue
     // App will show error in UI if Supabase is needed
@@ -283,6 +287,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if Supabase is initialized before accessing auth stream
+    if (!Supabase.instance.isInitialized) {
+      // Show loading while Supabase initializes
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return StreamBuilder<AuthState>(
       stream: supabase.auth.onAuthStateChange,
       builder: (context, snapshot) {
@@ -290,6 +304,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
+        }
+
+        // Handle errors gracefully
+        if (snapshot.hasError) {
+          debugPrint('Auth state error: ${snapshot.error}');
+          // Show login page on error (user can retry)
+          return const LoginPage();
         }
 
         final session = snapshot.hasData ? snapshot.data!.session : null;
