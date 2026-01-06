@@ -99,13 +99,26 @@ class SalesByChannelCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  'RM ${NumberFormat('#,##0.00').format(totalRevenue)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'RM ${NumberFormat('#,##0.00').format(totalRevenue)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    Text(
+                      'Jumlah hari ini',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
