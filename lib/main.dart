@@ -271,6 +271,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         try {
           // Ensure Supabase is initialized before checking updates
           // PWA update check doesn't need Supabase, but delay ensures app is ready
+          print('🔄 PWA Update: Checking for updates...');
           PWAUpdateNotifier.checkForUpdate(context);
         } catch (e) {
           // Silently fail - PWA update check is non-critical
