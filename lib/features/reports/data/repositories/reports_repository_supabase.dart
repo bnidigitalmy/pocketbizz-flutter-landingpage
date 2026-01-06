@@ -82,11 +82,12 @@ class ReportsRepositorySupabase {
       limit: 10000,
     );
 
-    // Filter bookings by date range
+    // Filter bookings by date range (exact match with "Hari Ini" card logic)
+    // Use same logic as _loadInflowAndTransactions: isAfter(start - 1ms) && isBefore(end)
     final bookingsInRange = completedBookings.where((booking) {
-      final bookingDate = booking.createdAt;
-      return bookingDate.isAfter(start.subtract(const Duration(days: 1))) &&
-          bookingDate.isBefore(end.add(const Duration(days: 1)));
+      final bookingDateUtc = booking.createdAt.toUtc();
+      return bookingDateUtc.isAfter(start.subtract(const Duration(milliseconds: 1))) &&
+          bookingDateUtc.isBefore(end);
     }).toList();
 
     final bookingRevenue = bookingsInRange.fold<double>(
