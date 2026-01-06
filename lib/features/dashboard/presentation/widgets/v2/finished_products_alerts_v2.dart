@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pocketbizz/core/supabase/supabase_client.dart';
 import 'package:pocketbizz/core/theme/app_colors.dart';
 import 'package:pocketbizz/data/models/finished_product.dart';
 import 'package:pocketbizz/data/repositories/finished_products_repository_supabase.dart';
@@ -22,10 +25,57 @@ class _FinishedProductsAlertsV2State extends State<FinishedProductsAlertsV2> {
   bool _loading = true;
   List<FinishedProductSummary> _items = [];
 
+  // Real-time subscription for production_batches
+  StreamSubscription? _productionBatchesSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _setupRealtimeSubscription();
+  }
+
+  @override
+  void dispose() {
+    _productionBatchesSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for production_batches table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to production_batches changes for current user only
+      _productionBatchesSubscription = supabase
+          .from('production_batches')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Production batches updated - refresh finished products list with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Finished Products real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up finished products real-time subscription: $e');
+      // Continue without real-time - fallback to manual refresh
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _load();
+      }
+    });
   }
 
   Future<void> _load() async {

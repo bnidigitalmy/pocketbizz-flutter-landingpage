@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -39,6 +40,7 @@ import 'widgets/v2/smart_insights_card_v2.dart';
 import 'widgets/v2/today_snapshot_hero_v2.dart';
 import 'widgets/v2/top_products_cards_v2.dart';
 import 'widgets/v2/weekly_cashflow_card_v2.dart';
+import 'widgets/booking_alerts_widget.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -72,10 +74,144 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   SmeDashboardV2Data? _v2;
   bool _hasUrgentIssuesFlag = false; // Cached urgent issues flag
 
+  // Real-time subscriptions for dashboard metrics
+  StreamSubscription? _salesSubscription;
+  StreamSubscription? _saleItemsSubscription;
+  StreamSubscription? _bookingsSubscription;
+  StreamSubscription? _bookingItemsSubscription;
+  StreamSubscription? _claimsSubscription;
+  StreamSubscription? _claimItemsSubscription;
+  StreamSubscription? _expensesSubscription;
+  StreamSubscription? _productsSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _loadAllData();
+    _setupRealtimeSubscriptions();
+  }
+
+  @override
+  void dispose() {
+    _salesSubscription?.cancel();
+    _saleItemsSubscription?.cancel();
+    _bookingsSubscription?.cancel();
+    _bookingItemsSubscription?.cancel();
+    _claimsSubscription?.cancel();
+    _claimItemsSubscription?.cancel();
+    _expensesSubscription?.cancel();
+    _productsSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscriptions for all dashboard-related tables
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to sales table changes (affects Masuk/Untung)
+      _salesSubscription = supabase
+          .from('sales')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to sale_items table changes (affects Kos/Production Cost)
+      _saleItemsSubscription = supabase
+          .from('sale_items')
+          .stream(primaryKey: ['id'])
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to bookings table changes (affects Masuk when status = completed)
+      _bookingsSubscription = supabase
+          .from('bookings')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to booking_items table changes (affects Kos)
+      _bookingItemsSubscription = supabase
+          .from('booking_items')
+          .stream(primaryKey: ['id'])
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to consignment_claims table changes (affects Masuk when status = settled)
+      _claimsSubscription = supabase
+          .from('consignment_claims')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to consignment_claim_items table changes (affects Kos)
+      _claimItemsSubscription = supabase
+          .from('consignment_claim_items')
+          .stream(primaryKey: ['id'])
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to expenses table changes (affects Belanja)
+      _expensesSubscription = supabase
+          .from('expenses')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      // Subscribe to products table changes (affects Kos if cost_per_unit changes)
+      _productsSubscription = supabase
+          .from('products')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Dashboard real-time subscriptions setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up dashboard real-time subscriptions: $e');
+      // Continue without real-time - fallback to manual refresh
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        _loadAllData();
+      }
+    });
   }
 
   @override
@@ -414,6 +550,11 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   PlannerTodayCard(
                     onViewAll: () => Navigator.of(context).pushNamed('/planner'),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  // Booking Alerts (overdue, upcoming, pending)
+                  const BookingAlertsWidget(),
 
                   const SizedBox(height: 20),
 
