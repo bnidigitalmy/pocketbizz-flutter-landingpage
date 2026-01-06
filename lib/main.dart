@@ -93,6 +93,8 @@ Future<void> main() async {
   }
 
   // Initialize Supabase with error handling to prevent hang
+  bool supabaseInitialized = false;
+  
   try {
     // For web builds, .env file is not available, so use fallback
     // Anon key is public by design (OAuth standard), safe to include in client
@@ -101,7 +103,7 @@ Future<void> main() async {
     
     // Fallback for web production builds (where .env is not available)
     if (kIsWeb && (supabaseUrl == null || supabaseAnonKey == null)) {
-      print('⚠️ Web build: Using production Supabase credentials');
+      debugPrint('⚠️ Web build: Using production Supabase credentials');
       supabaseUrl = supabaseUrl ?? 'https://gxllowlurizrkvpdircw.supabase.co';
       supabaseAnonKey = supabaseAnonKey ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
     }
@@ -118,41 +120,60 @@ Future<void> main() async {
       );
     }
     
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    ).timeout(
-      const Duration(seconds: 10),
-    );
-    
-    // Verify initialization succeeded
-    if (!Supabase.instance.isInitialized) {
-      throw Exception('Supabase initialization failed - instance not initialized');
+    // Initialize Supabase with timeout
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⚠️ Supabase initialization timeout');
+          // Don't throw - let it continue and check status
+        },
+      );
+    } on TimeoutException {
+      debugPrint('⚠️ Supabase initialization timeout - checking status');
+      // Continue to check if it initialized anyway
     }
-  } on TimeoutException {
-    print('Warning: Supabase initialization timeout - continuing anyway');
-    // Verify it's actually initialized even after timeout
-    if (!Supabase.instance.isInitialized) {
-      print('ERROR: Supabase initialization timeout and instance not initialized');
-      if (!kIsWeb) {
-        throw Exception('Supabase initialization timeout - cannot continue');
-      }
+    
+    // Verify initialization succeeded (with retry for web)
+    int retries = 0;
+    while (!Supabase.instance.isInitialized && retries < 3) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      retries++;
+    }
+    
+    if (Supabase.instance.isInitialized) {
+      supabaseInitialized = true;
+      debugPrint('✅ Supabase initialized successfully');
+    } else {
+      throw Exception('Supabase initialization failed - instance not initialized after retries');
     }
   } catch (e) {
-    debugPrint('Error initializing Supabase: $e');
-    // Verify initialization even after error
-    if (!Supabase.instance.isInitialized) {
+    // Check if it's actually initialized despite the error
+    if (Supabase.instance.isInitialized) {
+      supabaseInitialized = true;
+      debugPrint('⚠️ Supabase initialized despite error: $e');
+    } else {
+      debugPrint('❌ Error initializing Supabase: $e');
+      // For web, allow app to continue - it will handle gracefully
       if (!kIsWeb) {
-        throw Exception('Supabase initialization failed - cannot continue: $e');
+        // For non-web, only throw if it's a critical error
+        if (e.toString().contains('CRITICAL')) {
+          rethrow;
+        }
+        // Otherwise, log and continue - app will show error in UI
+        debugPrint('⚠️ Supabase not initialized - app will show loading state');
+      } else {
+        debugPrint('⚠️ Supabase not initialized on web - app will show loading state');
       }
-      // For web, log error but continue - app will handle gracefully
-      debugPrint('⚠️ Supabase not initialized on web - app will show loading state');
     }
-    // Don't rethrow for web - allow app to continue
-    // App will show error in UI if Supabase is needed
-    if (!kIsWeb && e.toString().contains('CRITICAL')) {
-      rethrow;
-    }
+  }
+  
+  // Final check - log status
+  if (!supabaseInitialized && !Supabase.instance.isInitialized) {
+    debugPrint('⚠️ WARNING: Supabase not initialized - some features may not work');
   }
 
   runApp(
