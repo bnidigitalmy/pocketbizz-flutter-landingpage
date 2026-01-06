@@ -39,13 +39,20 @@ class _VendorsPageState extends State<VendorsPage> {
   final _vendorsRepo = VendorsRepositorySupabase();
   final _priceRangesRepo = VendorCommissionPriceRangesRepository();
   List<Vendor> _vendors = [];
+  List<Vendor> _filteredVendors = [];
   bool _isLoading = true;
+  
+  // Search
+  final _searchController = TextEditingController();
 
   // Dialog states
   bool _addDialogOpen = false;
   bool _addDialogShowing = false; // Track if dialog is currently showing
+  bool _editDialogOpen = false;
+  bool _editDialogShowing = false;
   bool _commissionDialogOpen = false;
   Vendor? _selectedVendorForCommission;
+  Vendor? _selectedVendorForEdit;
 
   // Form controllers
   final _nameController = TextEditingController();
@@ -74,6 +81,7 @@ class _VendorsPageState extends State<VendorsPage> {
     _phoneController.dispose();
     _addressController.dispose();
     _commissionController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -84,8 +92,10 @@ class _VendorsPageState extends State<VendorsPage> {
       if (mounted) {
         setState(() {
           _vendors = vendors;
+          _filteredVendors = vendors;
           _isLoading = false;
         });
+        _filterVendors(); // Apply current search filter
       }
     } catch (e) {
       if (mounted) {
@@ -98,6 +108,30 @@ class _VendorsPageState extends State<VendorsPage> {
         );
       }
     }
+  }
+
+  void _filterVendors() {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) {
+      setState(() {
+        _filteredVendors = _vendors;
+      });
+      return;
+    }
+
+    setState(() {
+      _filteredVendors = _vendors.where((vendor) {
+        final name = vendor.name.toLowerCase();
+        final phone = vendor.phone?.toLowerCase() ?? '';
+        final address = vendor.address?.toLowerCase() ?? '';
+        final vendorNumber = vendor.vendorNumber?.toLowerCase() ?? '';
+        
+        return name.contains(query) ||
+            phone.contains(query) ||
+            address.contains(query) ||
+            vendorNumber.contains(query);
+      }).toList();
+    });
   }
 
   void _resetForm() {
@@ -116,11 +150,151 @@ class _VendorsPageState extends State<VendorsPage> {
     setState(() => _addDialogOpen = true);
   }
 
+  void _openEditDialog(Vendor vendor) {
+    _selectedVendorForEdit = vendor;
+    _nameController.text = vendor.name;
+    _vendorNumberController.text = vendor.vendorNumber ?? '';
+    _phoneController.text = vendor.phone ?? '';
+    _addressController.text = vendor.address ?? '';
+    _commissionController.text = vendor.defaultCommissionRate.toString();
+    _commissionType = vendor.commissionType;
+    _priceRanges.clear();
+    setState(() => _editDialogOpen = true);
+  }
+
   void _openCommissionDialog(Vendor vendor) {
     setState(() {
       _selectedVendorForCommission = vendor;
       _commissionDialogOpen = true;
     });
+  }
+
+  Future<void> _handleUpdate(BuildContext dialogContext) async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVendorForEdit == null) return;
+
+    try {
+      // Parse commission rate
+      final commissionRate = _commissionType == 'percentage'
+          ? double.tryParse(_commissionController.text.trim()) ?? 15.0
+          : 0.0;
+      
+      // Update vendor
+      await _vendorsRepo.updateVendor(
+        _selectedVendorForEdit!.id,
+        {
+          'name': _nameController.text.trim(),
+          'vendor_number': _vendorNumberController.text.trim().isEmpty ? null : _vendorNumberController.text.trim(),
+          'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          'address': _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+          'commission_type': _commissionType,
+          'default_commission_rate': commissionRate,
+        },
+      );
+
+      // Close dialog first
+      if (dialogContext.mounted) {
+        Navigator.pop(dialogContext);
+      }
+
+      // Set state to prevent dialog from reopening
+      if (mounted) {
+        setState(() {
+          _editDialogOpen = false;
+          _editDialogShowing = false;
+          _selectedVendorForEdit = null;
+        });
+      }
+
+      // Then show success and refresh
+      if (mounted) {
+        _resetForm();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Vendor telah dikemaskini'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _loadVendors();
+      }
+    } catch (e) {
+      if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Kemaskini Vendor',
+          error: e,
+        );
+        if (handled) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal kemaskini: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleDelete(Vendor vendor) async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Padam Vendor'),
+        content: Text(
+          'Adakah anda pasti mahu padam vendor "${vendor.name}"?\n\n'
+          'Tindakan ini tidak boleh dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Padam'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _vendorsRepo.deleteVendor(vendor.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Vendor telah dipadam'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _loadVendors();
+      }
+    } catch (e) {
+      if (mounted) {
+        // PHASE: Handle subscription enforcement errors
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Padam Vendor',
+          error: e,
+        );
+        if (handled) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal padam: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleCreate(BuildContext dialogContext) async {
@@ -229,6 +403,22 @@ class _VendorsPageState extends State<VendorsPage> {
           }
         });
       }
+      if (_editDialogOpen && !_editDialogShowing && _selectedVendorForEdit != null) {
+        setState(() => _editDialogShowing = true);
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => _buildEditDialog(),
+        ).then((_) {
+          if (mounted) {
+            setState(() {
+              _editDialogOpen = false;
+              _editDialogShowing = false;
+              _selectedVendorForEdit = null;
+            });
+          }
+        });
+      }
       if (_commissionDialogOpen && _selectedVendorForCommission != null) {
         showDialog(
           context: context,
@@ -299,9 +489,20 @@ class _VendorsPageState extends State<VendorsPage> {
             )
           : RefreshIndicator(
               onRefresh: _loadVendors,
-              child: _vendors.isEmpty
-                  ? _buildEmptyState()
-                  : _buildVendorsGrid(),
+              child: Column(
+                children: [
+                  // Search bar
+                  _buildSearchBar(),
+                  // Vendor list
+                  Expanded(
+                    child: _vendors.isEmpty
+                        ? _buildEmptyState()
+                        : _filteredVendors.isEmpty
+                            ? _buildNoResultsState()
+                            : _buildVendorsGrid(),
+                  ),
+                ],
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openAddDialog,
@@ -365,38 +566,122 @@ class _VendorsPageState extends State<VendorsPage> {
     );
   }
 
-  Widget _buildVendorsGrid() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount = 1;
-        if (constraints.maxWidth > 1200) {
-          crossAxisCount = 3;
-        } else if (constraints.maxWidth > 600) {
-          crossAxisCount = 2;
-        }
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: AppColors.background,
+      child: StatefulBuilder(
+        builder: (context, setState) {
+          return TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Cari vendor (nama, telefon, alamat...)',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _filterVendors();
+                        setState(() {}); // Update UI
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: (_) {
+              _filterVendors();
+              setState(() {}); // Update UI to show/hide clear button
+            },
+          );
+        },
+      ),
+    );
+  }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: 0.85,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+  Widget _buildNoResultsState() {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height - 300,
+        child: Center(
+          child: Card(
+            margin: const EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.search_off,
+                      size: 32,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Tiada Hasil Carian',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tiada vendor yang sepadan dengan "${_searchController.text}"',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: () {
+                      _searchController.clear();
+                      _filterVendors();
+                    },
+                    icon: const Icon(Icons.clear),
+                    label: const Text('Kosongkan carian'),
+                  ),
+                ],
+              ),
+            ),
           ),
-          itemCount: _vendors.length,
-          itemBuilder: (context, index) {
-            return _buildVendorCard(_vendors[index]);
-          },
-        );
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVendorsGrid() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _filteredVendors.length,
+      itemBuilder: (context, index) {
+        return _buildVendorCard(_filteredVendors[index]);
       },
     );
   }
 
   Widget _buildVendorCard(Vendor vendor) {
     return Card(
-      elevation: 2,
+      elevation: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
         onTap: () {
@@ -407,110 +692,139 @@ class _VendorsPageState extends State<VendorsPage> {
             ),
           ).then((_) => _loadVendors()); // Refresh after returning
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
             children: [
-              // Header with icon and name
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
+              // Icon
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.store,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Vendor info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      vendor.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    child: Icon(
-                      Icons.store,
-                      size: 20,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          vendor.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    const SizedBox(height: 4),
+                    if (vendor.phone != null)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.phone,
+                            size: 12,
+                            color: Colors.grey[600],
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (vendor.phone != null) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.phone,
-                                size: 12,
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              vendor.phone!,
+                              style: TextStyle(
+                                fontSize: 12,
                                 color: Colors.grey[600],
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  vendor.phone!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Address
-              if (vendor.address != null) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 14,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        vendor.address!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[700],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      )
+                    else if (vendor.address != null)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 12,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              vendor.address!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
-              ],
-              const Spacer(),
-              // Commission setup button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openCommissionDialog(vendor),
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('Setup Komisyen'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              const SizedBox(width: 8),
+              // Actions
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Commission button
+                  IconButton(
+                    icon: const Icon(Icons.settings, size: 18),
+                    onPressed: () => _openCommissionDialog(vendor),
+                    tooltip: 'Setup Komisyen',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  // Edit/Delete menu
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _openEditDialog(vendor);
+                      } else if (value == 'delete') {
+                        _handleDelete(vendor);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18),
+                            SizedBox(width: 8),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Padam', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -701,6 +1015,196 @@ class _VendorsPageState extends State<VendorsPage> {
         ),
       ],
     );
+      },
+    );
+  }
+
+  Widget _buildEditDialog() {
+    return StatefulBuilder(
+      builder: (context, setDialogState) {
+        return AlertDialog(
+          title: const Text('Edit Vendor'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kemaskini maklumat vendor',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Vendor',
+                      hintText: 'cth: Kedai Kak Ani',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.store),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Nama vendor diperlukan';
+                      }
+                      return null;
+                    },
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _vendorNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombor Vendor (NV)',
+                      hintText: 'cth: NV001, V-001',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.numbers),
+                      helperText: 'Nombor vendor untuk invois (optional)',
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'No. Telefon',
+                      hintText: 'cth: 012-3456789',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Alamat',
+                      hintText: 'Alamat kedai/lokasi vendor',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on),
+                    ),
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 24),
+                  // Commission Settings Section
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.percent, size: 20, color: Colors.blue[700]),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Tetapan Komisyen',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _commissionType,
+                          decoration: const InputDecoration(
+                            labelText: 'Jenis Komisyen',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.settings),
+                            helperText: 'Pilih jenis komisyen untuk vendor ini',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'percentage',
+                              child: Text('Peratus (%)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'price_range',
+                              child: Text('Price Range'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setDialogState(() {
+                                _commissionType = value;
+                              });
+                            }
+                          },
+                        ),
+                        if (_commissionType == 'percentage') ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _commissionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Kadar Komisyen (%)',
+                              hintText: 'cth: 15.0',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.percent),
+                              suffixText: '%',
+                              helperText: 'Kadar komisyen default untuk vendor ini (0-100%)',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Kadar komisyen diperlukan';
+                              }
+                              final rate = double.tryParse(value);
+                              if (rate == null || rate < 0 || rate > 100) {
+                                return 'Sila masukkan kadar yang sah (0-100%)';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                        if (_commissionType == 'price_range') ...[
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Nota: Price ranges perlu dikemaskini di halaman Setup Komisyen',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                if (mounted) {
+                  setState(() {
+                    _editDialogOpen = false;
+                    _editDialogShowing = false;
+                    _selectedVendorForEdit = null;
+                  });
+                }
+                _resetForm();
+              },
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _handleUpdate(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Simpan Perubahan'),
+            ),
+          ],
+        );
       },
     );
   }
