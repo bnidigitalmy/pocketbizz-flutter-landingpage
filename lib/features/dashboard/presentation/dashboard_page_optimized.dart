@@ -525,10 +525,10 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   if (_salesByChannel.isNotEmpty) ...[
                     SalesByChannelCard(
                       salesByChannel: _salesByChannel,
-                      totalRevenue: _salesByChannel.fold<double>(
+                      totalRevenue: (_salesByChannel.fold<double>(
                         0.0,
                         (sum, channel) => sum + channel.revenue,
-                      ),
+                      ) * 100).round() / 100, // Round to 2 decimal places to match database precision
                     ),
                     const SizedBox(height: 16),
                   ],

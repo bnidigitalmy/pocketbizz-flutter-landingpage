@@ -114,7 +114,8 @@ class SmeDashboardV2Service {
       );
       
       // Sum all channel revenues to get total inflow (exact match with Sales by Channel)
-      final totalInflow = channels.fold<double>(0.0, (sum, c) => sum + c.revenue);
+      // Round to 2 decimal places to match database NUMERIC(12,2) precision
+      final totalInflow = (channels.fold<double>(0.0, (sum, c) => sum + c.revenue) * 100).round() / 100;
       
       // Count transactions: sum of all channel transaction counts
       final totalTx = channels.fold<int>(0, (sum, c) => sum + c.transactionCount);
