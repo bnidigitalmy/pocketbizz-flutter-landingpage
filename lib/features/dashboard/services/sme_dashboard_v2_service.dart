@@ -103,16 +103,43 @@ class SmeDashboardV2Service {
     required DateTime endUtc,
   }) async {
     // "Masuk" is cross-channel: direct sales + completed bookings + settled claims (net_amount).
-    // Transactions count is: sales count + completed bookings count (claims are not treated as a transaction here).
+    // IMPORTANT: Use same calculation method as getSalesByChannel to ensure exact match
+    // This ensures "Hari Ini" card matches "Jualan Mengikut Saluran" total exactly
+    
+    // Use getSalesByChannel to get the exact same calculation
+    try {
+      final channels = await _reportsRepo.getSalesByChannel(
+        startDate: startUtc,
+        endDate: endUtc,
+      );
+      
+      // Sum all channel revenues to get total inflow (exact match with Sales by Channel)
+      final totalInflow = channels.fold<double>(0.0, (sum, c) => sum + c.revenue);
+      
+      // Count transactions: sum of all channel transaction counts
+      final totalTx = channels.fold<int>(0, (sum, c) => sum + c.transactionCount);
+      
+      return _InflowAndTransactions(inflow: totalInflow, transactions: totalTx);
+    } catch (e) {
+      debugPrint('SmeDashboardV2Service: failed to load inflow via getSalesByChannel: $e');
+      // Fallback to original method if getSalesByChannel fails
+      return await _loadInflowAndTransactionsFallback(startUtc: startUtc, endUtc: endUtc);
+    }
+  }
+
+  /// Fallback method using original calculation logic
+  Future<_InflowAndTransactions> _loadInflowAndTransactionsFallback({
+    required DateTime startUtc,
+    required DateTime endUtc,
+  }) async {
     double inflow = 0.0;
     int tx = 0;
 
     try {
-      // Use same limit as getSalesByChannel to ensure consistency
       final sales = await _salesRepo.listSales(
         startDate: startUtc,
         endDate: endUtc,
-        limit: 10000, // Match getSalesByChannel limit
+        limit: 10000,
       );
       inflow += sales.fold<double>(0.0, (sum, s) => sum + s.finalAmount);
       tx += sales.length;
@@ -121,12 +148,9 @@ class SmeDashboardV2Service {
     }
 
     try {
-      // We only have listBookings(status, limit) in stable repo.
-      // Fetch a bounded window and filter in-memory by createdAt.
-      // Use same limit as getSalesByChannel to ensure consistency
       final completedBookings = await _bookingsRepo.listBookings(
         status: 'completed',
-        limit: 10000, // Match getSalesByChannel limit
+        limit: 10000,
       );
       final inRange = completedBookings.where((b) {
         final tUtc = b.createdAt.toUtc();
@@ -140,12 +164,11 @@ class SmeDashboardV2Service {
     }
 
     try {
-      // Use same limit as getSalesByChannel to ensure consistency
       final resp = await _claimsRepo.listClaims(
         fromDate: startUtc,
         toDate: endUtc,
         status: ClaimStatus.settled,
-        limit: 10000, // Match getSalesByChannel limit
+        limit: 10000,
       );
       final claims = (resp['data'] as List).whereType<ConsignmentClaim>().toList();
       inflow += claims.fold<double>(0.0, (sum, c) => sum + c.netAmount);
