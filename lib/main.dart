@@ -10,6 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'core/supabase/supabase_client.dart';
 import 'core/utils/date_time_helper.dart';
 import 'core/config/env_config.dart';
+import 'core/utils/pwa_update_notifier.dart';
 import 'features/auth/presentation/login_page.dart';
 import 'features/auth/presentation/forgot_password_page.dart';
 import 'features/auth/presentation/reset_password_page.dart';
@@ -123,11 +124,26 @@ Future<void> main() async {
     ).timeout(
       const Duration(seconds: 10),
     );
+    
+    // Verify initialization succeeded
+    if (!Supabase.instance.isInitialized) {
+      throw Exception('Supabase initialization failed - instance not initialized');
+    }
   } on TimeoutException {
     print('Warning: Supabase initialization timeout - continuing anyway');
-    // Continue anyway - Supabase might still work
+    // Verify it's actually initialized even after timeout
+    if (!Supabase.instance.isInitialized) {
+      print('ERROR: Supabase initialization timeout and instance not initialized');
+      if (!kIsWeb) {
+        throw Exception('Supabase initialization timeout - cannot continue');
+      }
+    }
   } catch (e) {
     print('Error initializing Supabase: $e');
+    // Verify initialization even after error
+    if (!Supabase.instance.isInitialized && !kIsWeb) {
+      throw Exception('Supabase initialization failed - cannot continue: $e');
+    }
     // Don't rethrow for web - allow app to continue
     // App will show error in UI if Supabase is needed
     if (!kIsWeb && e.toString().contains('CRITICAL')) {
@@ -237,8 +253,32 @@ class PocketBizzApp extends StatelessWidget {
 }
 
 /// Wrapper to check authentication status
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Check for PWA updates on app start (non-blocking)
+    // Delay to ensure Supabase is initialized and context is ready
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        try {
+          // Ensure Supabase is initialized before checking updates
+          // PWA update check doesn't need Supabase, but delay ensures app is ready
+          PWAUpdateNotifier.checkForUpdate(context);
+        } catch (e) {
+          // Silently fail - PWA update check is non-critical
+          print('PWA Update: Failed to check for updates: $e');
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
