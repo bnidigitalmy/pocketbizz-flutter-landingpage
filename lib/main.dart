@@ -67,9 +67,9 @@ Future<void> main() async {
   }
 
   try {
-    // Initialize locale data for date formatting (non-blocking with timeout)
+    // Initialize locale data for date formatting (non-blocking with shorter timeout)
     await initializeDateFormatting('ms_MY', null).timeout(
-      const Duration(seconds: 5),
+      const Duration(seconds: 2),
       onTimeout: () {
         print('Warning: Locale initialization timeout (ms_MY)');
       },
@@ -81,16 +81,20 @@ Future<void> main() async {
   // Initialize timezone data for Malaysia timezone
   DateTimeHelper.initialize();
   
-  try {
-    await initializeDateFormatting('en_US', null).timeout(
-      const Duration(seconds: 5),
-      onTimeout: () {
-        print('Warning: Locale initialization timeout (en_US)');
-      },
-    );
-  } catch (e) {
-    print('Error initializing en_US locale: $e');
-  }
+  // Initialize en_US locale in background; don't block app startup
+  // This is mainly for some reports/exports and can be loaded lazily.
+  unawaited(Future<void>(() async {
+    try {
+      await initializeDateFormatting('en_US', null).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          print('Warning: Locale initialization timeout (en_US, background)');
+        },
+      );
+    } catch (e) {
+      print('Error initializing en_US locale (background): $e');
+    }
+  }));
 
   // Initialize Supabase with error handling to prevent hang
   bool supabaseInitialized = false;

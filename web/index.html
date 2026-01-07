@@ -20,6 +20,10 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="PocketBizz - Sistem operasi lengkap untuk SME & F&B Malaysia. Urus stok, pengeluaran, jualan, konsainan, vendor claims & laporan dalam satu platform.">
   
+  <!-- Preconnect for faster first load -->
+  <link rel="preconnect" href="https://gxllowlurizrkvpdircw.supabase.co">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
   <!-- Viewport for iOS PWA - simplified to prevent hang -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
@@ -63,6 +67,67 @@
   </script>
 </head>
 <body>
+  <!-- Lightweight splash to avoid white screen while Flutter boots -->
+  <style>
+    #pbz-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #ffffff;
+      z-index: 9999;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #444444;
+    }
+    #pbz-splash-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      margin-bottom: 16px;
+    }
+    #pbz-splash-spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid rgba(170, 132, 97, 0.25);
+      border-top-color: #aa8461;
+      animation: pbz-spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+    #pbz-splash-text {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    @keyframes pbz-spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+
+  <div id="pbz-splash">
+    <img id="pbz-splash-logo" src="icons/Icon-192.png" alt="PocketBizz">
+    <div id="pbz-splash-spinner"></div>
+    <div id="pbz-splash-text">Memuat PocketBizz...</div>
+  </div>
+
+  <script>
+    // Hide splash once Flutter renders first frame
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('pbz-splash');
+      if (splash) {
+        splash.style.opacity = '0';
+        splash.style.transition = 'opacity 180ms ease-out';
+        setTimeout(function () {
+          if (splash && splash.parentNode) {
+            splash.parentNode.removeChild(splash);
+          }
+        }, 220);
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
