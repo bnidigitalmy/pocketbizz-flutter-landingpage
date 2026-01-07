@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 // ignore: avoid_web_libraries_in_flutter
@@ -10,16 +11,123 @@ import 'dart:html' as html;
 /// 
 /// Features:
 /// - Check for updates on app start
+/// - Periodic check setiap 5 minit untuk real-time updates
+/// - Service worker event listeners untuk immediate detection
 /// - Show notification sekali sahaja per update version
 /// - Auto-dismiss dalam 5 seconds
 /// - Optional reload button
 class PWAUpdateNotifier {
   static String? _lastUpdateVersion;
   static bool _isChecking = false;
+  static Timer? _periodicCheckTimer;
+  static BuildContext? _currentContext;
+
+  /// Initialize PWA update checking with periodic checks and event listeners
+  /// 
+  /// Call this on app start (e.g., in main.dart after app initialization)
+  /// This will:
+  /// - Check for updates immediately
+  /// - Set up periodic checks every 5 minutes (CHECK sahaja, TIDAK reload)
+  /// - Listen for service worker update events
+  /// 
+  /// IMPORTANT: Sistem hanya CHECK untuk update, TIDAK akan auto-reload.
+  /// User akan dapat notification dan perlu tekan "Reload" button untuk reload.
+  static Future<void> initialize(BuildContext context) async {
+    if (!kIsWeb) return;
+    
+    _currentContext = context;
+    
+    // Initial check (semak sekali pada app start)
+    await checkForUpdate(context);
+    
+    // Set up periodic checking setiap 5 minit
+    // PENTING: Ini hanya CHECK untuk update, TIDAK reload app
+    // Kalau ada update, sistem akan show notification kepada user
+    // User perlu tekan "Reload" button untuk reload app
+    _periodicCheckTimer?.cancel();
+    _periodicCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      if (_currentContext != null && _currentContext!.mounted) {
+        // Hanya check untuk update, tidak reload
+        checkForUpdate(_currentContext!);
+      } else {
+        timer.cancel();
+      }
+    });
+    
+    // Set up service worker event listeners for immediate detection
+    _setupServiceWorkerListeners(context);
+  }
+
+  /// Set up service worker event listeners for real-time update detection
+  static void _setupServiceWorkerListeners(BuildContext context) {
+    if (!kIsWeb || html.window.navigator.serviceWorker == null) return;
+    
+    try {
+      html.window.navigator.serviceWorker!.ready.then((registration) {
+        // Listen for updatefound event (new service worker detected)
+        registration.addEventListener('updatefound', (event) {
+          print('🔄 PWA Update: New service worker detected!');
+          
+          final newWorker = registration.installing;
+          if (newWorker != null) {
+            // Listen for state changes
+            newWorker.addEventListener('statechange', (event) {
+              if (newWorker.state == 'installed' && registration.waiting != null) {
+                // New version installed and waiting
+                print('🔄 PWA Update: New version installed, waiting for activation');
+                if (context.mounted) {
+                  _handleUpdateAvailable(context);
+                }
+              } else if (newWorker.state == 'activated') {
+                // New version activated
+                print('✅ PWA Update: New version activated');
+                if (context.mounted) {
+                  _handleUpdateActivated(context);
+                }
+              }
+            });
+          }
+        });
+        
+        // Also check for waiting service worker (update already downloaded)
+        if (registration.waiting != null && context.mounted) {
+          _handleUpdateAvailable(context);
+        }
+      });
+    } catch (e) {
+      print('PWA Update: Error setting up listeners: $e');
+    }
+  }
+
+  /// Handle when update is available
+  static void _handleUpdateAvailable(BuildContext context) {
+    final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
+    if (_lastUpdateVersion != newVersion) {
+      _lastUpdateVersion = newVersion;
+      _showUpdateNotification(context);
+    }
+  }
+
+  /// Handle when update is activated (auto-reload option)
+  static void _handleUpdateActivated(BuildContext context) {
+    // Option 1: Auto-reload (uncomment if you want immediate reload)
+    // html.window.location.reload();
+    
+    // Option 2: Show notification (current behavior - user chooses when to reload)
+    final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
+    if (_lastUpdateVersion != newVersion) {
+      _lastUpdateVersion = newVersion;
+      _showUpdateNotification(context);
+    }
+  }
 
   /// Check for PWA updates and show notification if available
   /// 
-  /// Call this on app start (e.g., in main.dart after app initialization)
+  /// PENTING: Function ini hanya CHECK untuk update, TIDAK reload app.
+  /// Kalau ada update, sistem akan show notification kepada user.
+  /// User perlu tekan "Reload" button untuk reload app.
+  /// 
+  /// This can be called manually or automatically via periodic timer
   static Future<void> checkForUpdate(BuildContext context) async {
     // Only check on web platform
     if (!kIsWeb) return;
@@ -44,14 +152,7 @@ class PWAUpdateNotifier {
       // Check if there's a waiting service worker (new update available)
       // This means a new version has been downloaded and is waiting to be activated
       if (registration.waiting != null && context.mounted) {
-        // Generate unique version ID based on current time
-        final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
-        
-        // Only show notification if this is a new update (not shown before)
-        if (_lastUpdateVersion != newVersion) {
-          _lastUpdateVersion = newVersion;
-          _showUpdateNotification(context);
-        }
+        _handleUpdateAvailable(context);
       }
       
       // Also check for installing service worker (update in progress)
@@ -62,11 +163,7 @@ class PWAUpdateNotifier {
         // Re-check after delay
         final updatedRegistration = await html.window.navigator.serviceWorker!.ready;
         if (updatedRegistration.waiting != null && context.mounted) {
-          final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
-          if (_lastUpdateVersion != newVersion) {
-            _lastUpdateVersion = newVersion;
-            _showUpdateNotification(context);
-          }
+          _handleUpdateAvailable(context);
         }
       }
     } catch (e) {
@@ -75,6 +172,13 @@ class PWAUpdateNotifier {
     } finally {
       _isChecking = false;
     }
+  }
+
+  /// Clean up resources (call when app is disposed)
+  static void dispose() {
+    _periodicCheckTimer?.cancel();
+    _periodicCheckTimer = null;
+    _currentContext = null;
   }
 
   /// Show non-intrusive update notification
