@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
+import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/vendor_commission_price_range.dart';
 import 'assign_products_page.dart';
@@ -21,8 +22,10 @@ class VendorDetailPage extends StatefulWidget {
 class _VendorDetailPageState extends State<VendorDetailPage> {
   final _vendorsRepo = VendorsRepositorySupabase();
   final _priceRangesRepo = VendorCommissionPriceRangesRepository();
+  final _deliveriesRepo = DeliveriesRepositorySupabase();
   Vendor? _vendor;
   Map<String, dynamic>? _summary;
+  Map<String, dynamic>? _deliverySummary;
   List<VendorCommissionPriceRange> _priceRanges = [];
   bool _isLoading = true;
 
@@ -54,8 +57,9 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
         return;
       }
 
-      // Load summary and price ranges in parallel
+      // Load summary, delivery summary, and price ranges in parallel
       final summaryFuture = _vendorsRepo.getVendorSummary(widget.vendorId);
+      final deliverySummaryFuture = _deliveriesRepo.getVendorDeliverySummary(widget.vendorId);
       
       // Load price ranges if commission type is price_range
       List<VendorCommissionPriceRange> priceRanges = [];
@@ -69,11 +73,13 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
       }
 
       final summary = await summaryFuture;
+      final deliverySummary = await deliverySummaryFuture;
 
       if (mounted) {
         setState(() {
           _vendor = vendor;
           _summary = summary;
+          _deliverySummary = deliverySummary;
           _priceRanges = priceRanges;
           _isLoading = false;
         });
@@ -130,6 +136,11 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                       
                       const SizedBox(height: 20),
                       
+                      // Delivery Summary
+                      _buildDeliverySummaryCard(),
+                      
+                      const SizedBox(height: 20),
+                      
                       // Contact Info
                       _buildInfoCard(),
                       
@@ -171,6 +182,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                 _currencyFormat.format(totalGross),
                 Icons.point_of_sale,
                 AppColors.primary,
+                subtitle: 'Produk yang terjual sahaja',
               ),
             ),
             const SizedBox(width: 12),
@@ -230,7 +242,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(String label, String value, IconData icon, Color color, {String? subtitle}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -247,6 +259,17 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
             label,
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             value,
@@ -294,6 +317,180 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildDeliverySummaryCard() {
+    if (_deliverySummary == null) return const SizedBox();
+
+    final totalDeliveries = _deliverySummary!['total_deliveries'] as int? ?? 0;
+    final pendingDeliveries = _deliverySummary!['pending_deliveries'] as int? ?? 0;
+    final deliveredCount = _deliverySummary!['delivered_count'] as int? ?? 0;
+    final totalAmount = (_deliverySummary!['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final lastDeliveryDate = _deliverySummary!['last_delivery_date'] as String?;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.local_shipping, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Ringkasan Penghantaran',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Divider(),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDeliveryStatItem(
+                    'Jumlah',
+                    totalDeliveries.toString(),
+                    Icons.list_alt,
+                    AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeliveryStatItem(
+                    'Menunggu',
+                    pendingDeliveries.toString(),
+                    Icons.pending,
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDeliveryStatItem(
+                    'Dihantar',
+                    deliveredCount.toString(),
+                    Icons.check_circle,
+                    Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.attach_money, size: 18, color: Colors.grey[600]),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Jumlah Nilai Dihantar:',
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '(Semua produk yang dihantar)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  _currencyFormat.format(totalAmount),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            if (lastDeliveryDate != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Penghantaran Terakhir: ${_formatDate(lastDeliveryDate)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/deliveries', arguments: {'vendorId': widget.vendorId});
+                },
+                icon: const Icon(Icons.visibility, size: 18),
+                label: const Text('Lihat Semua Penghantaran'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeliveryStatItem(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('dd MMM yyyy', 'ms_MY').format(date);
+    } catch (e) {
+      return dateString;
+    }
   }
 
   Widget _buildInfoCard() {

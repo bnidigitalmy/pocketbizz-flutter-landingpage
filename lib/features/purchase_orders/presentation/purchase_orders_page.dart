@@ -363,17 +363,22 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
             'quantity': double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0,
             'unit': item['unit'] ?? 'pcs',
             'estimated_price': double.tryParse(item['estimated_price']?.toString() ?? '0') ?? 0.0,
+            'package_size': double.tryParse(item['package_size']?.toString() ?? '1.0') ?? 1.0, // Include package size
             'notes': item['notes'],
           };
         }).toList(),
       };
       
-      // Recalculate total
+      // Recalculate total (using package size for correct calculation)
       double subtotal = 0.0;
       for (var item in _editItems) {
         final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
         final price = double.tryParse(item['estimated_price']?.toString() ?? '0') ?? 0.0;
-        subtotal += qty * price;
+        final packageSize = double.tryParse(item['package_size']?.toString() ?? '1.0') ?? 1.0;
+        
+        // Calculate packages needed: (quantity / package_size).ceil()
+        final packagesNeeded = packageSize > 0 ? (qty / packageSize).ceil() : 1;
+        subtotal += packagesNeeded * price;
       }
       final discount = double.tryParse(_editDiscountController.text) ?? 0.0;
       final shipping = double.tryParse(_editShippingController.text) ?? 0.0;
@@ -445,10 +450,10 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       for (var i = 0; i < po.items.length; i++) {
         final item = po.items[i];
         message += '${i + 1}. *${item.itemName}*\n';
-        message += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+        message += '   Kuantiti: ${item.formatQuantityWithPackages()}\n';
         if (item.estimatedPrice != null) {
           final price = item.estimatedPrice!;
-          final total = price * item.quantity;
+          final total = item.calculateTotal(); // Use correct calculation with package size
           message += '   Harga: RM ${price.toStringAsFixed(2)}\n';
           message += '   Jumlah: RM ${total.toStringAsFixed(2)}\n';
         }
@@ -670,7 +675,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
     for (var i = 0; i < po.items.length; i++) {
       final item = po.items[i];
       list += '${i + 1}. ${item.itemName}\n';
-      list += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+      list += '   Kuantiti: ${item.formatQuantityWithPackages()}\n';
       if (item.notes != null && item.notes!.isNotEmpty) {
         list += '   Nota: ${item.notes}\n';
       }
@@ -731,10 +736,10 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
     for (var i = 0; i < po.items.length; i++) {
       final item = po.items[i];
       text += '${i + 1}. ${item.itemName}\n';
-      text += '   Kuantiti: ${item.quantity.toStringAsFixed(1)} ${item.unit}\n';
+      text += '   Kuantiti: ${item.formatQuantityWithPackages()}\n';
       if (item.estimatedPrice != null) {
         final price = item.estimatedPrice!;
-        final total = price * item.quantity;
+        final total = item.calculateTotal(); // Use correct calculation with package size
         text += '   Harga: RM ${price.toStringAsFixed(2)}\n';
         text += '   Jumlah: RM ${total.toStringAsFixed(2)}\n';
       }
@@ -787,6 +792,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
           'quantity': item.quantity.toStringAsFixed(1),
           'unit': item.unit,
           'estimated_price': (item.estimatedPrice ?? 0.0).toStringAsFixed(2),
+          'package_size': (item.packageSize ?? 1.0).toStringAsFixed(3), // Store package size
           'notes': item.notes ?? '',
         };
       }).toList();
@@ -1495,13 +1501,14 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
               ],
               rows: po.items.map((item) {
                 final price = item.actualPrice ?? item.estimatedPrice ?? 0.0;
-                final total = price * item.quantity;
+                // Use calculateTotal() method which correctly handles package size
+                final total = item.calculateTotal();
                 
                 return DataRow(
                   cells: [
                     DataCell(Text(item.itemName)),
-                    DataCell(Text('${item.quantity.toStringAsFixed(1)} ${item.unit}')),
-                    DataCell(Text('RM ${price.toStringAsFixed(2)}')),
+                    DataCell(Text(item.formatQuantityWithPackages())), // Shows: "1410.0 gram (3 pek/pcs)"
+                    DataCell(Text('RM ${price.toStringAsFixed(2)}')), // Price per package
                     DataCell(Text(
                       'RM ${total.toStringAsFixed(2)}',
                       textAlign: TextAlign.right,
@@ -1988,6 +1995,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
                         'quantity': '1',
                         'unit': 'pcs',
                         'estimated_price': '0',
+                        'package_size': '1.0', // Default package size
                         'notes': '',
                       });
                     });
@@ -2145,7 +2153,11 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
                       for (var item in _editItems) {
                         final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
                         final price = double.tryParse(item['estimated_price']?.toString() ?? '0') ?? 0.0;
-                        subtotal += qty * price;
+                        final packageSize = double.tryParse(item['package_size']?.toString() ?? '1.0') ?? 1.0;
+                        
+                        // Calculate packages needed: (quantity / package_size).ceil()
+                        final packagesNeeded = packageSize > 0 ? (qty / packageSize).ceil() : 1;
+                        subtotal += packagesNeeded * price;
                       }
                       final discount = double.tryParse(_editDiscountController.text) ?? 0.0;
                       final shipping = double.tryParse(_editShippingController.text) ?? 0.0;

@@ -7,8 +7,11 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:convert';
 import '../../core/supabase/supabase_client.dart';
 import '../models/delivery.dart';
+import '../models/delivery_timeline.dart';
+import '../models/delivery_note.dart';
 import 'production_repository_supabase.dart';
 
 /// Deliveries Repository for Supabase
@@ -344,5 +347,163 @@ class DeliveriesRepositorySupabase {
     } catch (e) {
       return null;
     }
+  }
+
+  /// Get delivery timeline events
+  Future<List<DeliveryTimelineEvent>> getDeliveryTimeline(String deliveryId) async {
+    final response = await supabase
+        .from('delivery_timeline')
+        .select('*')
+        .eq('delivery_id', deliveryId)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((json) {
+      return DeliveryTimelineEvent.fromJson(json as Map<String, dynamic>);
+    }).toList();
+  }
+
+  /// Get delivery notes
+  Future<List<DeliveryNote>> getDeliveryNotes(String deliveryId) async {
+    final response = await supabase
+        .from('delivery_notes_log')
+        .select('*')
+        .eq('delivery_id', deliveryId)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((json) {
+      return DeliveryNote.fromJson(json as Map<String, dynamic>);
+    }).toList();
+  }
+
+  /// Add note to delivery
+  Future<DeliveryNote> addDeliveryNote({
+    required String deliveryId,
+    required String note,
+    String noteType = 'general',
+  }) async {
+    final userId = SupabaseHelper.currentUserId;
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Get user name
+    String? userName;
+    try {
+      final userResponse = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      if (userResponse != null) {
+        userName = userResponse['full_name'] as String?;
+      }
+    } catch (e) {
+      // Ignore error, use null
+    }
+
+    // Get delivery to get business_owner_id
+    final deliveryResponse = await supabase
+        .from('vendor_deliveries')
+        .select('business_owner_id')
+        .eq('id', deliveryId)
+        .single();
+
+    final businessOwnerId = deliveryResponse['business_owner_id'] as String;
+
+    final response = await supabase
+        .from('delivery_notes_log')
+        .insert({
+          'delivery_id': deliveryId,
+          'business_owner_id': businessOwnerId,
+          'note': note,
+          'note_type': noteType,
+          'added_by_user_id': userId,
+          'added_by_name': userName,
+        })
+        .select()
+        .single();
+
+    // Also log in timeline
+    await supabase.from('delivery_timeline').insert({
+      'delivery_id': deliveryId,
+      'business_owner_id': businessOwnerId,
+      'event_type': 'note_added',
+      'description': 'Nota ditambah',
+      'changed_by_user_id': userId,
+      'changed_by_name': userName ?? 'System',
+      'metadata': jsonEncode({'note_type': noteType}),
+    });
+
+    return DeliveryNote.fromJson(response as Map<String, dynamic>);
+  }
+
+  /// Get delivery summary for vendor
+  Future<Map<String, dynamic>> getVendorDeliverySummary(String vendorId) async {
+    final userId = SupabaseHelper.currentUserId;
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Get total deliveries count
+    final deliveriesCountResponse = await supabase
+        .from('vendor_deliveries')
+        .select('id')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId)
+        .count();
+    final totalDeliveries = deliveriesCountResponse.count ?? 0;
+
+    // Get pending deliveries
+    final pendingCountResponse = await supabase
+        .from('vendor_deliveries')
+        .select('id')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId)
+        .eq('status', 'pending')
+        .count();
+    final pendingDeliveries = pendingCountResponse.count ?? 0;
+
+    // Get delivered count
+    final deliveredCountResponse = await supabase
+        .from('vendor_deliveries')
+        .select('id')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId)
+        .eq('status', 'delivered')
+        .count();
+    final deliveredCount = deliveredCountResponse.count ?? 0;
+
+    // Get total amount
+    final totalAmountResponse = await supabase
+        .from('vendor_deliveries')
+        .select('total_amount')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId);
+
+    double totalAmount = 0.0;
+    if (totalAmountResponse is List) {
+      for (var delivery in totalAmountResponse) {
+        final amount = (delivery['total_amount'] as num?)?.toDouble() ?? 0.0;
+        totalAmount += amount;
+      }
+    }
+
+    // Get last delivery date
+    final lastDeliveryResponse = await supabase
+        .from('vendor_deliveries')
+        .select('delivery_date')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId)
+        .order('delivery_date', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    return {
+      'total_deliveries': totalDeliveries,
+      'pending_deliveries': pendingDeliveries,
+      'delivered_count': deliveredCount,
+      'total_amount': totalAmount,
+      'last_delivery_date': lastDeliveryResponse?['delivery_date'],
+    };
   }
 }

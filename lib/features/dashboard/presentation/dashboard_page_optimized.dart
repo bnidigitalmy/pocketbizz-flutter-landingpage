@@ -15,6 +15,7 @@ import 'widgets/urgent_actions_widget.dart';
 import 'widgets/smart_suggestions_widget.dart';
 import 'widgets/quick_action_grid.dart';
 import 'widgets/low_stock_alerts_widget.dart';
+import 'widgets/purchase_recommendations_widget.dart';
 import 'widgets/sales_by_channel_card.dart';
 import '../../planner/presentation/widgets/planner_today_card.dart';
 import '../../../core/services/planner_auto_service.dart';
@@ -579,6 +580,11 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   // Stok bahan mentah (low stock)
                   const LowStockAlertsWidget(),
+
+                  const SizedBox(height: 20),
+
+                  // Cadangan Pembelian (purchase recommendations)
+                  const PurchaseRecommendationsWidget(),
 
                   const SizedBox(height: 20),
 

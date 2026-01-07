@@ -49,23 +49,39 @@ class ShoppingCartRepository {
           .eq('status', 'pending')
           .maybeSingle();
 
+      // Get stock item to check for default supplier
+      final stockItem = await supabase
+          .from('stock_items')
+          .select('supplier_id')
+          .eq('id', stockItemId)
+          .maybeSingle();
+      
+      final defaultSupplierId = stockItem?['supplier_id'] as String?;
+
       if (existing != null) {
-        // Update existing
+        // Update existing - preserve existing preferred_supplier_id if set, otherwise use default
+        final updates = <String, dynamic>{
+          'shortage_qty': shortageQty,
+          'notes': notes,
+          'priority': priority,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+        
+        // Only set preferred_supplier_id if not already set and default exists
+        if (existing['preferred_supplier_id'] == null && defaultSupplierId != null) {
+          updates['preferred_supplier_id'] = defaultSupplierId;
+        }
+        
         final updated = await supabase
             .from('shopping_cart_items')
-            .update({
-              'shortage_qty': shortageQty,
-              'notes': notes,
-              'priority': priority,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
+            .update(updates)
             .eq('id', existing['id'])
             .select('*, stock_items(*)')
             .single();
 
         return ShoppingCartItem.fromJson(updated);
       } else {
-        // Insert new
+        // Insert new - use default supplier from stock item if available
         final data = await supabase
             .from('shopping_cart_items')
             .insert({
@@ -75,6 +91,7 @@ class ShoppingCartRepository {
               'notes': notes,
               'priority': priority,
               'status': 'pending',
+              'preferred_supplier_id': defaultSupplierId, // Auto-populate from stock item
             })
             .select('*, stock_items(*)')
             .single();
@@ -109,6 +126,7 @@ class ShoppingCartRepository {
     String? notes,
     String? priority,
     String? status,
+    String? preferredSupplierId,
   }) async {
     try {
       final updates = <String, dynamic>{
@@ -119,6 +137,14 @@ class ShoppingCartRepository {
       if (notes != null) updates['notes'] = notes;
       if (priority != null) updates['priority'] = priority;
       if (status != null) updates['status'] = status;
+      if (preferredSupplierId != null) {
+        // Handle empty string as NULL (clear supplier)
+        if (preferredSupplierId.isEmpty) {
+          updates['preferred_supplier_id'] = null;
+        } else {
+          updates['preferred_supplier_id'] = preferredSupplierId;
+        }
+      }
 
       final data = await supabase
           .from('shopping_cart_items')
@@ -131,6 +157,33 @@ class ShoppingCartRepository {
     } catch (e) {
       throw Exception('Failed to update cart item: $e');
     }
+  }
+
+  /// Update supplier for cart item
+  Future<ShoppingCartItem> updateCartItemSupplier({
+    required String id,
+    String? supplierId,
+  }) async {
+    return updateCartItem(
+      id: id,
+      preferredSupplierId: supplierId,
+    );
+  }
+
+  /// Group cart items by supplier
+  /// Returns map of supplier_id -> list of cart items
+  Map<String?, List<ShoppingCartItem>> groupBySupplier(List<ShoppingCartItem> items) {
+    final grouped = <String?, List<ShoppingCartItem>>{};
+    
+    for (final item in items) {
+      final supplierId = item.preferredSupplierId;
+      if (!grouped.containsKey(supplierId)) {
+        grouped[supplierId] = [];
+      }
+      grouped[supplierId]!.add(item);
+    }
+    
+    return grouped;
   }
 
   /// Remove item from cart

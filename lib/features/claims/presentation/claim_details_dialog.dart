@@ -592,21 +592,32 @@ class _ClaimDetailsDialogState extends State<ClaimDetailsDialog> {
               ),
             ],
           ),
+          // Commission already deducted in delivery, so no need to show as deduction
+          // Only show as info for backward compatibility with old claims
           if (item.itemCommission != null && item.itemCommission! > 0) ...[
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Komisyen:', style: TextStyle(fontSize: 12, color: Colors.blue[600])),
-                Text(
-                  '- RM ${item.itemCommission!.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue[600],
-                    fontFeatures: [FontFeature.tabularFigures()],
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 12, color: Colors.blue[700]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'Nota: Komisyen sudah ditolak dalam invois penghantaran',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.blue[700],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
           const Divider(height: 16),
@@ -717,21 +728,33 @@ class _ClaimDetailsDialogState extends State<ClaimDetailsDialog> {
               ),
             ],
           ),
+          // Commission already deducted in delivery, so no need to show as deduction
+          // Only show as info for backward compatibility with old claims
           if (commissionTotal > 0) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Komisyen Vendor:', style: TextStyle(fontSize: 13, color: Colors.blue[700])),
-                Text(
-                  '- RM ${commissionTotal.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.blue[700],
-                    fontFeatures: [FontFeature.tabularFigures()],
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.blue[700]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Nota: Komisyen sudah ditolak dalam invois penghantaran. Harga unit yang digunakan adalah harga selepas tolak komisyen.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.blue[700],
+                        fontStyle: FontStyle.italic,
+                        height: 1.3,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 8),

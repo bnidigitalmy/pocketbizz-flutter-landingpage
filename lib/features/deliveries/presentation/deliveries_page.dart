@@ -72,7 +72,15 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Check for vendor filter from navigation arguments
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic> && args['vendorId'] != null) {
+        final vendorId = args['vendorId'] as String;
+        _filterVendor = vendorId; // Set filter to specific vendor (before loading data)
+      }
+      _loadData();
+    });
   }
 
 

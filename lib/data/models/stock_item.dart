@@ -10,6 +10,7 @@ class StockItem {
   final double currentQuantity;
   final double lowStockThreshold;
   final String? notes;
+  final String? supplierId; // Optional supplier reference (suppliers table - pembekal bahan mentah)
   final int version;
   final bool isArchived;
   final DateTime createdAt;
@@ -25,6 +26,7 @@ class StockItem {
     required this.currentQuantity,
     required this.lowStockThreshold,
     this.notes,
+    this.supplierId,
     required this.version,
     required this.isArchived,
     required this.createdAt,
@@ -53,6 +55,7 @@ class StockItem {
       currentQuantity: (json['current_quantity'] as num?)?.toDouble() ?? 0.0,
       lowStockThreshold: (json['low_stock_threshold'] as num?)?.toDouble() ?? 5.0,
       notes: json['notes'] as String?,
+      supplierId: json['supplier_id'] as String?,
       version: (json['version'] as num?)?.toInt() ?? 0,
       isArchived: json['is_archived'] as bool? ?? false,
       createdAt: json['created_at'] != null 
@@ -75,6 +78,7 @@ class StockItem {
       'current_quantity': currentQuantity,
       'low_stock_threshold': lowStockThreshold,
       'notes': notes,
+      'supplier_id': supplierId,
       'version': version,
       'is_archived': isArchived,
       'created_at': createdAt.toIso8601String(),
@@ -92,6 +96,7 @@ class StockItem {
     double? currentQuantity,
     double? lowStockThreshold,
     String? notes,
+    String? supplierId,
     int? version,
     bool? isArchived,
     DateTime? createdAt,
@@ -107,6 +112,7 @@ class StockItem {
       currentQuantity: currentQuantity ?? this.currentQuantity,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       notes: notes ?? this.notes,
+      supplierId: supplierId ?? this.supplierId,
       version: version ?? this.version,
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
@@ -123,6 +129,7 @@ class StockItemInput {
   final double purchasePrice;
   final double lowStockThreshold;
   final String? notes;
+  final String? supplierId; // Optional supplier reference (suppliers table - pembekal bahan mentah)
 
   StockItemInput({
     required this.name,
@@ -131,6 +138,7 @@ class StockItemInput {
     required this.purchasePrice,
     this.lowStockThreshold = 5.0,
     this.notes,
+    this.supplierId,
   });
 
   Map<String, dynamic> toJson() {
@@ -141,6 +149,7 @@ class StockItemInput {
       'purchase_price': purchasePrice,
       'low_stock_threshold': lowStockThreshold,
       'notes': notes,
+      'supplier_id': supplierId,
     };
   }
 }

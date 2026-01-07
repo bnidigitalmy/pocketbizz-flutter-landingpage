@@ -494,10 +494,35 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildSummaryRow('Jumlah Kasar', _claim!.grossAmount),
-            _buildSummaryRow('Komisyen (${_claim!.commissionRate}%)', _claim!.commissionAmount, isDeduction: true),
-            const Divider(),
-            _buildSummaryRow('Jumlah Bersih', _claim!.netAmount, isBold: true),
+            // Commission already deducted in delivery, so gross = net = claim amount
+            _buildSummaryRow('Jumlah Tuntutan', _claim!.netAmount, isBold: true),
+            // Only show commission info for backward compatibility with old claims
+            if (_claim!.commissionAmount > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Nota: Komisyen sudah ditolak dalam invois penghantaran',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue[700],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _buildSummaryRow('Telah Dibayar', _claim!.paidAmount),
             const Divider(),

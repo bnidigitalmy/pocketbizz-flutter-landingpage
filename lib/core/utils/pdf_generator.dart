@@ -439,12 +439,12 @@ class PDFGenerator {
                   final index = entry.key + 1;
                   final item = entry.value;
                   final estPrice = item.estimatedPrice ?? item.actualPrice ?? 0;
-                  final total = estPrice * item.quantity;
+                  final total = item.calculateTotal(); // Use correct calculation with package size
                   return pw.TableRow(
                     children: [
                       _tableCell(index.toString(), alignment: pw.Alignment.center),
                       _tableCell(item.itemName),
-                      _tableCell('${item.quantity.toStringAsFixed(1)} ${item.unit}'),
+                      _tableCell(item.formatQuantityWithPackages()), // Shows: "1410.0 gram (3 pek/pcs)"
                       _tableCell(
                         estPrice > 0 ? 'RM ${estPrice.toStringAsFixed(2)}' : '-',
                       ),
@@ -673,14 +673,14 @@ class PDFGenerator {
   }
 
   static pw.Widget _buildItemsTable({required List<ClaimItem> items}) {
+    // Note: Commission already deducted in delivery, so no commission column needed
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
       columnWidths: const {
-        0: pw.FlexColumnWidth(3),
-        1: pw.FlexColumnWidth(1),
-        2: pw.FlexColumnWidth(1.5),
-        3: pw.FlexColumnWidth(1.5),
-        4: pw.FlexColumnWidth(1.5),
+        0: pw.FlexColumnWidth(3.5),
+        1: pw.FlexColumnWidth(1.2),
+        2: pw.FlexColumnWidth(2),
+        3: pw.FlexColumnWidth(2),
       },
       children: [
         pw.TableRow(
@@ -690,7 +690,6 @@ class PDFGenerator {
             _tableCell('Kuantiti', isHeader: true),
             _tableCell('Harga Unit', isHeader: true),
             _tableCell('Jumlah', isHeader: true),
-            _tableCell('Komisyen', isHeader: true),
           ],
         ),
         ...items.map(
@@ -700,7 +699,6 @@ class PDFGenerator {
               _tableCell(item.quantitySold.toStringAsFixed(1)),
               _tableCell('RM ${item.unitPrice.toStringAsFixed(2)}'),
               _tableCell('RM ${item.grossAmount.toStringAsFixed(2)}'),
-              _tableCell('RM ${item.commissionAmount.toStringAsFixed(2)}'),
             ],
           ),
         ),
@@ -764,17 +762,20 @@ class PDFGenerator {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         children: [
-          // Commission already deducted in delivery, so show gross as "Jumlah Tuntutan"
-          // Only show commission row if commissionAmount > 0 (for backward compatibility with old claims)
+          // Commission already deducted in delivery (unit_price = retail_price - commission)
+          // So gross = net = claim amount (no need to show commission deduction)
+          _summaryRow('Jumlah Tuntutan', netAmount, isBold: true),
+          // Note: For backward compatibility, only show commission info if > 0 (old claims)
           if (commissionAmount > 0) ...[
-            _summaryRow('Jumlah Kasar', grossAmount),
             pw.SizedBox(height: 5),
-            _summaryRow(commissionLabel, commissionAmount, isDeduction: true),
-            pw.Divider(),
-            _summaryRow('Jumlah Bersih', netAmount, isBold: true),
-          ] else ...[
-            // No commission deduction - gross = net = claim amount
-            _summaryRow('Jumlah Tuntutan', netAmount, isBold: true),
+            pw.Text(
+              '* Nota: Komisyen sudah ditolak dalam invois penghantaran',
+              style: pw.TextStyle(
+                fontSize: 8,
+                color: PdfColors.grey600,
+                fontStyle: pw.FontStyle.italic,
+              ),
+            ),
           ],
           pw.SizedBox(height: 10),
           _summaryRow('Telah Dibayar', paidAmount),

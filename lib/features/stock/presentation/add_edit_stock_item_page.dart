@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/stock_repository_supabase.dart';
+import '../../../data/repositories/suppliers_repository_supabase.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../data/models/stock_movement.dart';
+import '../../../data/models/supplier.dart';
 import '../../../core/utils/unit_conversion.dart';
 import '../../../features/subscription/exceptions/subscription_limit_exception.dart';
 import '../../../features/subscription/presentation/subscription_page.dart';
@@ -23,6 +25,7 @@ class AddEditStockItemPage extends StatefulWidget {
 
 class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
   late final StockRepository _stockRepository;
+  late final SuppliersRepository _suppliersRepository;
   final _formKey = GlobalKey<FormState>();
 
   // Form controllers
@@ -35,12 +38,16 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
   late final TextEditingController _reasonController;
 
   String _selectedUnit = Units.gram;
+  String? _selectedSupplierId; // Optional supplier (pembekal bahan mentah)
+  List<Supplier> _suppliers = [];
   bool _isLoading = false;
+  bool _isLoadingSuppliers = false;
 
   @override
   void initState() {
     super.initState();
     _stockRepository = StockRepository(supabase);
+    _suppliersRepository = SuppliersRepository();
 
     // Initialize controllers
     _nameController = TextEditingController(text: widget.stockItem?.name ?? '');
@@ -61,6 +68,28 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
 
     if (widget.stockItem != null) {
       _selectedUnit = widget.stockItem!.unit;
+      _selectedSupplierId = widget.stockItem!.supplierId;
+    }
+    
+    // Load suppliers (pembekal bahan mentah)
+    _loadSuppliers();
+  }
+  
+  Future<void> _loadSuppliers() async {
+    setState(() => _isLoadingSuppliers = true);
+    try {
+      final suppliers = await _suppliersRepository.getAllSuppliers(limit: 100);
+      if (mounted) {
+        setState(() {
+          _suppliers = suppliers;
+          _isLoadingSuppliers = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading suppliers: $e');
+      if (mounted) {
+        setState(() => _isLoadingSuppliers = false);
+      }
     }
   }
 
@@ -99,6 +128,7 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
           notes: _notesController.text.trim().isEmpty
               ? null
               : _notesController.text.trim(),
+          supplierId: _selectedSupplierId, // Optional supplier
         );
 
         if (widget.isEditing) {
@@ -237,6 +267,10 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
                 return null;
               },
             ),
+            const SizedBox(height: 16),
+
+            // Supplier Selection (Optional)
+            _buildSupplierDropdown(),
             const SizedBox(height: 16),
 
             // Unit Selection
@@ -540,6 +574,81 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSupplierDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.store, size: 20, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Supplier (Pilihan)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: _isLoadingSuppliers
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : DropdownButtonFormField<String>(
+                  value: _selectedSupplierId,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    hintText: 'Pilih supplier (optional)',
+                    hintStyle: TextStyle(color: Colors.grey[600]),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Tiada supplier'),
+                    ),
+                    ..._suppliers.map((supplier) {
+                      return DropdownMenuItem<String>(
+                        value: supplier.id,
+                        child: Text(
+                          supplier.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSupplierId = value;
+                    });
+                  },
+                ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Pilih supplier (pembekal bahan mentah) default untuk bahan ini. Boleh tukar kemudian dalam shopping list.',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 

@@ -47,7 +47,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   List<ShoppingCartItem> _cartItems = [];
   List<StockItem> _allStockItems = [];
   List<StockItem> _lowStockItems = [];
-  List<Supplier> _suppliers = [];
+  List<Supplier> _suppliers = []; // Pembekal bahan mentah untuk shopping cart
   BusinessProfile? _businessProfile;
   bool _isLoading = true;
   
@@ -239,6 +239,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         debugPrint('Error loading suppliers: $e');
       }
       
+      // Load suppliers for shopping cart (preferred_supplier_id references suppliers table)
+      // Note: Supplier = Pembekal bahan mentah (bukan vendor/consignee)
+      
       // Load business profile
       BusinessProfile? businessProfile;
       try {
@@ -252,7 +255,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
           _cartItems = cartItems;
           _allStockItems = allStockItems;
           _lowStockItems = lowStockItems;
-          _suppliers = suppliers;
+          _suppliers = suppliers; // For shopping cart dropdown (pembekal bahan)
           _businessProfile = businessProfile;
           _isLoading = false;
           _isLoadingData = false;
@@ -323,6 +326,33 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         if (handled) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateItemSupplier(String itemId, String? supplierId) async {
+    try {
+      // Use updateCartItem to update supplier
+      final updatedItem = await _cartRepo.updateCartItem(
+        id: itemId,
+        preferredSupplierId: supplierId,
+      );
+      
+      // Update local state without full reload
+      setState(() {
+        final index = _cartItems.indexWhere((i) => i.id == itemId);
+        if (index != -1) {
+          _cartItems[index] = updatedItem;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating supplier: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -612,6 +642,162 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     _showPreviewDialog();
   }
 
+  /// Create multiple PO - one per supplier
+  /// Groups cart items by supplier and creates PO for each supplier
+  Future<void> _createMultiplePO() async {
+    if (_cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cart kosong'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // Update quantities first (qtyStr is in pek/pcs)
+    for (var item in _cartItems) {
+      final qtyStr = _qtyControllers[item.id]?.text;
+      if (qtyStr != null) {
+        // Convert to base unit for comparison
+        final packageSize = item.stockItemPackageSize ?? 1.0;
+        final qtyInPek = double.tryParse(qtyStr) ?? 0;
+        final qtyInBaseUnit = qtyInPek * packageSize;
+        
+        // Only update if different
+        if ((qtyInBaseUnit - item.shortageQty).abs() > 0.01) {
+          await _updateQuantity(item.id, qtyStr);
+        }
+      }
+    }
+    
+    // Group items by supplier
+    final grouped = _cartRepo.groupBySupplier(_cartItems);
+    
+    // Check for items without supplier
+    final itemsWithoutSupplier = grouped[null] ?? [];
+    if (itemsWithoutSupplier.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Item Tanpa Supplier'),
+          content: Text(
+            'Terdapat ${itemsWithoutSupplier.length} item tanpa supplier. '
+            'Item ini akan diabaikan. Adakah anda mahu teruskan?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Teruskan'),
+            ),
+          ],
+        ),
+      );
+      
+      if (confirmed != true) return;
+    }
+    
+    // Create PO for each supplier
+    int successCount = 0;
+    int errorCount = 0;
+    List<String> errorMessages = [];
+    
+    try {
+      for (final entry in grouped.entries) {
+        final supplierId = entry.key;
+        final items = entry.value;
+        
+        // Skip items without supplier
+        if (supplierId == null) continue;
+        
+        // Get supplier info (preferred_supplier_id references suppliers table)
+        final supplier = _suppliers.firstWhere(
+          (s) => s.id == supplierId,
+          orElse: () => _suppliers.first, // Fallback (shouldn't happen)
+        );
+        
+        try {
+          final cartItemIds = items.map((item) => item.id).toList();
+          
+          final po = await _poRepo.createPOFromCart(
+            supplierId: supplierId,
+            supplierName: supplier.name,
+            supplierPhone: supplier.phone,
+            supplierEmail: supplier.email,
+            supplierAddress: supplier.address,
+            deliveryAddress: _deliveryAddressController.text.trim().isEmpty
+                ? null
+                : _deliveryAddressController.text.trim(),
+            notes: _poNotesController.text.trim().isEmpty
+                ? null
+                : _poNotesController.text.trim(),
+            cartItemIds: cartItemIds,
+          );
+          
+          successCount++;
+        } catch (e) {
+          errorCount++;
+          errorMessages.add('${supplier.name}: $e');
+        }
+      }
+      
+      if (mounted) {
+        if (successCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '🎉 $successCount Purchase Order Dibuat!'
+                '${errorCount > 0 ? ' ($errorCount gagal)' : ''}',
+              ),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        
+        if (errorCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ $errorCount PO gagal: ${errorMessages.join(", ")}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        
+        // Refresh data
+        await _loadData();
+        
+        // Clear form
+        setState(() {
+          _deliveryAddressController.clear();
+          _poNotesController.clear();
+        });
+        
+        // Navigate to PO page
+        await Navigator.pushNamed(context, '/purchase-orders');
+        
+        // Refresh when returning from PO page
+        if (mounted) {
+          _loadData();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating multiple PO: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _createPO() async {
     if (_cartItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -621,6 +807,39 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         ),
       );
       return;
+    }
+    
+    // Check if items have different suppliers
+    final grouped = _cartRepo.groupBySupplier(_cartItems);
+    final suppliersCount = grouped.keys.where((k) => k != null).length;
+    
+    // If multiple suppliers, suggest using multiple PO
+    if (suppliersCount > 1) {
+      final useMultiple = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Multiple Suppliers Dikesan'),
+          content: Text(
+            'Terdapat item dari $suppliersCount supplier berbeza dalam senarai belian. '
+            'Adakah anda mahu buat PO berasingan untuk setiap supplier?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Buat 1 PO Sahaja'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Buat Multiple PO'),
+            ),
+          ],
+        ),
+      );
+      
+      if (useMultiple == true) {
+        await _createMultiplePO();
+        return;
+      }
     }
     
     // Update quantities first (qtyStr is in pek/pcs)
@@ -952,7 +1171,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                                           SizedBox(
                                             width: double.infinity,
                                             child: ElevatedButton.icon(
-                                              onPressed: () => _showSupplierDialog(),
+                                              onPressed: () => _showCreatePOMenu(),
                                               icon: const Icon(Icons.description, size: 18),
                                               label: const Text('Buat PO'),
                                               style: ElevatedButton.styleFrom(
@@ -1010,7 +1229,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                                           ),
                                           if (_cartItems.isNotEmpty)
                                             ElevatedButton.icon(
-                                              onPressed: () => _showSupplierDialog(),
+                                              onPressed: () => _showCreatePOMenu(),
                                               icon: const Icon(Icons.description, size: 18),
                                               label: const Text('Buat PO'),
                                               style: ElevatedButton.styleFrom(
@@ -1419,6 +1638,61 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               ],
             ),
             const SizedBox(height: 12),
+            // Supplier Selector
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Supplier/Kedai',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      DropdownButtonFormField<String>(
+                        value: item.preferredSupplierId,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          hintText: 'Pilih supplier',
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                        isExpanded: true,
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('Tiada supplier'),
+                          ),
+                          // Use suppliers for shopping cart (pembekal bahan mentah)
+                          ..._suppliers.map((supplier) {
+                            return DropdownMenuItem<String>(
+                              value: supplier.id,
+                              child: Text(
+                                supplier.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          _updateItemSupplier(item.id, value);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -1646,6 +1920,48 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             ),
           ],
         ),
+    );
+  }
+
+  void _showCreatePOMenu() {
+    // Check if items have different suppliers
+    final grouped = _cartRepo.groupBySupplier(_cartItems);
+    final suppliersCount = grouped.keys.where((k) => k != null).length;
+    
+    if (suppliersCount <= 1) {
+      // Only one supplier or no supplier - use normal flow
+      _showSupplierDialog();
+      return;
+    }
+    
+    // Multiple suppliers - show menu
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.description, color: AppColors.primary),
+              title: const Text('Buat 1 PO untuk Semua Item'),
+              subtitle: const Text('Semua item dalam 1 PO (pilih supplier)'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSupplierDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined, color: AppColors.success),
+              title: Text('Buat Multiple PO ($suppliersCount PO)'),
+              subtitle: const Text('Satu PO per supplier (auto-group)'),
+              onTap: () {
+                Navigator.pop(context);
+                _createMultiplePO();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

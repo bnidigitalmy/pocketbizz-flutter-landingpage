@@ -511,6 +511,7 @@ class PurchaseOrderRepository {
           'quantity': qty,
           'unit': cartItem['unit'] ?? stockItem?['unit'] ?? 'pcs',
           'estimated_price': purchasePrice,
+          'package_size': packageSize, // Store package size for correct calculation
           'notes': cartItem['notes'],
         });
       }

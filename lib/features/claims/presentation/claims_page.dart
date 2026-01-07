@@ -78,7 +78,15 @@ class _ClaimsPageState extends State<ClaimsPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Check for vendor filter from navigation arguments
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic> && args['vendorId'] != null) {
+        final vendorId = args['vendorId'] as String;
+        _filterVendor = vendorId; // Set filter to specific vendor (before loading data)
+      }
+      _loadData();
+    });
   }
 
   @override
@@ -285,16 +293,16 @@ class _ClaimsPageState extends State<ClaimsPage> {
     
     _handleWhatsAppWithPhone(claim.vendorId, vendor.name, (phone) async {
       final balanceAmount = claim.netAmount - claim.paidAmount;
+      // Commission already deducted in delivery, so show net amount as claim amount
       final message = '*PocketBizz - Invois Tuntutan*\n\n' +
           'No. Tuntutan: *${claim.claimNumber}*\n' +
           'Vendor: *${vendor.name}*\n' +
           'Tarikh: ${DateFormat('dd MMMM yyyy', 'ms_MY').format(claim.claimDate)}\n' +
-          'Jumlah Kasar: RM ${claim.grossAmount.toStringAsFixed(2)}\n' +
-          'Komisyen (${claim.commissionRate}%): RM ${claim.commissionAmount.toStringAsFixed(2)}\n' +
-          'Jumlah Bersih: RM ${claim.netAmount.toStringAsFixed(2)}\n' +
+          'Jumlah Tuntutan: RM ${claim.netAmount.toStringAsFixed(2)}\n' +
           'Dibayar: RM ${claim.paidAmount.toStringAsFixed(2)}\n' +
           'Baki: RM ${balanceAmount.toStringAsFixed(2)}\n\n' +
           'Status: ${claim.status == 'paid' ? '✅ Selesai' : claim.paidAmount > 0 ? '⏳ Separa Bayar' : '⏰ Belum Bayar'}\n\n' +
+          '*Nota: Komisyen sudah ditolak dalam invois penghantaran*\n\n' +
           'Sila lihat penyata lengkap untuk butiran.';
 
       final whatsappUrl = 'https://wa.me/${phone.replaceAll(RegExp(r'[^\d]'), '')}?text=${Uri.encodeComponent(message)}';
@@ -689,33 +697,14 @@ class _ClaimsPageState extends State<ClaimsPage> {
               ],
             ),
             const SizedBox(height: 16),
+            // Commission already deducted in delivery, so show net as claim amount
             Row(
               children: [
                 Expanded(
                   child: _buildSummaryItem(
-                    'Jumlah Kasar',
-                    summary['gross']!,
-                    Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Komisyen',
-                    summary['commission']!,
-                    Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Jumlah Bersih',
+                    'Jumlah Tuntutan',
                     summary['net']!,
-                    Colors.green,
+                    AppColors.primary,
                     isBold: true,
                   ),
                 ),
@@ -729,6 +718,33 @@ class _ClaimsPageState extends State<ClaimsPage> {
                 ),
               ],
             ),
+            // Show commission info only if > 0 (for backward compatibility with old claims)
+            if (summary['commission']! > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: Colors.blue[700]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Nota: Komisyen sudah ditolak dalam invois penghantaran',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue[700],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(12),
@@ -860,7 +876,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  value: _filterVendor == 'all' ? null : _filterVendor,
+                  value: _filterVendor,
                   decoration: const InputDecoration(
                     labelText: 'Vendor',
                     border: OutlineInputBorder(),
@@ -878,7 +894,7 @@ class _ClaimsPageState extends State<ClaimsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _filterPaymentStatus == 'all' ? null : _filterPaymentStatus,
+                  value: _filterPaymentStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status Bayaran',
                     border: OutlineInputBorder(),

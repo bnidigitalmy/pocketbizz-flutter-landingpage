@@ -1879,16 +1879,41 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Info note about commission
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: Colors.blue[700]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Komisyen sudah ditolak dalam invois penghantaran. Harga unit yang digunakan adalah harga selepas tolak komisyen.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[900],
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _buildDetailRow(
                       'Jumlah Terjual',
                       'RM ${_claimSummary!.totalSoldValue.toStringAsFixed(2)}',
                       AppColors.success,
                     ),
                     const SizedBox(height: 8),
-                    // Note: Commission already deducted in delivery, so no commission rate to show
-                    // Note: Commission already deducted in delivery, so no commission deduction here
-                    // const Divider(height: 24),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
