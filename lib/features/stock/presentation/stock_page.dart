@@ -8,6 +8,7 @@
 // Only READ-ONLY reference allowed.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/stock_repository_supabase.dart';
@@ -69,31 +70,20 @@ class _StockPageState extends State<StockPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Load stock items first
       final items = await _stockRepository.getAllStockItems(limit: 100);
       
-      // Load batch summaries for all items
-      final summaries = <String, Map<String, dynamic>>{};
-      for (final item in items) {
-        try {
-          final summary = await _stockRepository.getBatchSummary(item.id);
-          summaries[item.id] = summary;
-        } catch (e) {
-          // Ignore errors for batch summary (might not have batches)
-          summaries[item.id] = {
-            'total_batches': 0,
-            'expired_batches': 0,
-            'earliest_expiry': null,
-          };
-        }
-      }
-      
+      // Show items immediately (don't wait for batch summaries)
       setState(() {
         _stockItems = items;
         _filteredItems = items;
-        _batchSummaries = summaries;
         _isLoading = false;
       });
       _applyFilters();
+      
+      // Load batch summaries in parallel (non-blocking, lazy load)
+      // This won't block the UI from showing stock items
+      _loadBatchSummariesAsync(items);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -101,6 +91,28 @@ class _StockPageState extends State<StockPage> {
           SnackBar(content: Text('Error: $e')),
         );
       }
+    }
+  }
+
+  /// Load batch summaries asynchronously (non-blocking)
+  /// This allows stock items to show immediately while summaries load in background
+  /// Uses optimized bulk query instead of multiple individual queries
+  Future<void> _loadBatchSummariesAsync(List<StockItem> items) async {
+    try {
+      // Use optimized bulk query - load all summaries in ONE query instead of N queries
+      // This is MUCH faster (1 query vs 45 queries for 45 items)
+      final itemIds = items.map((item) => item.id).toList();
+      final summaries = await _stockRepository.getBatchSummariesForItems(itemIds);
+      
+      // Update UI with summaries
+      if (mounted) {
+        setState(() {
+          _batchSummaries = summaries;
+        });
+      }
+    } catch (e) {
+      // Silently fail - batch summaries are optional
+      debugPrint('Error loading batch summaries: $e');
     }
   }
 

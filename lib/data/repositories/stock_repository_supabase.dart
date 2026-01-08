@@ -575,6 +575,66 @@ class StockRepository with RateLimitMixin {
     }
   }
 
+  /// Get batch summaries for multiple stock items in one query (optimized)
+  /// This is much faster than calling getBatchSummary multiple times
+  Future<Map<String, Map<String, dynamic>>> getBatchSummariesForItems(List<String> stockItemIds) async {
+    try {
+      if (stockItemIds.isEmpty) return {};
+
+      final response = await _supabase
+          .from('stock_item_batches_summary')
+          .select()
+          .inFilter('stock_item_id', stockItemIds);
+
+      final summaries = <String, Map<String, dynamic>>{};
+      
+      // Initialize all items with default summary
+      for (final itemId in stockItemIds) {
+        summaries[itemId] = {
+          'total_batches': 0,
+          'total_quantity': 0.0,
+          'total_remaining': 0.0,
+          'earliest_expiry': null,
+          'expired_batches': 0,
+          'active_batches': 0,
+        };
+      }
+
+      // Map response to summaries
+      if (response != null && response is List) {
+        for (final row in response) {
+          final itemId = row['stock_item_id'] as String;
+          summaries[itemId] = {
+            'total_batches': row['total_batches'] ?? 0,
+            'total_quantity': (row['total_quantity'] as num?)?.toDouble() ?? 0.0,
+            'total_remaining': (row['total_remaining'] as num?)?.toDouble() ?? 0.0,
+            'earliest_expiry': row['earliest_expiry'] != null
+                ? DateTime.parse(row['earliest_expiry'] as String)
+                : null,
+            'expired_batches': row['expired_batches'] ?? 0,
+            'active_batches': row['active_batches'] ?? 0,
+          };
+        }
+      }
+
+      return summaries;
+    } catch (e) {
+      debugPrint('Error getting batch summaries: $e');
+      // Return default summaries for all items
+      return {
+        for (final itemId in stockItemIds)
+          itemId: {
+            'total_batches': 0,
+            'total_quantity': 0.0,
+            'total_remaining': 0.0,
+            'earliest_expiry': null,
+            'expired_batches': 0,
+            'active_batches': 0,
+          }
+      };
+    }
+  }
+
   /// Create a new stock item batch
   Future<String> createStockItemBatch(StockItemBatchInput input) async {
     try {

@@ -19,11 +19,31 @@ import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'add_product_with_recipe_page.dart';
 import '../../../core/widgets/cached_image.dart';
+
+/// Helper class for virtual scrolling list items
+class _ProductListItem {
+  final _ProductListItemType type;
+  final Product? product;
+  final int activeCount;
+  final int disabledCount;
+
+  _ProductListItem({
+    required this.type,
+    this.product,
+    this.activeCount = 0,
+    this.disabledCount = 0,
+  });
+}
+
+enum _ProductListItemType {
+  header,
+  disabledHeader,
+  product,
+}
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});
@@ -86,9 +106,38 @@ class _ProductListPageState extends State<ProductListPage> {
     setState(() => _loading = true);
 
     try {
+      // Load products first and show immediately
       final products = await _repo.listProducts(includeInactive: _showDisabledProducts);
       
-      // Load stock for all products IN PARALLEL (much faster!)
+      // Show products immediately (don't wait for stock)
+      if (mounted) {
+        setState(() {
+          _allProducts = products;
+          _loading = false;
+          _applyFilters();
+        });
+      }
+      
+      // Load stock in background (non-blocking)
+      _loadStockAsync(products);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat memuatkan produk: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Load stock for all products asynchronously (non-blocking)
+  /// This allows products to show immediately while stock loads in background
+  Future<void> _loadStockAsync(List<Product> products) async {
+    try {
+      // Load stock for all products IN PARALLEL
       final stockFutures = products.map((product) async {
         try {
           final stock = await _productionRepo.getTotalRemainingForProduct(product.id);
@@ -101,25 +150,17 @@ class _ProductListPageState extends State<ProductListPage> {
       final stockResults = await Future.wait(stockFutures);
       final stockMap = Map<String, double>.fromEntries(stockResults);
 
+      // Update UI with stock data
       if (mounted) {
         setState(() {
-          _allProducts = products;
           _stockCache = stockMap;
-          _loading = false;
           _calculateSummary();
-          _applyFilters();
+          _applyFilters(); // Re-apply filters to update stock-based filters
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ralat memuatkan produk: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Silently fail - stock is optional for display
+      debugPrint('Error loading stock: $e');
     }
   }
 
@@ -200,21 +241,29 @@ class _ProductListPageState extends State<ProductListPage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadProducts,
-              child: SingleChildScrollView(
+              child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSummaryCards(),
-                    const SizedBox(height: 16),
-                    _buildSearchBar(),
-                    const SizedBox(height: 12),
-                    _buildFilters(),
-                    const SizedBox(height: 12),
-                    _buildProductsList(),
-                  ],
-                ),
+                slivers: [
+                  // Header section (summary, search, filters)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSummaryCards(),
+                          const SizedBox(height: 16),
+                          _buildSearchBar(),
+                          const SizedBox(height: 12),
+                          _buildFilters(),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Products list with virtual scrolling
+                  _buildProductsListSliver(),
+                ],
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -506,59 +555,112 @@ class _ProductListPageState extends State<ProductListPage> {
     );
   }
 
-  Widget _buildProductsList() {
+  /// Build products list using SliverList for virtual scrolling
+  Widget _buildProductsListSliver() {
     if (_filteredProducts.isEmpty) {
-      return _buildEmptyState();
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildEmptyState(),
+        ),
+      );
     }
 
     // Separate active and disabled products if showing disabled
     final activeProducts = _filteredProducts.where((p) => p.isActive).toList();
     final disabledProducts = _filteredProducts.where((p) => !p.isActive).toList();
+    
+    // Combine all items with separators for ListView.builder
+    final allItems = <_ProductListItem>[];
+    
+    // Add header
+    allItems.add(_ProductListItem(
+      type: _ProductListItemType.header,
+      activeCount: activeProducts.length,
+      disabledCount: disabledProducts.length,
+    ));
+    
+    // Add active products
+    for (final product in activeProducts) {
+      allItems.add(_ProductListItem(
+        type: _ProductListItemType.product,
+        product: product,
+      ));
+    }
+    
+    // Add disabled section header if needed
+    if (disabledProducts.isNotEmpty) {
+      allItems.add(_ProductListItem(
+        type: _ProductListItemType.disabledHeader,
+        disabledCount: disabledProducts.length,
+      ));
+      
+      // Add disabled products
+      for (final product in disabledProducts) {
+        allItems.add(_ProductListItem(
+          type: _ProductListItemType.product,
+          product: product,
+        ));
+      }
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${activeProducts.length} produk aktif${disabledProducts.isNotEmpty ? ', ${disabledProducts.length} tidak aktif' : ''}',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Show active products first
-        ...activeProducts.map((product) => _buildProductCard(product)),
-        // Show disabled products section if any
-        if (disabledProducts.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.visibility_off, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 8),
-                Text(
-                  'Produk Tidak Aktif (${disabledProducts.length})',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final item = allItems[index];
+            
+            switch (item.type) {
+              case _ProductListItemType.header:
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '${item.activeCount} produk aktif${item.disabledCount > 0 ? ', ${item.disabledCount} tidak aktif' : ''}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...disabledProducts.map((product) => _buildProductCard(product)),
-        ],
-      ],
+                );
+              
+              case _ProductListItemType.disabledHeader:
+                return Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.visibility_off, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Produk Tidak Aktif (${item.disabledCount})',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              
+              case _ProductListItemType.product:
+                return _buildProductCard(item.product!);
+            }
+          },
+          childCount: allItems.length,
+        ),
+      ),
     );
   }
+
 
   Widget _buildProductCard(Product product) {
     final stock = _stockCache[product.id] ?? 0.0;

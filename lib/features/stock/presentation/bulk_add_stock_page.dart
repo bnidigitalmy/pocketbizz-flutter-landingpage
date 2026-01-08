@@ -118,14 +118,17 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
             await _stockRepo.updateStockItem(item.id, input);
           }
 
-          // 2. Add quantity jika ada
+          // 2. Add quantity jika ada (convert dari pek/pcs ke base unit)
           if (addQuantity != null && addQuantity > 0) {
+            // Convert from pek/pcs to base unit (sama macam adjust stock)
+            final quantityInBaseUnit = addQuantity * item.packageSize;
+            
             await _stockRepo.recordStockMovement(
               StockMovementInput(
                 stockItemId: item.id,
                 movementType: StockMovementType.replenish,
-                quantityChange: addQuantity,
-                reason: 'Bulk stock addition',
+                quantityChange: quantityInBaseUnit,
+                reason: 'Bulk stock addition - Added ${addQuantity.toStringAsFixed(0)} pek/pcs (${quantityInBaseUnit.toStringAsFixed(2)} ${item.unit})',
               ),
             );
           }
@@ -227,7 +230,7 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Masukkan kuantiti dan/atau harga baru untuk setiap item. Kosongkan jika tiada perubahan.',
+                    'Masukkan bilangan pek/pcs yang ditambah dan/atau harga baru. Kosongkan jika tiada perubahan.',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[700],
@@ -250,7 +253,7 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
             child: Row(
               children: [
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
                     'Item',
                     style: TextStyle(
@@ -273,7 +276,19 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Tambah Qty',
+                    'Tambah\n(pek/pcs)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Stok Baru',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.grey[700],
@@ -330,7 +345,7 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                     children: [
                       // Item name
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -340,11 +355,13 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              '${item.unit} (${item.packageSize} ${item.unit}/pkg)',
+                              '${item.packageSize.toStringAsFixed(0)} ${item.unit}/pkg',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10,
                                 color: Colors.grey[600],
                               ),
                             ),
@@ -365,32 +382,45 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                         ),
                       ),
 
-                      // Add quantity input
+                      // Add quantity input (pek/pcs)
                       Expanded(
                         flex: 2,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: TextField(
-                            controller: _quantityControllers[item.id],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                            ],
-                            textAlign: TextAlign.center,
-                            decoration: InputDecoration(
-                              hintText: '0.0',
-                              hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: BorderSide(color: Colors.grey[300]!),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: _quantityControllers[item.id],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                ],
+                                textAlign: TextAlign.center,
+                                decoration: InputDecoration(
+                                  hintText: '0',
+                                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                  suffixText: 'pek',
+                                  suffixStyle: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
+                                ),
+                                style: const TextStyle(fontSize: 13),
+                                onChanged: (value) => _updateQuantity(item.id, value),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              isDense: true,
-                            ),
-                            style: const TextStyle(fontSize: 13),
-                            onChanged: (value) => _updateQuantity(item.id, value),
+                            ],
                           ),
                         ),
+                      ),
+
+                      // New stock preview
+                      Expanded(
+                        flex: 2,
+                        child: _buildNewStockPreview(item, addQty),
                       ),
 
                       // Current price
@@ -482,6 +512,87 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewStockPreview(StockItem item, double? addQtyInPek) {
+    if (addQtyInPek == null || addQtyInPek <= 0) {
+      return Text(
+        '-',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.grey[400],
+        ),
+      );
+    }
+
+    // Convert from pek/pcs to base unit
+    final addQtyInBaseUnit = addQtyInPek * item.packageSize;
+    final newStock = item.currentQuantity + addQtyInBaseUnit;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.success.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.success.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                UnitConversion.formatQuantity(
+                  item.currentQuantity,
+                  item.unit,
+                ),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 12,
+                  color: AppColors.success,
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  UnitConversion.formatQuantity(
+                    newStock,
+                    item.unit,
+                  ),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${addQtyInPek.toStringAsFixed(0)} pek (${addQtyInBaseUnit.toStringAsFixed(0)} ${item.unit})',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

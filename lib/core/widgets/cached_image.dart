@@ -44,9 +44,10 @@ class CachedImage extends StatelessWidget {
       fit: fit,
       placeholder: (context, url) => placeholder ?? _buildPlaceholder(),
       errorWidget: (context, url, error) => errorWidget ?? _buildErrorWidget(),
-      fadeInDuration: const Duration(milliseconds: 200),
-      fadeOutDuration: const Duration(milliseconds: 200),
-      // Cache settings
+      fadeInDuration: const Duration(milliseconds: 150),
+      fadeOutDuration: const Duration(milliseconds: 100),
+      // Cache settings - optimize for list view performance
+      // Limit memory cache to actual display size (not full resolution)
       memCacheWidth: width?.toInt(),
       memCacheHeight: height?.toInt(),
     );
@@ -69,19 +70,17 @@ class CachedImage extends StatelessWidget {
   }
 
   Widget _buildPlaceholder() {
+    // Lightweight placeholder - no spinner to reduce UI work
     return Container(
       width: width,
       height: height,
       color: Colors.grey[200],
-      child: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
-          ),
-        ),
+      child: Icon(
+        Icons.image_outlined,
+        color: Colors.grey[400],
+        size: (width != null && height != null) 
+            ? (width! < height! ? width! : height!) * 0.3 
+            : 24,
       ),
     );
   }
