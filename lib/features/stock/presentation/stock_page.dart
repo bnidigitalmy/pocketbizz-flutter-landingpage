@@ -20,6 +20,8 @@ import 'stock_history_page.dart';
 import 'widgets/replenish_stock_dialog.dart';
 import 'widgets/smart_filters_widget.dart';
 import 'widgets/shopping_list_dialog.dart';
+import 'widgets/bulk_assign_supplier_dialog.dart';
+import 'bulk_add_stock_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -360,6 +362,17 @@ class _StockPageState extends State<StockPage> {
   }
 
   void _selectAllLowStock() {
+    // Auto-apply filter untuk stok rendah sahaja
+    setState(() {
+      _quickFilters.updateAll((key, value) => false);
+      _quickFilters['lowStock'] = true;
+      _searchQuery = ''; // Clear search untuk show all low stock
+    });
+    
+    // Apply filter dulu
+    _applyFilters();
+    
+    // Select semua low stock items selepas filter applied
     setState(() {
       _selectedItemIds.clear();
       _selectedItemIds.addAll(
@@ -368,7 +381,37 @@ class _StockPageState extends State<StockPage> {
     });
   }
 
+  void _selectAllOutOfStock() {
+    // Auto-apply filter untuk habis stok sahaja
+    setState(() {
+      _quickFilters.updateAll((key, value) => false);
+      _quickFilters['outOfStock'] = true;
+      _searchQuery = ''; // Clear search untuk show all out of stock
+    });
+    
+    // Apply filter dulu
+    _applyFilters();
+    
+    // Select semua out of stock items selepas filter applied
+    setState(() {
+      _selectedItemIds.clear();
+      _selectedItemIds.addAll(
+        _filteredItems.where((item) => item.currentQuantity <= 0).map((item) => item.id),
+      );
+    });
+  }
+
   void _selectAllFiltered() {
+    // Clear semua filters untuk show semua items
+    setState(() {
+      _quickFilters.updateAll((key, value) => false);
+      _searchQuery = '';
+    });
+    
+    // Apply filter
+    _applyFilters();
+    
+    // Select semua filtered items
     setState(() {
       _selectedItemIds.clear();
       _selectedItemIds.addAll(_filteredItems.map((item) => item.id));
@@ -407,6 +450,156 @@ class _StockPageState extends State<StockPage> {
     );
   }
 
+  void _showBulkOperationsMenu() {
+    if (_selectedItemIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sila pilih item terlebih dahulu')),
+      );
+      return;
+    }
+
+    final selectedItems = _stockItems
+        .where((item) => _selectedItemIds.contains(item.id))
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.tune, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Bulk Operations',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${selectedItems.length} item dipilih',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Assign Supplier
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.assignment_ind,
+                  color: AppColors.primary,
+                ),
+              ),
+              title: const Text('Assign Supplier'),
+              subtitle: const Text('Assign supplier kepada semua item yang dipilih'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (context) => BulkAssignSupplierDialog(
+                    selectedItems: selectedItems,
+                  ),
+                ).then((success) {
+                  if (success == true) {
+                    _loadStockItems();
+                    setState(() {
+                      _isSelectionMode = false;
+                      _selectedItemIds.clear();
+                    });
+                  }
+                });
+              },
+            ),
+            const Divider(),
+            // Bulk Add Stock
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.add_shopping_cart,
+                  color: AppColors.success,
+                ),
+              ),
+              title: const Text('Bulk Add Stock'),
+              subtitle: const Text('Tambah kuantiti dan update harga untuk multiple items'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BulkAddStockPage(
+                      selectedItems: selectedItems,
+                    ),
+                  ),
+                ).then((success) {
+                  if (success == true) {
+                    _loadStockItems();
+                    setState(() {
+                      _isSelectionMode = false;
+                      _selectedItemIds.clear();
+                    });
+                  }
+                });
+              },
+            ),
+            const Divider(),
+            // Add to Shopping List
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.shopping_cart,
+                  color: Colors.blue,
+                ),
+              ),
+              title: const Text('Tambah ke Senarai Belian'),
+              subtitle: const Text('Tambah item ke shopping cart'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context);
+                _showShoppingListDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final lowStockCount = _stockItems.where((item) => item.isLowStock).length;
@@ -437,47 +630,50 @@ class _StockPageState extends State<StockPage> {
             : null,
         actions: _isSelectionMode
             ? [
-                // Select All Low Stock
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert),
-                  onSelected: (value) {
-                    if (value == 'all') _selectAllFiltered();
-                    if (value == 'low') _selectAllLowStock();
-                    if (value == 'clear') _clearSelection();
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'all',
-                      child: Row(
-                        children: [
-                          Icon(Icons.select_all, size: 20),
-                          SizedBox(width: 8),
-                          Text('Pilih Semua'),
-                        ],
+                // Quick selection buttons - more user-friendly
+                if (_filteredItems.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Select All button
+                      Tooltip(
+                        message: 'Pilih Semua',
+                        child: IconButton(
+                          icon: const Icon(Icons.select_all),
+                          onPressed: _selectAllFiltered,
+                          tooltip: 'Pilih Semua',
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'low',
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber, size: 20, color: AppColors.warning),
-                          SizedBox(width: 8),
-                          Text('Pilih Stok Rendah'),
-                        ],
+                      // Select Low Stock button
+                      Tooltip(
+                        message: 'Pilih Stok Rendah',
+                        child: IconButton(
+                          icon: const Icon(Icons.warning_amber, color: AppColors.warning),
+                          onPressed: _selectAllLowStock,
+                          tooltip: 'Pilih Stok Rendah',
+                        ),
                       ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'clear',
-                      child: Row(
-                        children: [
-                          Icon(Icons.clear, size: 20),
-                          SizedBox(width: 8),
-                          Text('Kosongkan'),
-                        ],
+                      // Select Out of Stock button
+                      Tooltip(
+                        message: 'Pilih Habis Stok',
+                        child: IconButton(
+                          icon: const Icon(Icons.error_outline, color: Colors.red),
+                          onPressed: _selectAllOutOfStock,
+                          tooltip: 'Pilih Habis Stok',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      // Clear selection button
+                      if (_selectedItemIds.isNotEmpty)
+                        Tooltip(
+                          message: 'Kosongkan',
+                          child: IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: _clearSelection,
+                            tooltip: 'Kosongkan',
+                          ),
+                        ),
+                    ],
+                  ),
               ]
             : [
                 // Selection Mode Toggle
@@ -572,11 +768,11 @@ class _StockPageState extends State<StockPage> {
       ),
       floatingActionButton: _isSelectionMode && _selectedItemIds.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: _showShoppingListDialog,
-              backgroundColor: AppColors.success,
+              onPressed: _showBulkOperationsMenu,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.shopping_cart),
-              label: Text('Tambah ${_selectedItemIds.length} ke Senarai'),
+              icon: const Icon(Icons.tune),
+              label: Text('Bulk Operations (${_selectedItemIds.length})'),
             )
           : FloatingActionButton.extended(
               onPressed: () async {
@@ -600,13 +796,9 @@ class _StockPageState extends State<StockPage> {
     final lowStockCount = _stockItems.where((item) => item.isLowStock).length;
     final outOfStockCount =
         _stockItems.where((item) => item.currentQuantity <= 0).length;
-    final totalValue = _stockItems.fold<double>(
-      0.0,
-      (sum, item) => sum + (item.currentQuantity * item.costPerUnit),
-    );
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -620,27 +812,27 @@ class _StockPageState extends State<StockPage> {
       child: Row(
         children: [
           Expanded(
-            child: _buildStatCard(
-              'Total Items',
+            child: _buildCompactStatCard(
               '${_stockItems.length}',
+              'Total',
               Icons.inventory_2,
               AppColors.primary,
             ),
           ),
-          const SizedBox(width: 12),
+          Container(width: 1, height: 30, color: Colors.grey[300]),
           Expanded(
-            child: _buildStatCard(
-              'Low Stock',
+            child: _buildCompactStatCard(
               '$lowStockCount',
+              'Rendah',
               Icons.warning_amber_rounded,
               Colors.orange,
             ),
           ),
-          const SizedBox(width: 12),
+          Container(width: 1, height: 30, color: Colors.grey[300]),
           Expanded(
-            child: _buildStatCard(
-              'Out of Stock',
+            child: _buildCompactStatCard(
               '$outOfStockCount',
+              'Habis',
               Icons.error_outline,
               Colors.red,
             ),
@@ -650,35 +842,34 @@ class _StockPageState extends State<StockPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+  Widget _buildCompactStatCard(String value, String label, IconData icon, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
