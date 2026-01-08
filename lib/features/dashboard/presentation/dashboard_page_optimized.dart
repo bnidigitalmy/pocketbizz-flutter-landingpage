@@ -34,6 +34,7 @@ import '../domain/sme_dashboard_v2_models.dart';
 import '../services/sme_dashboard_v2_service.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import '../../../core/services/cache_service.dart';
 import 'widgets/v2/production_suggestion_card_v2.dart';
 import 'widgets/v2/primary_quick_actions_v2.dart';
 import 'widgets/v2/finished_products_alerts_v2.dart';
@@ -207,10 +208,19 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   }
 
   /// Debounced refresh to avoid excessive updates
+  /// Invalidates cache when real-time detects changes
   void _debouncedRefresh() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
       if (mounted) {
+        // Invalidate dashboard cache when real-time detects changes
+        CacheService.invalidateMultiple([
+          'dashboard_stats',
+          'dashboard_v2',
+          'dashboard_pending_tasks',
+          'dashboard_sales_by_channel',
+          'dashboard_urgent_issues',
+        ]);
         _loadAllData();
       }
     });
@@ -241,10 +251,23 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       });
 
       // Load critical data first (what user needs to see immediately)
+      // Use cache for faster loading - invalidated by real-time subscriptions
       final criticalResults = await Future.wait([
-        _bookingsRepo.getStatistics(),
-        _v2Service.load(), // Today's summary (most important)
-        SubscriptionService().getCurrentSubscription(),
+        CacheService.getOrFetch(
+          'dashboard_stats',
+          () => _bookingsRepo.getStatistics(),
+          ttl: const Duration(minutes: 5),
+        ),
+        CacheService.getOrFetch(
+          'dashboard_v2',
+          () => _v2Service.load(),
+          ttl: const Duration(minutes: 5),
+        ),
+        CacheService.getOrFetch(
+          'dashboard_subscription',
+          () => SubscriptionService().getCurrentSubscription(),
+          ttl: const Duration(minutes: 10), // Subscription changes less frequently
+        ),
       ]);
 
       if (!mounted) {
@@ -287,15 +310,36 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   }
 
   /// Load secondary/non-critical data in background
+  /// Uses cache for faster loading
   Future<void> _loadSecondaryData(Subscription? subscription) async {
     try {
-      // Load all secondary data in parallel
+      // Load all secondary data in parallel with cache
       final results = await Future.wait([
-        _loadPendingTasks(),
-        _loadSalesByChannel(),
-        _businessProfileRepo.getBusinessProfile(),
-        _checkUrgentIssues(),
-        _loadUnreadNotifications(subscription),
+        CacheService.getOrFetch(
+          'dashboard_pending_tasks',
+          () => _loadPendingTasks(),
+          ttl: const Duration(minutes: 3),
+        ),
+        CacheService.getOrFetch(
+          'dashboard_sales_by_channel',
+          () => _loadSalesByChannel(),
+          ttl: const Duration(minutes: 5),
+        ),
+        CacheService.getOrFetch(
+          'dashboard_business_profile',
+          () => _businessProfileRepo.getBusinessProfile(),
+          ttl: const Duration(minutes: 30), // Business profile rarely changes
+        ),
+        CacheService.getOrFetch(
+          'dashboard_urgent_issues',
+          () => _checkUrgentIssues(),
+          ttl: const Duration(minutes: 2), // Urgent issues need frequent checks
+        ),
+        CacheService.getOrFetch(
+          'dashboard_unread_notifications',
+          () => _loadUnreadNotifications(subscription),
+          ttl: const Duration(minutes: 1), // Notifications need frequent updates
+        ),
       ]);
 
       if (!mounted) return;

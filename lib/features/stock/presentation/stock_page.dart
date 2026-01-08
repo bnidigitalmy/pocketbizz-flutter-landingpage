@@ -7,10 +7,11 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
+import '../../../core/services/cache_service.dart';
 import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../core/utils/unit_conversion.dart';
@@ -24,7 +25,6 @@ import 'widgets/shopping_list_dialog.dart';
 import 'widgets/bulk_assign_supplier_dialog.dart';
 import 'bulk_add_stock_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 
@@ -57,21 +57,96 @@ class _StockPageState extends State<StockPage> {
   bool _isSelectionMode = false;
   final Set<String> _selectedItemIds = {};
 
+  // Real-time subscriptions for cache invalidation
+  StreamSubscription? _stockItemsSubscription;
+  StreamSubscription? _stockMovementsSubscription;
+  StreamSubscription? _productionBatchesSubscription;
+
   @override
   void initState() {
     super.initState();
     _stockRepository = StockRepository(supabase);
     _loadStockItems();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-    });
+    _setupRealtimeSubscriptions();
+  }
+
+  @override
+  void dispose() {
+    _stockItemsSubscription?.cancel();
+    _stockMovementsSubscription?.cancel();
+    _productionBatchesSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscriptions to invalidate cache when data changes
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to stock_items table changes
+      _stockItemsSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate stock cache when items change
+              CacheService.invalidateMultiple([
+                'stock_items_list',
+                'stock_batch_summaries',
+              ]);
+              _loadStockItems(); // Reload with fresh data
+            }
+          });
+
+      // Subscribe to stock_movements changes (affects stock quantities)
+      _stockMovementsSubscription = supabase
+          .from('stock_movements')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate stock cache when movements change
+              CacheService.invalidateMultiple([
+                'stock_items_list',
+                'stock_batch_summaries',
+              ]);
+              _loadStockItems(); // Reload with fresh data
+            }
+          });
+
+      // Subscribe to production_batches changes (affects batch summaries)
+      _productionBatchesSubscription = supabase
+          .from('production_batches')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate batch summaries cache
+              CacheService.invalidate('stock_batch_summaries');
+              if (_stockItems.isNotEmpty) {
+                _loadBatchSummariesAsync(_stockItems); // Reload summaries
+              }
+            }
+          });
+
+      debugPrint('✅ Stock page real-time subscriptions setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up stock real-time subscriptions: $e');
+    }
   }
 
   Future<void> _loadStockItems() async {
     setState(() => _isLoading = true);
 
     try {
-      // Load stock items first
-      final items = await _stockRepository.getAllStockItems(limit: 100);
+      // Use cache for stock items - faster loading
+      final items = await CacheService.getOrFetch<List<StockItem>>(
+        'stock_items_list',
+        () => _stockRepository.getAllStockItems(limit: 100),
+        ttl: const Duration(minutes: 5), // Stock changes moderately
+      );
       
       // Show items immediately (don't wait for batch summaries)
       setState(() {
@@ -97,12 +172,20 @@ class _StockPageState extends State<StockPage> {
   /// Load batch summaries asynchronously (non-blocking)
   /// This allows stock items to show immediately while summaries load in background
   /// Uses optimized bulk query instead of multiple individual queries
+  /// Uses cache for faster subsequent loads
   Future<void> _loadBatchSummariesAsync(List<StockItem> items) async {
     try {
-      // Use optimized bulk query - load all summaries in ONE query instead of N queries
-      // This is MUCH faster (1 query vs 45 queries for 45 items)
+      // Use cache for batch summaries - faster loading
       final itemIds = items.map((item) => item.id).toList();
-      final summaries = await _stockRepository.getBatchSummariesForItems(itemIds);
+      
+      // Create cache key based on item IDs (for cache invalidation)
+      final cacheKey = 'stock_batch_summaries';
+      
+      final summaries = await CacheService.getOrFetch<Map<String, Map<String, dynamic>>>(
+        cacheKey,
+        () => _stockRepository.getBatchSummariesForItems(itemIds),
+        ttl: const Duration(minutes: 3), // Batch summaries change more frequently
+      );
       
       // Update UI with summaries
       if (mounted) {

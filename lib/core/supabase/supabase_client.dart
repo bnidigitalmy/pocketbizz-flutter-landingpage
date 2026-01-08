@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/cache_service.dart';
 
 /// Global Supabase client accessor
 /// Uses lazy getter to ensure Supabase is initialized before access
@@ -23,7 +24,10 @@ class SupabaseHelper {
   static bool get isAuthenticated => currentUser != null;
 
   /// Sign out
+  /// Clears all cache to prevent data leakage between users
   static Future<void> signOut() async {
+    // Clear all cache before signing out
+    CacheService.clearAll();
     await supabase.auth.signOut();
   }
 }

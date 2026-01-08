@@ -7,12 +7,14 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/cache_service.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
-import '../../../data/models/vendor_commission_price_range.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import 'commission_dialog.dart';
 import 'vendor_detail_page.dart';
@@ -66,16 +68,19 @@ class _VendorsPageState extends State<VendorsPage> {
   String _commissionType = 'percentage';
   List<Map<String, dynamic>> _priceRanges = []; // Temporary price ranges before vendor created
 
+  // Real-time subscription for cache invalidation
+  StreamSubscription? _vendorsSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadVendors();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-    });
+    _setupRealtimeSubscription();
   }
 
   @override
   void dispose() {
+    _vendorsSubscription?.cancel();
     _nameController.dispose();
     _vendorNumberController.dispose();
     _phoneController.dispose();
@@ -85,10 +90,45 @@ class _VendorsPageState extends State<VendorsPage> {
     super.dispose();
   }
 
+  /// Setup real-time subscription to invalidate cache when vendors change
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to vendors table changes
+      _vendorsSubscription = supabase
+          .from('vendors')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate vendors cache when vendors change
+              CacheService.invalidateMultiple([
+                'vendors_list',
+                'vendors_list_active_only',
+              ]);
+              _loadVendors(); // Reload with fresh data
+            }
+          });
+
+      debugPrint('✅ Vendors page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up vendors real-time subscription: $e');
+    }
+  }
+
   Future<void> _loadVendors() async {
     setState(() => _isLoading = true);
     try {
-      final vendors = await _vendorsRepo.getAllVendors(activeOnly: false);
+      // Use cache for vendors list - faster loading
+      // Vendors rarely change, so longer TTL is safe
+      final vendors = await CacheService.getOrFetch<List<Vendor>>(
+        'vendors_list',
+        () => _vendorsRepo.getAllVendors(activeOnly: false),
+        ttl: const Duration(minutes: 30), // Vendors rarely change
+      );
+      
       if (mounted) {
         setState(() {
           _vendors = vendors;

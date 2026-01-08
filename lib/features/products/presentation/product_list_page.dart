@@ -20,6 +20,7 @@ import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/cache_service.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'add_product_with_recipe_page.dart';
 import '../../../core/widgets/cached_image.dart';
@@ -75,19 +76,68 @@ class _ProductListPageState extends State<ProductListPage> {
   int _lowStockCount = 0;
   int _outOfStockCount = 0;
 
+  // Real-time subscriptions for cache invalidation
+  StreamSubscription? _productsSubscription;
+  StreamSubscription? _productionBatchesSubscription;
+
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _loadProducts();
+    _setupRealtimeSubscriptions();
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _productsSubscription?.cancel();
+    _productionBatchesSubscription?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Setup real-time subscriptions to invalidate cache when data changes
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to products table changes
+      _productsSubscription = supabase
+          .from('products')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate products cache when products change
+              CacheService.invalidateMultiple([
+                'products_list',
+                'products_list_inactive',
+                'products_stock_map',
+              ]);
+              _loadProducts(); // Reload with fresh data
+            }
+          });
+
+      // Subscribe to production_batches changes (affects stock)
+      _productionBatchesSubscription = supabase
+          .from('production_batches')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted) {
+              // Invalidate stock cache when batches change
+              CacheService.invalidate('products_stock_map');
+              _loadStockAsync(_allProducts); // Reload stock
+            }
+          });
+
+      debugPrint('✅ Products page real-time subscriptions setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up products real-time subscriptions: $e');
+    }
   }
 
   void _onSearchChanged() {
@@ -106,8 +156,16 @@ class _ProductListPageState extends State<ProductListPage> {
     setState(() => _loading = true);
 
     try {
-      // Load products first and show immediately
-      final products = await _repo.listProducts(includeInactive: _showDisabledProducts);
+      // Use cache for products list - faster loading
+      final cacheKey = _showDisabledProducts 
+          ? 'products_list_inactive' 
+          : 'products_list';
+      
+      final products = await CacheService.getOrFetch(
+        cacheKey,
+        () => _repo.listProducts(includeInactive: _showDisabledProducts),
+        ttl: const Duration(minutes: 10), // Products don't change often
+      );
       
       // Show products immediately (don't wait for stock)
       if (mounted) {
@@ -118,7 +176,7 @@ class _ProductListPageState extends State<ProductListPage> {
         });
       }
       
-      // Load stock in background (non-blocking)
+      // Load stock in background (non-blocking) with cache
       _loadStockAsync(products);
     } catch (e) {
       if (mounted) {
@@ -135,20 +193,36 @@ class _ProductListPageState extends State<ProductListPage> {
 
   /// Load stock for all products asynchronously (non-blocking)
   /// This allows products to show immediately while stock loads in background
+  /// Uses cache for faster subsequent loads
   Future<void> _loadStockAsync(List<Product> products) async {
     try {
-      // Load stock for all products IN PARALLEL
-      final stockFutures = products.map((product) async {
-        try {
-          final stock = await _productionRepo.getTotalRemainingForProduct(product.id);
-          return MapEntry(product.id, stock);
-        } catch (e) {
-          return MapEntry(product.id, 0.0);
+      // Check cache first - if valid, use cached stock map
+      if (CacheService.hasValidCache('products_stock_map')) {
+        final cachedStockMap = await CacheService.getOrFetch<Map<String, double>>(
+          'products_stock_map',
+          () async {
+            // Build stock map from products
+            return await _fetchStockMap(products);
+          },
+          ttl: const Duration(minutes: 5), // Stock changes more frequently
+        );
+
+        if (mounted) {
+          setState(() {
+            _stockCache = cachedStockMap;
+            _calculateSummary();
+            _applyFilters();
+          });
         }
-      });
-      
-      final stockResults = await Future.wait(stockFutures);
-      final stockMap = Map<String, double>.fromEntries(stockResults);
+        return; // Use cached data
+      }
+
+      // Cache miss or expired - fetch fresh stock data
+      final stockMap = await CacheService.getOrFetch<Map<String, double>>(
+        'products_stock_map',
+        () => _fetchStockMap(products),
+        ttl: const Duration(minutes: 5),
+      );
 
       // Update UI with stock data
       if (mounted) {
@@ -162,6 +236,22 @@ class _ProductListPageState extends State<ProductListPage> {
       // Silently fail - stock is optional for display
       debugPrint('Error loading stock: $e');
     }
+  }
+
+  /// Fetch stock map for all products (helper method)
+  Future<Map<String, double>> _fetchStockMap(List<Product> products) async {
+    // Load stock for all products IN PARALLEL
+    final stockFutures = products.map((product) async {
+      try {
+        final stock = await _productionRepo.getTotalRemainingForProduct(product.id);
+        return MapEntry(product.id, stock);
+      } catch (e) {
+        return MapEntry(product.id, 0.0);
+      }
+    });
+    
+    final stockResults = await Future.wait(stockFutures);
+    return Map<String, double>.fromEntries(stockResults);
   }
 
   void _calculateSummary() {
