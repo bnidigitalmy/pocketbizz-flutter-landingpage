@@ -243,6 +243,7 @@ class SmeDashboardV2Service {
   /// Calculate production cost for products sold in the given time range
   /// Production Cost = Sum(quantity * cost_per_unit) for all sold items
   /// This is the actual cost of goods sold (COGS) for products
+  /// Optimized: Bulk load all product costs at once to avoid N+1 queries
   Future<double> _loadProductionCost({
     required DateTime startUtc,
     required DateTime endUtc,
@@ -251,100 +252,156 @@ class SmeDashboardV2Service {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return 0.0;
 
-    // Cache product costs to avoid multiple queries for same product
-    final Map<String, double> productCostCache = {};
+    // Collect all items data and product IDs in parallel
+    final List<Map<String, dynamic>> allItems = [];
+    final Set<String> productIds = {};
 
-    try {
-      // 1. Get production cost from sales items
-      final salesItems = await supabase
+    // Load all items in parallel
+    final results = await Future.wait([
+      // 1. Sales items
+      supabase
           .from('sale_items')
           .select('quantity, product_id, sales!inner(created_at)')
           .eq('sales.business_owner_id', userId)
           .gte('sales.created_at', startUtc.toIso8601String())
           .lt('sales.created_at', endUtc.toIso8601String())
-          .limit(2000);
-
-      for (final item in (salesItems as List).cast<Map<String, dynamic>>()) {
-        final productId = item['product_id'] as String?;
-        final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-        if (productId != null && quantity > 0) {
-          final cost = productCostCache[productId] ?? 
-              await _getProductCostPerUnit(productId);
-          if (!productCostCache.containsKey(productId)) {
-            productCostCache[productId] = cost;
-          }
-          totalCost += quantity * cost;
-        }
-      }
-    } catch (e) {
-      debugPrint('SmeDashboardV2Service: failed to load sales production cost: $e');
-    }
-
-    try {
-      // 2. Get production cost from completed booking items
-      final bookingItems = await supabase
+          .limit(2000)
+          .then((data) => (data as List).cast<Map<String, dynamic>>())
+          .catchError((e) {
+            debugPrint('SmeDashboardV2Service: failed to load sales items: $e');
+            return <Map<String, dynamic>>[];
+          }),
+      
+      // 2. Booking items
+      supabase
           .from('booking_items')
           .select('quantity, product_id, bookings!inner(status, created_at, business_owner_id)')
           .eq('bookings.status', 'completed')
           .eq('bookings.business_owner_id', userId)
           .gte('bookings.created_at', startUtc.toIso8601String())
           .lt('bookings.created_at', endUtc.toIso8601String())
-          .limit(2000);
+          .limit(2000)
+          .then((data) => (data as List).cast<Map<String, dynamic>>())
+          .catchError((e) {
+            debugPrint('SmeDashboardV2Service: failed to load booking items: $e');
+            return <Map<String, dynamic>>[];
+          }),
+      
+      // 3. Consignment claim items
+      () async {
+        try {
+          final startLocal = startUtc.toLocal();
+          final endLocalExclusive = endUtc.toLocal();
+          final startDateStr = _dateOnly(startLocal);
+          final endDateStr = _dateOnly(endLocalExclusive.subtract(const Duration(days: 1)));
 
-      for (final item in (bookingItems as List).cast<Map<String, dynamic>>()) {
-        final productId = item['product_id'] as String?;
-        final quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
-        if (productId != null && quantity > 0) {
-          final cost = productCostCache[productId] ?? 
-              await _getProductCostPerUnit(productId);
-          if (!productCostCache.containsKey(productId)) {
-            productCostCache[productId] = cost;
-          }
-          totalCost += quantity * cost;
+          final data = await supabase
+              .from('consignment_claim_items')
+              .select('''
+                quantity_sold,
+                delivery_item:vendor_delivery_items(product_id),
+                claim:consignment_claims!inner(status, claim_date, business_owner_id)
+              ''')
+              .eq('claim.status', 'settled')
+              .eq('claim.business_owner_id', userId)
+              .gte('claim.claim_date', startDateStr)
+              .lte('claim.claim_date', endDateStr)
+              .limit(2000);
+          return (data as List).cast<Map<String, dynamic>>();
+        } catch (e) {
+          debugPrint('SmeDashboardV2Service: failed to load consignment items: $e');
+          return <Map<String, dynamic>>[];
         }
+      }(),
+    ]);
+
+    final salesItems = results[0] as List<Map<String, dynamic>>;
+    final bookingItems = results[1] as List<Map<String, dynamic>>;
+    final claimItems = results[2] as List<Map<String, dynamic>>;
+
+    // Collect product IDs from all items
+    for (final item in salesItems) {
+      final productId = item['product_id'] as String?;
+      if (productId != null) {
+        productIds.add(productId);
+        allItems.add({'type': 'sale', 'item': item});
       }
-    } catch (e) {
-      debugPrint('SmeDashboardV2Service: failed to load booking production cost: $e');
     }
 
-    try {
-      // 3. Get production cost from settled consignment claim items
-      final startLocal = startUtc.toLocal();
-      final endLocalExclusive = endUtc.toLocal();
-      final startDateStr = _dateOnly(startLocal);
-      final endDateStr = _dateOnly(endLocalExclusive.subtract(const Duration(days: 1)));
+    for (final item in bookingItems) {
+      final productId = item['product_id'] as String?;
+      if (productId != null) {
+        productIds.add(productId);
+        allItems.add({'type': 'booking', 'item': item});
+      }
+    }
 
-      final claimItems = await supabase
-          .from('consignment_claim_items')
-          .select('''
-            quantity_sold,
-            delivery_item:vendor_delivery_items(product_id),
-            claim:consignment_claims!inner(status, claim_date, business_owner_id)
-          ''')
-          .eq('claim.status', 'settled')
-          .eq('claim.business_owner_id', userId)
-          .gte('claim.claim_date', startDateStr)
-          .lte('claim.claim_date', endDateStr)
-          .limit(2000);
+    for (final item in claimItems) {
+      final deliveryItem = item['delivery_item'];
+      String? productId;
+      if (deliveryItem is Map<String, dynamic>) {
+        productId = deliveryItem['product_id'] as String?;
+      }
+      if (productId != null) {
+        productIds.add(productId);
+        allItems.add({'type': 'claim', 'item': item});
+      }
+    }
 
-      for (final item in (claimItems as List).cast<Map<String, dynamic>>()) {
-        final quantity = (item['quantity_sold'] as num?)?.toDouble() ?? 0.0;
+    // Bulk load all product costs at once (optimization: single query instead of N queries)
+    final Map<String, double> productCostCache = {};
+    if (productIds.isNotEmpty) {
+      try {
+        final products = await supabase
+            .from('products')
+            .select('id, cost_per_unit, cost_price')
+            .eq('business_owner_id', userId)
+            .inFilter('id', productIds.toList());
+
+        for (final product in (products as List).cast<Map<String, dynamic>>()) {
+          final id = product['id'] as String;
+          final costPerUnit = (product['cost_per_unit'] as num?)?.toDouble();
+          final costPrice = (product['cost_price'] as num?)?.toDouble() ?? 0.0;
+          // Use cost_per_unit if available, otherwise fallback to cost_price
+          productCostCache[id] = costPerUnit != null ? costPerUnit : costPrice;
+        }
+      } catch (e) {
+        debugPrint('SmeDashboardV2Service: failed to bulk load product costs: $e');
+        // Fallback: load costs one by one if bulk load fails
+        for (final productId in productIds) {
+          if (!productCostCache.containsKey(productId)) {
+            productCostCache[productId] = await _getProductCostPerUnit(productId);
+          }
+        }
+      }
+    }
+
+    // Calculate total cost using cached values
+    for (final entry in allItems) {
+      final type = entry['type'] as String;
+      final item = entry['item'] as Map<String, dynamic>;
+      
+      String? productId;
+      double quantity = 0.0;
+
+      if (type == 'sale') {
+        productId = item['product_id'] as String?;
+        quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+      } else if (type == 'booking') {
+        productId = item['product_id'] as String?;
+        quantity = (item['quantity'] as num?)?.toDouble() ?? 0.0;
+      } else if (type == 'claim') {
         final deliveryItem = item['delivery_item'];
-        String? productId;
         if (deliveryItem is Map<String, dynamic>) {
           productId = deliveryItem['product_id'] as String?;
         }
-        if (productId != null && quantity > 0) {
-          final cost = productCostCache[productId] ?? 
-              await _getProductCostPerUnit(productId);
-          if (!productCostCache.containsKey(productId)) {
-            productCostCache[productId] = cost;
-          }
-          totalCost += quantity * cost;
-        }
+        quantity = (item['quantity_sold'] as num?)?.toDouble() ?? 0.0;
       }
-    } catch (e) {
-      debugPrint('SmeDashboardV2Service: failed to load consignment production cost: $e');
+
+      if (productId != null && quantity > 0) {
+        final cost = productCostCache[productId] ?? 0.0;
+        totalCost += quantity * cost;
+      }
     }
 
     return totalCost;

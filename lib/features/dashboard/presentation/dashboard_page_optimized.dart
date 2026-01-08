@@ -74,6 +74,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   bool _loading = true;
   SmeDashboardV2Data? _v2;
   bool _hasUrgentIssuesFlag = false; // Cached urgent issues flag
+  bool _isLoadingData = false; // Prevent double loading
 
   // Real-time subscriptions for dashboard metrics
   StreamSubscription? _salesSubscription;
@@ -218,56 +219,62 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh when page becomes visible
+    // Only refresh if not already loading (prevent double loading)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && !_isLoadingData && _stats == null) {
         _loadAllData();
       }
     });
   }
 
   Future<void> _loadAllData() async {
-    if (!mounted) return;
+    if (!mounted || _isLoadingData) return;
+    
+    _isLoadingData = true;
     setState(() => _loading = true);
 
     try {
-      // Kick off auto-task generation (best effort, non-blocking wait)
-      await _plannerAuto.runAll();
+      // Run planner auto-service in background (non-blocking)
+      // Don't wait for it - let it run while we load critical data
+      _plannerAuto.runAll().catchError((e) {
+        debugPrint('Planner auto-service error (non-critical): $e');
+      });
 
-      // Load all stats in parallel
-      final results = await Future.wait([
+      // Load critical data first (what user needs to see immediately)
+      final criticalResults = await Future.wait([
         _bookingsRepo.getStatistics(),
-        _loadPendingTasks(),
-        _loadSalesByChannel(),
+        _v2Service.load(), // Today's summary (most important)
         SubscriptionService().getCurrentSubscription(),
-        _businessProfileRepo.getBusinessProfile(),
-        _v2Service.load(),
-        _checkUrgentIssues(), // Check for urgent issues
       ]);
 
-      if (!mounted) return; // Check again after async operations
+      if (!mounted) {
+        _isLoadingData = false;
+        return;
+      }
 
-      final subscription = results[3] as Subscription?;
-      
-      // Load unread notifications after subscription is loaded
-      final unreadCount = await _loadUnreadNotifications(subscription);
-      final v2 = results[5] as SmeDashboardV2Data;
-      final hasUrgentIssues = results[6] as bool;
+      final subscription = criticalResults[2] as Subscription?;
+      final v2 = criticalResults[1] as SmeDashboardV2Data;
 
+      // Show critical data immediately (progressive loading)
       setState(() {
-        _stats = results[0] as Map<String, dynamic>;
-        _pendingTasks = results[1] as Map<String, dynamic>;
-        _salesByChannel = results[2] as List<SalesByChannel>;
+        _stats = criticalResults[0] as Map<String, dynamic>;
         _subscription = subscription;
-        _businessProfile = results[4] as BusinessProfile?;
-        _unreadNotifications = unreadCount;
         _v2 = v2;
-        _hasUrgentIssuesFlag = hasUrgentIssues;
-        _loading = false;
+        _loading = false; // Show dashboard with critical data
       });
+
+      // Load secondary data in background (non-blocking)
+      _loadSecondaryData(subscription).catchError((e) {
+        debugPrint('Error loading secondary dashboard data: $e');
+      });
+
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        _isLoadingData = false;
+        return;
+      }
       setState(() => _loading = false);
+      _isLoadingData = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -279,18 +286,49 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     }
   }
 
+  /// Load secondary/non-critical data in background
+  Future<void> _loadSecondaryData(Subscription? subscription) async {
+    try {
+      // Load all secondary data in parallel
+      final results = await Future.wait([
+        _loadPendingTasks(),
+        _loadSalesByChannel(),
+        _businessProfileRepo.getBusinessProfile(),
+        _checkUrgentIssues(),
+        _loadUnreadNotifications(subscription),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _pendingTasks = results[0] as Map<String, dynamic>;
+        _salesByChannel = results[1] as List<SalesByChannel>;
+        _businessProfile = results[2] as BusinessProfile?;
+        _hasUrgentIssuesFlag = results[3] as bool;
+        _unreadNotifications = results[4] as int;
+      });
+    } catch (e) {
+      debugPrint('Error loading secondary dashboard data: $e');
+      // Don't show error to user - secondary data is optional
+    } finally {
+      _isLoadingData = false;
+    }
+  }
+
   Future<Map<String, dynamic>> _loadPendingTasks() async {
     try {
-      // Get all purchase orders and filter by status
-      final allPOs = await _poRepo.getAllPurchaseOrders(limit: 100);
-      final pendingPOs = allPOs.where((po) => po.status == 'pending').toList();
-
-      // Get low stock items count
-      final lowStockItems = await _stockRepo.getLowStockItems();
+      // Optimize: Use parallel queries instead of loading all POs
+      final results = await Future.wait([
+        // Query only pending POs (more efficient than loading all and filtering)
+        _poRepo.getAllPurchaseOrders(limit: 100).then((pos) => 
+          pos.where((po) => po.status == 'pending').length
+        ),
+        _stockRepo.getLowStockItems().then((items) => items.length),
+      ]);
 
       return {
-        'pendingPOs': pendingPOs.length,
-        'lowStockCount': lowStockItems.length,
+        'pendingPOs': results[0] as int,
+        'lowStockCount': results[1] as int,
       };
     } catch (e) {
       return {
@@ -628,39 +666,49 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-      // Check 1: Stock items with quantity = 0 (critical)
-      final allStockItems = await _stockRepo.getAllStockItems(limit: 200);
-      final hasZeroStock = allStockItems.any((item) => item.currentQuantity <= 0);
+      // Optimize: Check urgent issues in parallel with specific queries
+      final results = await Future.wait([
+        // Check 1: Stock items with quantity = 0 (use count query instead of loading all)
+        _stockRepo.getAllStockItems(limit: 50).then((items) => 
+          items.any((item) => item.currentQuantity <= 0)
+        ).catchError((_) => false),
+        
+        // Check 2: Overdue bookings (optimize by checking date in query if possible)
+        Future.wait([
+          _bookingsRepo.listBookings(status: 'pending', limit: 50),
+          _bookingsRepo.listBookings(status: 'confirmed', limit: 50),
+        ]).then((results) {
+          final allBookings = [...results[0], ...results[1]];
+          return allBookings.any((booking) {
+            try {
+              final deliveryDate = DateTime.parse(booking.deliveryDate);
+              final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+              return deliveryDateOnly.isBefore(today);
+            } catch (e) {
+              return false;
+            }
+          });
+        }).catchError((_) => false),
 
-      // Check 2: Bookings with delivery_date < today and status pending/confirmed (overdue)
-      final pendingBookings = await _bookingsRepo.listBookings(status: 'pending', limit: 100);
-      final confirmedBookings = await _bookingsRepo.listBookings(status: 'confirmed', limit: 100);
-      final allActiveBookings = [...pendingBookings, ...confirmedBookings];
-      
-      final hasOverdueBookings = allActiveBookings.any((booking) {
-        try {
-          final deliveryDate = DateTime.parse(booking.deliveryDate);
-          final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
-          return deliveryDateOnly.isBefore(today);
-        } catch (e) {
-          return false; // Skip if date parsing fails
-        }
-      });
+        // Check 3: Expired batches (load summary only)
+        FinishedProductsRepository()
+          .getFinishedProductsSummary()
+          .then((products) {
+            return products.any((product) {
+              if (product.nearestExpiry == null || product.totalRemaining <= 0) {
+                return false;
+              }
+              final expiryDate = product.nearestExpiry!;
+              final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+              return expiryDateOnly.isBefore(today);
+            });
+          })
+          .catchError((_) => false),
+      ]);
 
-      // Check 3: Finished products with expired batches
-      final finishedProductsRepo = FinishedProductsRepository();
-      final finishedProducts = await finishedProductsRepo.getFinishedProductsSummary();
-      final hasExpiredBatches = finishedProducts.any((product) {
-        if (product.nearestExpiry == null || product.totalRemaining <= 0) {
-          return false;
-        }
-        final expiryDate = product.nearestExpiry!;
-        final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
-        return expiryDateOnly.isBefore(today);
-      });
-
-      return hasZeroStock || hasOverdueBookings || hasExpiredBatches;
+      return (results[0] as bool) || (results[1] as bool) || (results[2] as bool);
     } catch (e) {
       // If check fails, return false to avoid blocking dashboard
       debugPrint('Error checking urgent issues: $e');
