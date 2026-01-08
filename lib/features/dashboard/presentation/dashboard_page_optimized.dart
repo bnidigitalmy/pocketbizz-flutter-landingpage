@@ -87,10 +87,16 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   StreamSubscription? _expensesSubscription;
   StreamSubscription? _productsSubscription;
   Timer? _debounceTimer;
+  
+  // Scroll controller to preserve scroll position during rebuilds
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolling = false;
+  Timer? _scrollEndTimer;
 
   @override
   void initState() {
     super.initState();
+    _setupScrollListener();
     _loadAllData();
     _setupRealtimeSubscriptions();
   }
@@ -106,7 +112,31 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     _expensesSubscription?.cancel();
     _productsSubscription?.cancel();
     _debounceTimer?.cancel();
+    _scrollEndTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Setup scroll listener to detect when user is scrolling
+  /// This prevents rebuilds during active scrolling
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      // Mark as scrolling when scroll position changes
+      if (!_isScrolling) {
+        _isScrolling = true;
+      }
+      
+      // Cancel previous timer
+      _scrollEndTimer?.cancel();
+      
+      // Set timer to mark scrolling as ended after scroll stops
+      // Wait 500ms after last scroll event to consider scrolling stopped
+      _scrollEndTimer = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _isScrolling = false;
+        }
+      });
+    });
   }
 
   /// Setup real-time subscriptions for all dashboard-related tables
@@ -209,10 +239,18 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
   /// Debounced refresh to avoid excessive updates
   /// Invalidates cache when real-time detects changes
+  /// Delays refresh if user is actively scrolling to prevent scroll jitter
   void _debouncedRefresh() {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
-      if (mounted) {
+    
+    // If user is scrolling, wait longer before refreshing
+    final delay = _isScrolling 
+        ? const Duration(milliseconds: 3000) // Wait 3 seconds if scrolling
+        : const Duration(milliseconds: 1000); // Normal 1 second delay
+    
+    _debounceTimer = Timer(delay, () {
+      if (mounted && !_isScrolling) {
+        // Only refresh if user is not actively scrolling
         // Invalidate dashboard cache when real-time detects changes
         CacheService.invalidateMultiple([
           'dashboard_stats',
@@ -508,6 +546,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
           : RefreshIndicator(
               onRefresh: _loadAllData,
               child: ListView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Subscription Expiring Alert
