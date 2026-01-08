@@ -270,16 +270,58 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         }
       }
     } catch (e) {
+      debugPrint('❌ Password reset error: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
+      
       String errorMessage = 'Ralat: Gagal menetapkan kata laluan baharu.';
       
-      // Check for specific error types
-      final errorString = e.toString().toLowerCase();
-      if (errorString.contains('expired') || errorString.contains('tamat')) {
-        errorMessage = 'Link reset kata laluan telah tamat tempoh. Sila minta link baru.';
-      } else if (errorString.contains('invalid') || errorString.contains('tidak sah')) {
-        errorMessage = 'Link reset kata laluan tidak sah. Sila minta link baru.';
-      } else if (errorString.contains('session') || errorString.contains('sesi')) {
-        errorMessage = 'Sesi telah tamat tempoh. Sila gunakan link reset kata laluan dari email anda.';
+      // Check for Supabase AuthException first (most specific)
+      if (e is AuthException) {
+        final authError = e.message?.toLowerCase() ?? '';
+        final statusCode = e.statusCode;
+        
+        debugPrint('❌ AuthException - message: ${e.message}, status: $statusCode');
+        
+        // Check if password sama dengan password lama
+        // Supabase typically returns: "New password should be different from the old password."
+        // or status 422 with similar message
+        if (authError.contains('new password') && authError.contains('different')) {
+          errorMessage = 'Kata laluan baharu mesti berbeza dari kata laluan lama anda. Sila pilih kata laluan yang berlainan.';
+        } else if (authError.contains('same password') || authError.contains('identical')) {
+          errorMessage = 'Kata laluan baharu mesti berbeza dari kata laluan lama anda. Sila pilih kata laluan yang berlainan.';
+        } else if (statusCode == 422 && authError.contains('password')) {
+          // 422 Unprocessable Entity often means password validation failed
+          if (authError.contains('different') || authError.contains('same')) {
+            errorMessage = 'Kata laluan baharu mesti berbeza dari kata laluan lama anda. Sila pilih kata laluan yang berlainan.';
+          }
+        }
+      }
+      
+      // Fallback: Check error string for all error types
+      if (errorMessage == 'Ralat: Gagal menetapkan kata laluan baharu.') {
+        final errorString = e.toString().toLowerCase();
+        
+        // Check if password sama dengan password lama (various error formats)
+        if (errorString.contains('new password should be different') || 
+            errorString.contains('new_password should be different') ||
+            errorString.contains('password must be different') ||
+            errorString.contains('password sama') ||
+            errorString.contains('same password') ||
+            errorString.contains('identical password') ||
+            errorString.contains('password tidak boleh sama') ||
+            errorString.contains('password baru mesti berbeza')) {
+          errorMessage = 'Kata laluan baharu mesti berbeza dari kata laluan lama anda. Sila pilih kata laluan yang berlainan.';
+        } else if (errorString.contains('expired') || errorString.contains('tamat')) {
+          errorMessage = 'Link reset kata laluan telah tamat tempoh. Sila minta link baru.';
+        } else if (errorString.contains('invalid') || errorString.contains('tidak sah')) {
+          errorMessage = 'Link reset kata laluan tidak sah. Sila minta link baru.';
+        } else if (errorString.contains('session') || errorString.contains('sesi')) {
+          errorMessage = 'Sesi telah tamat tempoh. Sila gunakan link reset kata laluan dari email anda.';
+        } else if (errorString.contains('weak') || errorString.contains('lemah')) {
+          errorMessage = 'Kata laluan terlalu lemah. Sila pilih kata laluan yang lebih kuat.';
+        } else if (errorString.contains('minimum') || errorString.contains('length') || errorString.contains('pendek')) {
+          errorMessage = 'Kata laluan terlalu pendek. Sila pilih kata laluan dengan sekurang-kurangnya 6 aksara.';
+        }
       }
 
       if (mounted) {
@@ -315,9 +357,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('Reset Kata Laluan'),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          automaticallyImplyLeading: false, // Remove back button
         ),
         body: Center(
           child: Column(
@@ -349,9 +391,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text('Reset Kata Laluan'),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          automaticallyImplyLeading: false, // Remove back button
         ),
         body: Center(
           child: SingleChildScrollView(
@@ -438,9 +480,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Reset Kata Laluan'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        automaticallyImplyLeading: false, // Remove back button
       ),
       body: Center(
         child: SingleChildScrollView(
