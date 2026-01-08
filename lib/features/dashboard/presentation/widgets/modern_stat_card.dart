@@ -21,10 +21,14 @@ class ModernStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        splashColor: Colors.white.withOpacity(0.2), // Smooth splash effect
+        highlightColor: Colors.white.withOpacity(0.1), // Smooth highlight on press
+        child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: gradient,
@@ -104,6 +108,7 @@ class ModernStatCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }

@@ -588,7 +588,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
               child: ListView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(), // Better for PWA
+                  parent: BouncingScrollPhysics(), // Smooth, iOS-like scrolling with soft bounce
                 ),
                 cacheExtent: 1000, // Increase cache extent for smoother PWA scrolling
                 padding: const EdgeInsets.all(16),

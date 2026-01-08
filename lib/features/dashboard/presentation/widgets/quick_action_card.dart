@@ -22,6 +22,8 @@ class QuickActionCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
+        splashColor: color.withOpacity(0.2), // Smooth splash effect
+        highlightColor: color.withOpacity(0.1), // Smooth highlight on press
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,

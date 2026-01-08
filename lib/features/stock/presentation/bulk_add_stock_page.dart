@@ -533,9 +533,15 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
     // Convert from pek/pcs to base unit
     final addQtyInBaseUnit = addQtyInPek * item.packageSize;
     final newStock = item.currentQuantity + addQtyInBaseUnit;
+    
+    // Format: "newQuantity newPekCount (totalAdded)"
+    // Example: "62 gram 2 pek (36 gram)" atau untuk mobile: "62 gram\n2 pek (36 gram)"
+    final newStockFormatted = UnitConversion.formatQuantity(newStock, item.unit);
+    final pekCount = addQtyInPek.toStringAsFixed(0);
+    final totalAddedFormatted = UnitConversion.formatQuantity(addQtyInBaseUnit, item.unit);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.success.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
@@ -546,53 +552,31 @@ class _BulkAddStockPageState extends State<BulkAddStockPage> {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                UnitConversion.formatQuantity(
-                  item.currentQuantity,
-                  item.unit,
-                ),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  Icons.arrow_forward,
-                  size: 12,
-                  color: AppColors.success,
-                ),
-              ),
-              Flexible(
-                child: Text(
-                  UnitConversion.formatQuantity(
-                    newStock,
-                    item.unit,
-                  ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.success,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
+          // New total quantity (bold, prominent)
           Text(
-            '${addQtyInPek.toStringAsFixed(0)} pek (${addQtyInBaseUnit.toStringAsFixed(0)} ${item.unit})',
+            newStockFormatted,
             style: TextStyle(
-              fontSize: 9,
-              color: Colors.grey[600],
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: AppColors.success,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          // Pek count and total added (smaller, secondary info)
+          Text(
+            '$pekCount pek ($totalAddedFormatted)',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[700],
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
