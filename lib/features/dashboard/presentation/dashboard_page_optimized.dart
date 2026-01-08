@@ -92,6 +92,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final ScrollController _scrollController = ScrollController();
   bool _isScrolling = false;
   Timer? _scrollEndTimer;
+  double _lastScrollPosition = 0.0;
 
   @override
   void initState() {
@@ -119,8 +120,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
   /// Setup scroll listener to detect when user is scrolling
   /// This prevents rebuilds during active scrolling
+  /// Enhanced for PWA compatibility
   void _setupScrollListener() {
     _scrollController.addListener(() {
+      // Save current scroll position
+      _lastScrollPosition = _scrollController.offset;
+      
       // Mark as scrolling when scroll position changes
       if (!_isScrolling) {
         _isScrolling = true;
@@ -130,10 +135,15 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       _scrollEndTimer?.cancel();
       
       // Set timer to mark scrolling as ended after scroll stops
-      // Wait 500ms after last scroll event to consider scrolling stopped
-      _scrollEndTimer = Timer(const Duration(milliseconds: 500), () {
+      // Increased delay for PWA (800ms) to handle slower rendering
+      _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
         if (mounted) {
           _isScrolling = false;
+          // Restore scroll position if it was lost during rebuild
+          if (_scrollController.hasClients && 
+              _scrollController.offset != _lastScrollPosition) {
+            _scrollController.jumpTo(_lastScrollPosition);
+          }
         }
       });
     });
@@ -278,6 +288,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   Future<void> _loadAllData() async {
     if (!mounted || _isLoadingData) return;
     
+    // Save scroll position before rebuild
+    if (_scrollController.hasClients) {
+      _lastScrollPosition = _scrollController.offset;
+    }
+    
+    final savedPosition = _lastScrollPosition; // Save for use in catch block
+    
     _isLoadingData = true;
     setState(() => _loading = true);
 
@@ -324,6 +341,17 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
         _loading = false; // Show dashboard with critical data
       });
 
+      // Restore scroll position after rebuild (PWA fix)
+      if (mounted && _scrollController.hasClients) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients && 
+              _scrollController.offset != savedPosition &&
+              !_isScrolling) {
+            _scrollController.jumpTo(savedPosition);
+          }
+        });
+      }
+
       // Load secondary data in background (non-blocking)
       _loadSecondaryData(subscription).catchError((e) {
         debugPrint('Error loading secondary dashboard data: $e');
@@ -336,6 +364,18 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       }
       setState(() => _loading = false);
       _isLoadingData = false;
+      
+      // Restore scroll position after rebuild (PWA fix)
+      if (mounted && _scrollController.hasClients) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients && 
+              _scrollController.offset != savedPosition &&
+              !_isScrolling) {
+            _scrollController.jumpTo(savedPosition);
+          }
+        });
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -547,7 +587,10 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
               onRefresh: _loadAllData,
               child: ListView(
                 controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(), // Better for PWA
+                ),
+                cacheExtent: 1000, // Increase cache extent for smoother PWA scrolling
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Subscription Expiring Alert
