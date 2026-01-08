@@ -53,15 +53,35 @@
       if (typeof window !== 'undefined') {
         // Prevent unhandled errors from hanging the app
         window.addEventListener('error', function(e) {
-          console.error('Global error caught:', e.error);
+          // Only log if it's a real error (not empty/null)
+          if (e.error) {
+            console.error('Global error caught:', e.error);
+          }
           return true; // Prevent default error handling
         }, true);
         
         // Prevent unhandled promise rejections from hanging the app
         window.addEventListener('unhandledrejection', function(e) {
-          console.error('Unhandled promise rejection:', e.reason);
-          e.preventDefault(); // Prevent default browser error handling
-        });
+          // Suppress empty or meaningless rejections (common in Flutter web bootstrap)
+          const reason = e.reason;
+          const reasonStr = reason ? (reason.toString ? reason.toString() : String(reason)) : '';
+          
+          // Only log if there's a meaningful error message
+          if (reasonStr && 
+              reasonStr !== 'null' && 
+              reasonStr !== '' && 
+              reasonStr !== 'undefined' &&
+              !reasonStr.includes('ServiceWorker') && // Suppress service worker related
+              !reasonStr.includes('service worker')) {
+            console.error('Unhandled promise rejection:', e.reason);
+          }
+          
+          // Always prevent default browser error handling
+          e.preventDefault();
+          // Mark as handled
+          e.stopPropagation();
+          return false;
+        }, true); // Use capture phase to catch early
       }
     })();
   </script>

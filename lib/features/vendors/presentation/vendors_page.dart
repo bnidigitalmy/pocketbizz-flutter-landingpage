@@ -535,11 +535,11 @@ class _VendorsPageState extends State<VendorsPage> {
                   _buildSearchBar(),
                   // Vendor list
                   Expanded(
-                    child: _vendors.isEmpty
-                        ? _buildEmptyState()
+              child: _vendors.isEmpty
+                  ? _buildEmptyState()
                         : _filteredVendors.isEmpty
                             ? _buildNoResultsState()
-                            : _buildVendorsGrid(),
+                  : _buildVendorsGrid(),
                   ),
                 ],
               ),
@@ -710,7 +710,7 @@ class _VendorsPageState extends State<VendorsPage> {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _filteredVendors.length,
-      itemBuilder: (context, index) {
+          itemBuilder: (context, index) {
         return _buildVendorCard(_filteredVendors[index]);
       },
     );
@@ -738,80 +738,80 @@ class _VendorsPageState extends State<VendorsPage> {
           child: Row(
             children: [
               // Icon
-              Container(
+                  Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.store,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.store,
                   size: 18,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
               // Vendor info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      vendor.name,
-                      style: const TextStyle(
+                      children: [
+                        Text(
+                          vendor.name,
+                          style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    if (vendor.phone != null)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 12,
-                            color: Colors.grey[600],
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              vendor.phone!,
-                              style: TextStyle(
-                                fontSize: 12,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                          const SizedBox(height: 4),
+                    if (vendor.phone != null)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.phone,
+                                size: 12,
                                 color: Colors.grey[600],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  vendor.phone!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                       )
                     else if (vendor.address != null)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
                             size: 12,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              vendor.address!,
-                              style: TextStyle(
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        vendor.address!,
+                        style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
-                              ),
+                        ),
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                  ],
+                ),
                   ],
                 ),
               ),
@@ -823,7 +823,7 @@ class _VendorsPageState extends State<VendorsPage> {
                   // Commission button
                   IconButton(
                     icon: const Icon(Icons.settings, size: 18),
-                    onPressed: () => _openCommissionDialog(vendor),
+                  onPressed: () => _openCommissionDialog(vendor),
                     tooltip: 'Setup Komisyen',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -860,8 +860,8 @@ class _VendorsPageState extends State<VendorsPage> {
                             SizedBox(width: 8),
                             Text('Padam', style: TextStyle(color: Colors.red)),
                           ],
-                        ),
-                      ),
+                  ),
+                ),
                     ],
                   ),
                 ],
@@ -1242,9 +1242,9 @@ class _VendorsPageState extends State<VendorsPage> {
                 foregroundColor: Colors.white,
               ),
               child: const Text('Simpan Perubahan'),
-            ),
-          ],
-        );
+        ),
+      ],
+    );
       },
     );
   }

@@ -37,8 +37,10 @@ class PWAUpdateNotifier {
     
     _currentContext = context;
     
-    // Initial check (semak sekali pada app start)
-    await checkForUpdate(context);
+    // Initial check (semak sekali pada app start) with error handling
+    checkForUpdate(context).catchError((e) {
+      print('PWA Update: Initial check failed: $e');
+    });
     
     // Set up periodic checking setiap 5 minit
     // PENTING: Ini hanya CHECK untuk update, TIDAK reload app
@@ -48,7 +50,9 @@ class PWAUpdateNotifier {
     _periodicCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
       if (_currentContext != null && _currentContext!.mounted) {
         // Hanya check untuk update, tidak reload
-        checkForUpdate(_currentContext!);
+        checkForUpdate(_currentContext!).catchError((e) {
+          print('PWA Update: Periodic check failed: $e');
+        });
       } else {
         timer.cancel();
       }
@@ -93,6 +97,9 @@ class PWAUpdateNotifier {
         if (registration.waiting != null && context.mounted) {
           _handleUpdateAvailable(context);
         }
+      }).catchError((e) {
+        // Handle promise rejection silently - service worker may not be available
+        print('PWA Update: Service worker ready promise rejected: $e');
       });
     } catch (e) {
       print('PWA Update: Error setting up listeners: $e');
@@ -143,11 +150,22 @@ class PWAUpdateNotifier {
         return;
       }
 
-      // Get service worker registration
-      final registration = await html.window.navigator.serviceWorker!.ready;
+      // Get service worker registration with error handling
+      final registration = await html.window.navigator.serviceWorker!.ready.catchError((e) {
+        print('PWA Update: Service worker ready failed: $e');
+        return null;
+      });
 
-      // Check for updates
-      await registration.update();
+      if (registration == null) {
+        _isChecking = false;
+        return;
+      }
+
+      // Check for updates with error handling
+      await registration.update().catchError((e) {
+        print('PWA Update: Update check failed: $e');
+        return null;
+      });
 
       // Check if there's a waiting service worker (new update available)
       // This means a new version has been downloaded and is waiting to be activated
@@ -160,9 +178,13 @@ class PWAUpdateNotifier {
         // Wait a bit for installation to complete, then check again
         await Future.delayed(const Duration(seconds: 2));
         
-        // Re-check after delay
-        final updatedRegistration = await html.window.navigator.serviceWorker!.ready;
-        if (updatedRegistration.waiting != null && context.mounted) {
+        // Re-check after delay with error handling
+        final updatedRegistration = await html.window.navigator.serviceWorker!.ready.catchError((e) {
+          print('PWA Update: Re-check failed: $e');
+          return null;
+        });
+        
+        if (updatedRegistration != null && updatedRegistration.waiting != null && context.mounted) {
           _handleUpdateAvailable(context);
         }
       }

@@ -100,29 +100,13 @@ Future<void> main() async {
   bool supabaseInitialized = false;
   
   try {
-    // For web builds, .env file is not available, so use fallback
-    // Anon key is public by design (OAuth standard), safe to include in client
-    String? supabaseUrl = dotenv.env['SUPABASE_URL'];
-    String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+    // Use EnvConfig which handles --dart-define, .env, and fallback automatically
+    // Priority: --dart-define > .env file > fallback (hardcoded)
+    final supabaseUrl = EnvConfig.supabaseUrl;
+    final supabaseAnonKey = EnvConfig.supabaseAnonKey;
     
-    // Fallback for web production builds (where .env is not available)
-    if (kIsWeb && (supabaseUrl == null || supabaseAnonKey == null)) {
-      debugPrint('⚠️ Web build: Using production Supabase credentials');
-      supabaseUrl = supabaseUrl ?? 'https://gxllowlurizrkvpdircw.supabase.co';
-      supabaseAnonKey = supabaseAnonKey ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
-    }
-    
-    if (supabaseUrl == null || supabaseAnonKey == null) {
-      throw Exception(
-        '❌ CRITICAL: Missing required environment variables!\n'
-        'Please create a .env file with:\n'
-        '  SUPABASE_URL=your_supabase_url\n'
-        '  SUPABASE_ANON_KEY=your_supabase_anon_key\n'
-        '\n'
-        'For production web builds, credentials are embedded in code.\n'
-        'For local development, use .env file.'
-      );
-    }
+    debugPrint('✅ Supabase URL: ${supabaseUrl.substring(0, 30)}...');
+    debugPrint('✅ Using EnvConfig (supports --dart-define for web)');
     
     // Initialize Supabase with timeout
     try {
@@ -346,9 +330,169 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return const LoginPage();
         }
 
-        final session = snapshot.hasData ? snapshot.data!.session : null;
+        final authState = snapshot.data;
+        final session = authState?.session;
+        final event = authState?.event;
 
+        // Handle password recovery deep link FIRST (before session check)
+        // Supabase uses hash fragments (#access_token=...&type=recovery) for password recovery
+        // Check both query parameters and hash fragments
+        final uri = Uri.base;
+        
+        // Check query parameters
+        final type = uri.queryParameters['type'];
+        final accessToken = uri.queryParameters['access_token'];
+        final refreshToken = uri.queryParameters['refresh_token'];
+        final code = uri.queryParameters['code']; // Supabase uses 'code' parameter for password recovery
+        
+        // Check hash fragment (Supabase uses this for password recovery)
+        String? hashType;
+        String? hashAccessToken;
+        String? hashRefreshToken;
+        String? hashCode;
+        
+        if (uri.hasFragment) {
+          final fragment = uri.fragment;
+          final fragmentParams = Uri.splitQueryString(fragment);
+          hashType = fragmentParams['type'];
+          hashAccessToken = fragmentParams['access_token'];
+          hashRefreshToken = fragmentParams['refresh_token'];
+          hashCode = fragmentParams['code'];
+        }
+        
+        // Use hash fragment values if available (Supabase preference), otherwise use query params
+        final recoveryType = hashType ?? type;
+        final recoveryAccessToken = hashAccessToken ?? accessToken;
+        final recoveryRefreshToken = hashRefreshToken ?? refreshToken;
+        final recoveryCode = hashCode ?? code; // Check for 'code' parameter (new Supabase flow)
+        
+        debugPrint('🔐 Auth check - type=$recoveryType, hasAccessToken=${recoveryAccessToken != null}, hasCode=${recoveryCode != null}, event=$event, path=${uri.path}');
+        
+        // Check for password recovery in multiple ways:
+        // 1. PASSWORD_RECOVERY event from onAuthStateChange
+        // 2. type=recovery in URL (query params or hash fragment)
+        // 3. access_token present with type=recovery
+        // 4. code parameter present (new Supabase password recovery flow)
+        // 5. URL path contains /reset-password (in case already navigated)
+        final isPasswordRecovery = event == AuthChangeEvent.passwordRecovery || 
+                                   recoveryType == 'recovery' ||
+                                   (recoveryAccessToken != null && recoveryType == 'recovery') ||
+                                   recoveryCode != null || // NEW: Check for 'code' parameter
+                                   uri.path.contains('/reset-password');
+
+        // CRITICAL: Handle recovery BEFORE session check to prevent auto-login to dashboard
+        // This handles both /reset-password path AND root path with recovery tokens
+        if (isPasswordRecovery && (recoveryType == 'recovery' || recoveryAccessToken != null || recoveryCode != null)) {
+          debugPrint('🔐 Password recovery detected (type=$recoveryType, event=$event, hasSession=${session != null}, path=${uri.path})');
+          
+          // If already on reset password page, just render it (no need to navigate)
+          if (uri.path.contains('/reset-password')) {
+            debugPrint('🔐 Already on reset password page, rendering directly');
+            return const ResetPasswordPage();
+          }
+          
+          // CRITICAL: If user lands on root path (/) with recovery tokens, navigate to reset password IMMEDIATELY
+          // This handles Supabase redirect_to=https://app.pocketbizz.my/ (root) case
+          if (uri.path == '/' || uri.path.isEmpty) {
+            debugPrint('🔐 Recovery tokens detected on root path - navigating to reset password immediately');
+            // Navigate immediately without waiting for session
+            Future.microtask(() {
+              if (mounted) {
+                // Preserve recovery tokens in URL when navigating
+                Navigator.of(context).pushReplacementNamed('/reset-password');
+              }
+            });
+            return const Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Menyediakan halaman reset kata laluan...'),
+                  ],
+                ),
+              ),
+            );
+          }
+          
+          // If we have recovery code or tokens but no session yet, wait a bit for Supabase to establish session
+          if (session == null && (recoveryAccessToken != null || recoveryRefreshToken != null || recoveryCode != null)) {
+            debugPrint('⏳ Waiting for recovery session to be established from tokens...');
+            // Show loading and wait for session, then navigate
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                debugPrint('🔐 Navigating to reset password page after session wait');
+                Navigator.of(context).pushReplacementNamed('/reset-password');
+              }
+            });
+            return const Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Menyediakan halaman reset kata laluan...'),
+                  ],
+                ),
+              ),
+            );
+          }
+          
+          // Navigate to reset password page IMMEDIATELY (even if session exists, we need to reset password)
+          // Use immediate navigation instead of postFrameCallback to prevent race condition
+          debugPrint('🔐 Navigating to reset password page immediately');
+          Future.microtask(() {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/reset-password');
+            }
+          });
+          
+          // Show loading while navigating
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Menyediakan halaman reset kata laluan...'),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Regular session check - if session exists and NOT recovery, go to home
+        // IMPORTANT: Only check session AFTER recovery check to prevent auto-login during recovery
         if (session != null) {
+          // Final safety check: if URL still has recovery indicators, force reset password page
+          final currentUri = Uri.base;
+          final currentType = currentUri.queryParameters['type'];
+          String? currentHashType;
+          if (currentUri.hasFragment) {
+            final fragmentParams = Uri.splitQueryString(currentUri.fragment);
+            currentHashType = fragmentParams['type'];
+          }
+          
+          // Check for recovery indicators: type=recovery, code parameter, or /reset-password path
+          final currentCode = currentUri.queryParameters['code'];
+          String? currentHashCode;
+          if (currentUri.hasFragment) {
+            final fragmentParams = Uri.splitQueryString(currentUri.fragment);
+            currentHashCode = fragmentParams['code'];
+          }
+          
+          if (currentType == 'recovery' || currentHashType == 'recovery' || 
+              currentCode != null || currentHashCode != null || 
+              currentUri.path.contains('/reset-password')) {
+            // Still in recovery flow, show reset password page
+            debugPrint('🔐 Session exists but recovery indicators detected (type=$currentType, code=${currentCode ?? currentHashCode}) - showing reset password page');
+            return const ResetPasswordPage();
+          }
+          
+          // Normal authenticated user - go to home
           return const HomePage();
         } else {
           return const LoginPage();

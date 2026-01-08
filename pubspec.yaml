@@ -68,5 +68,7 @@ flutter:
   # Assets
   assets:
     - assets/images/
-    - assets/.env
+    # Note: .env file removed for web compatibility
+    # For web: Use --dart-define during build
+    # For mobile: .env file in project root (not in assets/)
 
