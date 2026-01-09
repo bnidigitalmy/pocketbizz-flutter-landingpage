@@ -4,11 +4,14 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../data/models/profit_loss_report.dart';
 import '../data/models/top_product.dart';
 import '../data/models/top_vendor.dart';
 import '../data/models/monthly_trend.dart';
+import '../data/models/sales_by_channel.dart';
+import '../../../../data/models/business_profile.dart';
 
 /// PDF Generator for Reports
 class ReportsPDFGenerator {
@@ -20,6 +23,8 @@ class ReportsPDFGenerator {
     required List<MonthlyTrend> monthlyTrends,
     DateTime? startDate,
     DateTime? endDate,
+    BusinessProfile? businessProfile,
+    List<SalesByChannel>? salesByChannel,
   }) async {
     final pdf = pw.Document();
 
@@ -34,12 +39,22 @@ class ReportsPDFGenerator {
         margin: const pw.EdgeInsets.all(40),
         build: (context) => [
           // Header
-          _buildHeader(dateRangeText),
+          _buildHeader(dateRangeText, businessProfile),
+          pw.SizedBox(height: 20),
+
+          // Executive Summary / Key Highlights
+          _buildExecutiveSummary(profitLoss),
           pw.SizedBox(height: 20),
 
           // Profit & Loss Summary
           _buildProfitLossSection(profitLoss),
           pw.SizedBox(height: 20),
+
+          // Revenue Breakdown by Channel
+          if (salesByChannel != null && salesByChannel.isNotEmpty) ...[
+            _buildSalesByChannelSection(salesByChannel),
+            pw.SizedBox(height: 20),
+          ],
 
           // Top Products
           if (topProducts.isNotEmpty) ...[
@@ -66,16 +81,16 @@ class ReportsPDFGenerator {
       ),
     );
 
-    // Show print dialog
+    // Generate PDF bytes
     final pdfBytes = await pdf.save();
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdfBytes,
-    );
+    
+    // Note: Print dialog is handled in reports_page.dart for better platform control
+    // On web, we trigger download directly; on mobile, we show print dialog
     
     return pdfBytes;
   }
 
-  static pw.Widget _buildHeader(String dateRange) {
+  static pw.Widget _buildHeader(String dateRange, BusinessProfile? businessProfile) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -87,19 +102,76 @@ class ReportsPDFGenerator {
           ),
         ),
         pw.SizedBox(height: 8),
+        // Business Name
         pw.Text(
-          'PocketBizz',
+          businessProfile?.businessName ?? 'Laporan Untung Rugi',
           style: pw.TextStyle(
-            fontSize: 14,
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
             color: PdfColors.grey700,
           ),
         ),
-        pw.SizedBox(height: 4),
+        // Business Details (if available)
+        if (businessProfile != null) ...[
+          if (businessProfile.tagline != null && businessProfile.tagline!.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              businessProfile.tagline!,
+              style: pw.TextStyle(
+                fontSize: 11,
+                color: PdfColors.grey600,
+                fontStyle: pw.FontStyle.italic,
+              ),
+            ),
+          ],
+          if (businessProfile.address != null && businessProfile.address!.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              businessProfile.address!,
+              style: pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+          if (businessProfile.phone != null && businessProfile.phone!.isNotEmpty) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              'Tel: ${businessProfile.phone}',
+              style: pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+          if (businessProfile.email != null && businessProfile.email!.isNotEmpty) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              'Email: ${businessProfile.email}',
+              style: pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+          if (businessProfile.registrationNumber != null && businessProfile.registrationNumber!.isNotEmpty) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              'No. Pendaftaran: ${businessProfile.registrationNumber}',
+              style: pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+        ],
+        pw.SizedBox(height: 8),
         pw.Text(
           'Tempoh: $dateRange',
           style: pw.TextStyle(
             fontSize: 12,
             color: PdfColors.grey600,
+            fontWeight: pw.FontWeight.bold,
           ),
         ),
         pw.SizedBox(height: 4),
@@ -132,36 +204,102 @@ class ReportsPDFGenerator {
             ),
           ),
           pw.SizedBox(height: 16),
-          _buildMetricRow('Jumlah Jualan', report.totalSales, PdfColors.blue700),
+          
+          // Revenue
+          _buildMetricRow('Jualan (Revenue)', report.totalSales, PdfColors.blue700),
           pw.SizedBox(height: 8),
-          _buildMetricRow('Jumlah Kos', report.totalCosts, PdfColors.red700),
+          
+          // COGS
+          _buildMetricRow('Kos Pengeluaran (COGS)', report.costOfGoodsSold, PdfColors.red700),
           pw.SizedBox(height: 8),
-          _buildMetricRow('Kerugian Tolakan', report.rejectionLoss, PdfColors.orange700),
+          
+          // Divider
           pw.Divider(),
           pw.SizedBox(height: 8),
+          
+          // Gross Profit
           _buildMetricRow(
-            'Untung Bersih',
+            'Untung Kasar (Gross Profit)',
+            report.grossProfit,
+            report.grossProfit >= 0 ? PdfColors.green700 : PdfColors.red700,
+            isBold: true,
+          ),
+          pw.SizedBox(height: 4),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Margin Kasar:',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  color: PdfColors.grey600,
+                ),
+              ),
+              pw.Text(
+                '${report.grossProfitMargin.toStringAsFixed(2)}%',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: report.grossProfitMargin >= 0 ? PdfColors.green700 : PdfColors.red700,
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          
+          // Operating Expenses
+          _buildMetricRow('Kos Operasi (Operating Expenses)', report.operatingExpenses, PdfColors.orange700),
+          pw.SizedBox(height: 8),
+          
+          // Divider
+          pw.Divider(),
+          pw.SizedBox(height: 8),
+          
+          // Operating Profit
+          _buildMetricRow(
+            'Untung Operasi (EBIT)',
+            report.operatingProfit,
+            report.operatingProfit >= 0 ? PdfColors.green700 : PdfColors.red700,
+            isBold: true,
+          ),
+          pw.SizedBox(height: 12),
+          
+          // Other Expenses (Always show for standard P&L format)
+          _buildMetricRow(
+            'Perbelanjaan Lain (Other Expenses)', 
+            report.otherExpenses, 
+            report.otherExpenses > 0 ? PdfColors.orange700 : PdfColors.grey600,
+          ),
+          pw.SizedBox(height: 8),
+          pw.Divider(),
+          pw.SizedBox(height: 8),
+          
+          // Net Profit
+          _buildMetricRow(
+            'Untung Bersih (Net Profit)',
             report.netProfit,
             report.netProfit >= 0 ? PdfColors.green700 : PdfColors.red700,
             isBold: true,
           ),
           pw.SizedBox(height: 8),
+          
+          // Net Profit Margin
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'Margin Untung:',
+                'Margin Untung Bersih:',
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
               pw.Text(
-                '${report.profitMargin.toStringAsFixed(2)}%',
+                '${report.netProfitMargin.toStringAsFixed(2)}%',
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
-                  color: report.profitMargin >= 0 ? PdfColors.green700 : PdfColors.red700,
+                  color: report.netProfitMargin >= 0 ? PdfColors.green700 : PdfColors.red700,
                 ),
               ),
             ],
@@ -376,12 +514,222 @@ class ReportsPDFGenerator {
     );
   }
 
+  static pw.Widget _buildExecutiveSummary(ProfitLossReport report) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.blue50,
+        border: pw.Border.all(color: PdfColors.blue200),
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Ringkasan Eksekutif',
+            style: pw.TextStyle(
+              fontSize: 16,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.blue900,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Expanded(
+                child: _buildSummaryItem('Jualan', report.totalSales, PdfColors.blue700),
+              ),
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: _buildSummaryItem('Untung Kasar', report.grossProfit, PdfColors.green700),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Expanded(
+                child: _buildSummaryItem('Untung Operasi', report.operatingProfit, PdfColors.green700),
+              ),
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: _buildSummaryItem('Untung Bersih', report.netProfit, report.netProfit >= 0 ? PdfColors.green700 : PdfColors.red700),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(8),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Margin Kasar:',
+                  style: pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+                ),
+                pw.Text(
+                  '${report.grossProfitMargin.toStringAsFixed(2)}%',
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.green700,
+                  ),
+                ),
+                pw.SizedBox(width: 16),
+                pw.Text(
+                  'Margin Bersih:',
+                  style: pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+                ),
+                pw.Text(
+                  '${report.netProfitMargin.toStringAsFixed(2)}%',
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    color: report.netProfitMargin >= 0 ? PdfColors.green700 : PdfColors.red700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildSummaryItem(String label, double value, PdfColor color) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: 10,
+              color: PdfColors.grey600,
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'RM ${NumberFormat('#,##0.00').format(value)}',
+            style: pw.TextStyle(
+              fontSize: 14,
+              fontWeight: pw.FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildSalesByChannelSection(List<SalesByChannel> channels) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Jualan Mengikut Saluran',
+            style: pw.TextStyle(
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(2),
+              1: const pw.FlexColumnWidth(1.5),
+              2: const pw.FlexColumnWidth(1),
+              3: const pw.FlexColumnWidth(1),
+            },
+            children: [
+              // Header
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: [
+                  _buildTableCell('Saluran', isHeader: true),
+                  _buildTableCell('Jumlah (RM)', isHeader: true),
+                  _buildTableCell('Peratusan', isHeader: true),
+                  _buildTableCell('Transaksi', isHeader: true),
+                ],
+              ),
+              // Data rows
+              ...channels.map((channel) {
+                return pw.TableRow(
+                  children: [
+                    _buildTableCell(channel.channelLabel),
+                    _buildTableCell('RM ${NumberFormat('#,##0.00').format(channel.revenue)}'),
+                    _buildTableCell('${channel.percentage.toStringAsFixed(1)}%'),
+                    _buildTableCell('${channel.transactionCount}'),
+                  ],
+                );
+              }),
+              // Total row
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                children: [
+                  _buildTableCell('Jumlah', isHeader: true),
+                  _buildTableCell(
+                    'RM ${NumberFormat('#,##0.00').format(channels.fold<double>(0.0, (sum, c) => sum + c.revenue))}',
+                    isHeader: true,
+                  ),
+                  _buildTableCell('100.0%', isHeader: true),
+                  _buildTableCell(
+                    '${channels.fold<int>(0, (sum, c) => sum + c.transactionCount)}',
+                    isHeader: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   static pw.Widget _buildFooter() {
     return pw.Container(
       padding: const pw.EdgeInsets.only(top: 20),
       child: pw.Column(
         children: [
           pw.Divider(),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Nota Penting:',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.grey600,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Laporan ini dijana secara automatik oleh PocketBizz. Untuk tujuan perakaunan rasmi, sila rujuk dengan akauntan bertauliah.',
+            style: pw.TextStyle(
+              fontSize: 9,
+              color: PdfColors.grey500,
+              fontStyle: pw.FontStyle.italic,
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
           pw.SizedBox(height: 8),
           pw.Text(
             'Laporan ini dijana oleh PocketBizz',
@@ -394,7 +742,7 @@ class ReportsPDFGenerator {
           ),
           pw.SizedBox(height: 4),
           pw.Text(
-            'www.pocketbizz.com',
+            'www.pocketbizz.my',
             style: pw.TextStyle(
               fontSize: 10,
               color: PdfColors.grey500,

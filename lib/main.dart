@@ -44,6 +44,7 @@ import 'features/products/presentation/test_image_upload_page.dart';
 import 'features/planner/presentation/planner_page.dart';
 import 'features/planner/presentation/enhanced_planner_page.dart';
 import 'features/reports/presentation/reports_page.dart';
+import 'features/subscription/widgets/subscription_guard.dart';
 import 'features/drive_sync/presentation/drive_sync_page.dart';
 import 'features/documents/presentation/documents_page.dart';
 import 'features/subscription/presentation/subscription_page.dart';
@@ -244,7 +245,11 @@ class PocketBizzApp extends StatelessWidget {
         '/test-upload': (context) => const TestImageUploadPage(),
         '/planner': (context) => const EnhancedPlannerPage(),
         '/planner/old': (context) => const PlannerPage(), // Keep old for reference
-        '/reports': (context) => const ReportsPage(),
+        '/reports': (context) => SubscriptionGuard(
+          featureName: 'Laporan & Analitik',
+          allowTrial: true,
+          child: const ReportsPage(),
+        ),
         '/drive-sync': (context) => const DriveSyncPage(),
         '/documents': (context) => const DocumentsPage(),
         '/subscription': (context) => const SubscriptionPage(),

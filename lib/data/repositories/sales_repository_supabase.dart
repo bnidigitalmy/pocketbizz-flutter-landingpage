@@ -21,6 +21,8 @@ class Sale {
   final double totalAmount;
   final double? discountAmount;
   final double finalAmount;
+  final double? cogs; // Cost of Goods Sold
+  final double? profit; // Profit amount
   final String? notes;
   final String? deliveryAddress; // For online and delivery channels
   final DateTime createdAt;
@@ -33,6 +35,8 @@ class Sale {
     required this.totalAmount,
     this.discountAmount,
     required this.finalAmount,
+    this.cogs,
+    this.profit,
     this.notes,
     this.deliveryAddress,
     required this.createdAt,
@@ -47,6 +51,8 @@ class Sale {
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
       discountAmount: (json['discount_amount'] as num?)?.toDouble(),
       finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0,
+      cogs: (json['cogs'] as num?)?.toDouble(),
+      profit: (json['profit'] as num?)?.toDouble(),
       notes: json['notes'],
       deliveryAddress: json['delivery_address'],
       createdAt: DateTime.parse(json['created_at']).toLocal(), // Convert UTC to local timezone
@@ -68,6 +74,7 @@ class SaleItem {
   final double quantity;
   final double unitPrice;
   final double subtotal;
+  final double? costOfGoods; // Cost of goods for this item
 
   SaleItem({
     required this.id,
@@ -77,6 +84,7 @@ class SaleItem {
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
+    this.costOfGoods,
   });
 
   factory SaleItem.fromJson(Map<String, dynamic> json) {
@@ -88,6 +96,7 @@ class SaleItem {
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
       unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      costOfGoods: (json['cost_of_goods'] as num?)?.toDouble(),
     );
   }
 
@@ -191,11 +200,16 @@ class SalesRepositorySupabase with RateLimitMixin {
         }
 
         if (startDate != null) {
-          query = query.gte('created_at', startDate.toIso8601String());
+          // Convert to UTC for database comparison (created_at is stored in UTC)
+          final startDateUtc = startDate.toUtc();
+          query = query.gte('created_at', startDateUtc.toIso8601String());
         }
 
         if (endDate != null) {
-          query = query.lte('created_at', endDate.toIso8601String());
+          // Convert to UTC for database comparison (created_at is stored in UTC)
+          // Add 1 second to include the entire end day (23:59:59)
+          final endDateUtc = endDate.toUtc();
+          query = query.lte('created_at', endDateUtc.toIso8601String());
         }
 
         // Execute query with order and limit

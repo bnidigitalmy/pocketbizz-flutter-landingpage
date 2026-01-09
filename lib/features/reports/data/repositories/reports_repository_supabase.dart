@@ -24,6 +24,11 @@ import '../models/sales_by_channel.dart';
 /// Reports Repository for Supabase
 /// Handles all data aggregation for reports
 class ReportsRepositorySupabase {
+  // Constants for COGS estimation (fallback when actual COGS not available)
+  static const double _defaultCogsPercentage = 0.6; // 60% of revenue as COGS
+  static const double _defaultProfitMargin = 0.4; // 40% profit margin (60% COGS)
+  static const int _maxQueryLimit = 10000; // Maximum records to fetch per query
+
   final _salesRepo = SalesRepositorySupabase();
   final _expensesRepo = ExpensesRepositorySupabase();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
@@ -48,7 +53,7 @@ class ReportsRepositorySupabase {
     final sales = await _salesRepo.listSales(
       startDate: start,
       endDate: end,
-      limit: 10000, // Large limit to get all
+      limit: _maxQueryLimit,
     );
 
     // Calculate total sales (including consignment revenue)
@@ -61,7 +66,7 @@ class ReportsRepositorySupabase {
     final allClaimsResponse = await _claimsRepo.listClaims(
       fromDate: start,
       toDate: end,
-      limit: 10000, // Large limit to get all claims
+      limit: _maxQueryLimit,
     );
 
     final allClaimsList = (allClaimsResponse['data'] as List).cast<ConsignmentClaim>();
@@ -82,12 +87,14 @@ class ReportsRepositorySupabase {
       limit: 10000,
     );
 
-    // Filter bookings by date range (exact match with "Hari Ini" card logic)
-    // Use same logic as _loadInflowAndTransactions: isAfter(start - 1ms) && isBefore(end)
+    // Filter bookings by date range
+    // Convert start and end to UTC for comparison (booking.createdAt is in UTC)
+    final startUtc = start.toUtc();
+    final endUtc = end.toUtc();
     final bookingsInRange = completedBookings.where((booking) {
       final bookingDateUtc = booking.createdAt.toUtc();
-      return bookingDateUtc.isAfter(start.subtract(const Duration(milliseconds: 1))) &&
-          bookingDateUtc.isBefore(end);
+      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
+          bookingDateUtc.isBefore(endUtc);
     }).toList();
 
     final bookingRevenue = bookingsInRange.fold<double>(
@@ -99,14 +106,30 @@ class ReportsRepositorySupabase {
     final totalSales = directSales + consignmentRevenue + bookingRevenue;
 
     // Calculate total COGS from sales
-    // Note: If sales table has cogs field, use it. Otherwise calculate from sale_items
+    // Priority: Use sale.cogs if available, otherwise sum from sale_items.cost_of_goods
+    // Fallback: Estimate 60% if no COGS data available
     double totalCogs = 0.0;
     for (final sale in sales) {
-      if (sale.items != null) {
-        // Calculate COGS from items if available
-        // For now, we'll use a simplified approach
-        // In production, you'd want to track actual COGS per sale
-        totalCogs += sale.totalAmount * 0.6; // Estimate 60% as COGS
+      // First priority: Use sale-level COGS if available
+      if (sale.cogs != null && sale.cogs! > 0) {
+        totalCogs += sale.cogs!;
+      } else if (sale.items != null && sale.items!.isNotEmpty) {
+        // Second priority: Sum COGS from sale items
+        double itemCogs = 0.0;
+        for (final item in sale.items!) {
+          if (item.costOfGoods != null && item.costOfGoods! > 0) {
+            itemCogs += item.costOfGoods!;
+          }
+        }
+        if (itemCogs > 0) {
+          totalCogs += itemCogs;
+        } else {
+          // Fallback: Estimate using default percentage if no actual data
+          totalCogs += sale.finalAmount * _defaultCogsPercentage;
+        }
+      } else {
+        // Fallback: Estimate using default percentage if no items
+        totalCogs += sale.finalAmount * _defaultCogsPercentage;
       }
     }
 
@@ -140,18 +163,32 @@ class ReportsRepositorySupabase {
       },
     );
 
-    // Calculate net profit
-    final netProfit = totalSales - totalCosts - rejectionLoss;
+    // Standard P&L Format:
+    // Revenue -> COGS -> Gross Profit -> Operating Expenses -> Operating Profit -> Other Expenses -> Net Profit
+    
+    // Calculate Gross Profit
+    final grossProfit = totalSales - totalCogs;
+    
+    // Calculate Operating Profit (EBIT) = Gross Profit - Operating Expenses
+    final operatingProfit = grossProfit - totalExpenses;
+    
+    // Calculate Net Profit = Operating Profit - Other Expenses (Rejection Loss)
+    final netProfit = operatingProfit - rejectionLoss;
 
-    // Calculate profit margin
-    final profitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0.0;
+    // Calculate profit margins
+    final grossProfitMargin = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0.0;
+    final netProfitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0.0;
 
     return ProfitLossReport(
       totalSales: totalSales,
-      totalCosts: totalCosts,
-      rejectionLoss: rejectionLoss,
+      costOfGoodsSold: totalCogs,
+      grossProfit: grossProfit,
+      operatingExpenses: totalExpenses,
+      operatingProfit: operatingProfit,
+      otherExpenses: rejectionLoss,
       netProfit: netProfit,
-      profitMargin: profitMargin,
+      grossProfitMargin: grossProfitMargin,
+      netProfitMargin: netProfitMargin,
       startDate: start,
       endDate: end,
     );
@@ -197,10 +234,17 @@ class ReportsRepositorySupabase {
           product['totalRevenue'] =
               (product['totalRevenue'] as double) + item.subtotal;
 
-          // Estimate profit (simplified - in production, use actual COGS)
-          final estimatedProfit = item.subtotal * 0.4; // 40% margin estimate
+          // Calculate actual profit: Use costOfGoods if available, otherwise estimate
+          double itemProfit;
+          if (item.costOfGoods != null && item.costOfGoods! > 0) {
+            // Use actual COGS
+            itemProfit = item.subtotal - item.costOfGoods!;
+          } else {
+            // Fallback: Estimate using default profit margin
+            itemProfit = item.subtotal * _defaultProfitMargin;
+          }
           product['totalProfit'] =
-              (product['totalProfit'] as double) + estimatedProfit;
+              (product['totalProfit'] as double) + itemProfit;
         }
       }
     }
@@ -286,8 +330,11 @@ class ReportsRepositorySupabase {
   }
 
   /// Get Monthly Trends
+  /// If startDate and endDate provided, use them; otherwise use last N months
   Future<List<MonthlyTrend>> getMonthlyTrends({
     int months = 12,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
@@ -296,51 +343,172 @@ class ReportsRepositorySupabase {
 
     // Calculate date range
     final now = DateTime.now();
-    final startDate = DateTime(now.year, now.month - months + 1, 1);
+    DateTime rangeStart;
+    DateTime rangeEnd;
+    
+    if (startDate != null && endDate != null) {
+      // Use provided date range
+      rangeStart = startDate;
+      rangeEnd = endDate;
+    } else {
+      // Default to last N months
+      rangeStart = DateTime(now.year, now.month - months + 1, 1);
+      rangeEnd = now;
+    }
 
     // Get all sales in range
     final sales = await _salesRepo.listSales(
-      startDate: startDate,
-      endDate: now,
+      startDate: rangeStart,
+      endDate: rangeEnd,
       limit: 10000,
     );
 
     // Get all expenses in range
     final expenses = await _expensesRepo.getExpenses();
     final expensesInRange = expenses
-        .where((e) => e.expenseDate.isAfter(startDate.subtract(const Duration(days: 1))))
+        .where((e) => e.expenseDate.isAfter(rangeStart.subtract(const Duration(days: 1))) &&
+            e.expenseDate.isBefore(rangeEnd.add(const Duration(days: 1))))
         .toList();
 
-    // Group by month
-    final monthMap = <String, Map<String, double>>{};
+    // Determine granularity based on date range
+    final daysDiff = rangeEnd.difference(rangeStart).inDays;
+    String dateKeyFormat;
+    String Function(DateTime) getDateKey;
+    
+    if (daysDiff <= 14) {
+      // Daily granularity for <= 14 days
+      dateKeyFormat = 'yyyy-MM-dd';
+      getDateKey = (date) => DateFormat('yyyy-MM-dd').format(date);
+    } else if (daysDiff <= 90) {
+      // Weekly granularity for <= 90 days
+      dateKeyFormat = 'yyyy-ww';
+      getDateKey = (date) {
+        // Calculate week number from start of year
+        final startOfYear = DateTime(date.year, 1, 1);
+        final daysFromStart = date.difference(startOfYear).inDays;
+        final weekNumber = (daysFromStart / 7).floor() + 1;
+        return '${date.year}-W${weekNumber.toString().padLeft(2, '0')}';
+      };
+    } else {
+      // Monthly granularity for > 90 days
+      dateKeyFormat = 'yyyy-MM';
+      getDateKey = (date) => DateFormat('yyyy-MM').format(date);
+    }
 
-    // Process sales
+    // Group by determined granularity
+    final trendMap = <String, Map<String, double>>{};
+
+    // Process direct sales
     for (final sale in sales) {
-      final monthKey = DateFormat('yyyy-MM').format(sale.createdAt);
-      if (!monthMap.containsKey(monthKey)) {
-        monthMap[monthKey] = {'sales': 0.0, 'costs': 0.0};
+      final dateKey = getDateKey(sale.createdAt);
+      if (!trendMap.containsKey(dateKey)) {
+        trendMap[dateKey] = {'sales': 0.0, 'costs': 0.0, 'profit': 0.0};
       }
-      monthMap[monthKey]!['sales'] =
-          (monthMap[monthKey]!['sales'] ?? 0.0) + sale.finalAmount;
+      trendMap[dateKey]!['sales'] =
+          (trendMap[dateKey]!['sales'] ?? 0.0) + sale.finalAmount;
 
-      // Estimate COGS
-      final estimatedCogs = sale.finalAmount * 0.6;
-      monthMap[monthKey]!['costs'] =
-          (monthMap[monthKey]!['costs'] ?? 0.0) + estimatedCogs;
+      // Calculate COGS: Use actual if available, otherwise estimate
+      double saleCogs;
+      if (sale.cogs != null && sale.cogs! > 0) {
+        saleCogs = sale.cogs!;
+      } else if (sale.items != null && sale.items!.isNotEmpty) {
+        // Sum COGS from items
+        saleCogs = sale.items!.fold<double>(
+          0.0,
+          (sum, item) => sum + (item.costOfGoods ?? 0.0),
+        );
+        // Fallback to estimate if no item COGS
+        if (saleCogs == 0) {
+          saleCogs = sale.finalAmount * _defaultCogsPercentage;
+        }
+      } else {
+        // Fallback: Estimate using default percentage
+        saleCogs = sale.finalAmount * _defaultCogsPercentage;
+      }
+      trendMap[dateKey]!['costs'] =
+          (trendMap[dateKey]!['costs'] ?? 0.0) + saleCogs;
+    }
+
+    // Add booking revenue (to match P&L calculation)
+    final completedBookings = await _bookingsRepo.listBookings(
+      status: 'completed',
+      limit: 10000,
+    );
+    final startUtc = rangeStart.toUtc();
+    final endUtc = rangeEnd.toUtc();
+    final bookingsInRange = completedBookings.where((booking) {
+      final bookingDateUtc = booking.createdAt.toUtc();
+      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
+          bookingDateUtc.isBefore(endUtc);
+    }).toList();
+    
+    for (final booking in bookingsInRange) {
+      final dateKey = getDateKey(booking.createdAt);
+      if (!trendMap.containsKey(dateKey)) {
+        trendMap[dateKey] = {'sales': 0.0, 'costs': 0.0, 'profit': 0.0};
+      }
+      trendMap[dateKey]!['sales'] =
+          (trendMap[dateKey]!['sales'] ?? 0.0) + booking.totalAmount;
+    }
+
+    // Add consignment revenue (to match P&L calculation)
+    final allClaimsResponse = await _claimsRepo.listClaims(
+      fromDate: rangeStart,
+      toDate: rangeEnd,
+      limit: _maxQueryLimit,
+    );
+    final allClaimsList = (allClaimsResponse['data'] as List).cast<ConsignmentClaim>();
+    final settledClaims = allClaimsList
+        .where((claim) => claim.status == ClaimStatus.settled)
+        .toList();
+    
+    for (final claim in settledClaims) {
+      final dateKey = getDateKey(claim.createdAt);
+      if (!trendMap.containsKey(dateKey)) {
+        trendMap[dateKey] = {'sales': 0.0, 'costs': 0.0, 'profit': 0.0};
+      }
+      trendMap[dateKey]!['sales'] =
+          (trendMap[dateKey]!['sales'] ?? 0.0) + claim.netAmount;
     }
 
     // Process expenses
     for (final expense in expensesInRange) {
-      final monthKey = DateFormat('yyyy-MM').format(expense.expenseDate);
-      if (!monthMap.containsKey(monthKey)) {
-        monthMap[monthKey] = {'sales': 0.0, 'costs': 0.0};
+      final dateKey = getDateKey(expense.expenseDate);
+      if (!trendMap.containsKey(dateKey)) {
+        trendMap[dateKey] = {'sales': 0.0, 'costs': 0.0, 'profit': 0.0};
       }
-      monthMap[monthKey]!['costs'] =
-          (monthMap[monthKey]!['costs'] ?? 0.0) + expense.amount;
+      trendMap[dateKey]!['costs'] =
+          (trendMap[dateKey]!['costs'] ?? 0.0) + expense.amount;
     }
 
-    // Convert to MonthlyTrend list and sort by month
-    final trends = monthMap.entries
+    // Calculate profit for each period
+    for (final entry in trendMap.entries) {
+      entry.value['profit'] = (entry.value['sales'] ?? 0.0) - (entry.value['costs'] ?? 0.0);
+    }
+
+    // Fill missing periods with zero values (especially for daily granularity)
+    if (daysDiff <= 14) {
+      // For daily, ensure all days in range have data points
+      final allDays = <String>[];
+      var currentDate = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+      final endDate = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+      
+      while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
+        final dayKey = DateFormat('yyyy-MM-dd').format(currentDate);
+        allDays.add(dayKey);
+        currentDate = currentDate.add(const Duration(days: 1));
+      }
+      
+      // Add missing days with zero values
+      for (final dayKey in allDays) {
+        if (!trendMap.containsKey(dayKey)) {
+          trendMap[dayKey] = {'sales': 0.0, 'costs': 0.0, 'profit': 0.0};
+        }
+      }
+    }
+
+    // Convert to MonthlyTrend list and sort by date key
+    final trends = trendMap.entries
         .map((e) => MonthlyTrend(
               month: e.key,
               sales: e.value['sales'] ?? 0.0,
@@ -438,12 +606,14 @@ class ReportsRepositorySupabase {
       limit: 10000,
     );
 
-    // Filter bookings by date range (exact match with "Hari Ini" card logic)
-    // Use same logic as _loadInflowAndTransactions: isAfter(start - 1ms) && isBefore(end)
+    // Filter bookings by date range
+    // Convert start and end to UTC for comparison (booking.createdAt is in UTC)
+    final startUtc = start.toUtc();
+    final endUtc = end.toUtc();
     final bookingsInRange = completedBookings.where((booking) {
       final bookingDateUtc = booking.createdAt.toUtc();
-      return bookingDateUtc.isAfter(start.subtract(const Duration(milliseconds: 1))) &&
-          bookingDateUtc.isBefore(end);
+      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
+          bookingDateUtc.isBefore(endUtc);
     }).toList();
 
     final bookingRevenue = bookingsInRange.fold<double>(
