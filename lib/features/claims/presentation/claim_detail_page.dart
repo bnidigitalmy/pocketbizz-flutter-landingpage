@@ -586,80 +586,89 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
               ),
             ),
             const SizedBox(height: 12),
-            ..._claim!.items!.map((item) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                color: Colors.grey[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            SizedBox(
+              height: _claim!.items!.length > 5 ? 400 : null,
+              child: ListView.builder(
+                shrinkWrap: _claim!.items!.length <= 5,
+                physics: _claim!.items!.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+                itemCount: _claim!.items!.length,
+                itemBuilder: (context, index) {
+                  final item = _claim!.items![index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: Colors.grey[50],
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              item.productName ?? 'Unknown Product',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          if (item.deliveryNumber != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                item.deliveryNumber!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue[900],
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.productName ?? 'Unknown Product',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
+                              if (item.deliveryNumber != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    item.deliveryNumber!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.blue[900],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Terjual: ${item.quantitySold.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              Text(
+                                'Harga Unit: RM ${item.unitPrice.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Jumlah:',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              Text(
+                                'RM ${item.grossAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Terjual: ${item.quantitySold.toStringAsFixed(2)}',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                          Text(
-                            'Harga Unit: RM ${item.unitPrice.toStringAsFixed(2)}',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                      const Divider(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Jumlah:',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                          Text(
-                            'RM ${item.grossAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -781,8 +790,12 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
                 ),
               )
             else
-              Column(
-                children: _payments.map((p) {
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _payments.length,
+                itemBuilder: (context, index) {
+                  final p = _payments[index];
                   final date = DateTime.parse(p['payment_date'] as String);
                   final paymentNumber = p['payment_number'] as String? ?? '-';
                   final paymentMethod = p['payment_method'] as String? ?? '';
@@ -819,7 +832,7 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
                       const Divider(),
                     ],
                   );
-                }).toList(),
+                },
               ),
           ],
         ),

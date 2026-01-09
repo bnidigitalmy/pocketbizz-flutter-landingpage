@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../supabase/supabase_client.dart';
 import 'package:intl/intl.dart';
 
@@ -33,6 +34,11 @@ class DocumentStorageService {
     String? vendorName,
   }) async {
     try {
+      // Check if Supabase is initialized
+      if (!Supabase.instance.isInitialized) {
+        throw Exception('Supabase not initialized. Please wait for app to fully load.');
+      }
+      
       // Get current user ID
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
@@ -100,19 +106,71 @@ class DocumentStorageService {
         }
       } else {
         // For mobile/desktop: use Supabase Storage API
-        await supabase.storage
-            .from(_bucketName)
-            .upload(
-              storagePath,
-              pdfBytes,
-            );
+        // Retry logic for NotInitializedError
+        int retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+          try {
+            // Check initialization before each attempt
+            if (!Supabase.instance.isInitialized) {
+              if (retries < maxRetries - 1) {
+                await Future.delayed(Duration(milliseconds: 500 * (retries + 1)));
+                retries++;
+                continue;
+              }
+              throw Exception('Supabase not initialized after $maxRetries retries.');
+            }
+            
+            await supabase.storage
+                .from(_bucketName)
+                .upload(
+                  storagePath,
+                  pdfBytes,
+                );
+            break; // Success, exit retry loop
+          } catch (e) {
+            if (e.toString().contains('NotInitializedError') && retries < maxRetries - 1) {
+              await Future.delayed(Duration(milliseconds: 500 * (retries + 1)));
+              retries++;
+              continue;
+            }
+            rethrow; // Re-throw if not NotInitializedError or max retries reached
+          }
+        }
       }
 
       // Get signed URL (bucket is private, so we need signed URL)
       // Signed URL expires in 7 days (604800 seconds)
-      final String signedUrl = await supabase.storage
-          .from(_bucketName)
-          .createSignedUrl(storagePath, 604800);
+      // Retry logic for NotInitializedError
+      int urlRetries = 0;
+      const maxUrlRetries = 3;
+      String signedUrl = '';
+      
+      while (urlRetries < maxUrlRetries) {
+        try {
+          // Check initialization before each attempt
+          if (!Supabase.instance.isInitialized) {
+            if (urlRetries < maxUrlRetries - 1) {
+              await Future.delayed(Duration(milliseconds: 500 * (urlRetries + 1)));
+              urlRetries++;
+              continue;
+            }
+            throw Exception('Supabase not initialized when creating signed URL after $maxUrlRetries retries.');
+          }
+          
+          signedUrl = await supabase.storage
+              .from(_bucketName)
+              .createSignedUrl(storagePath, 604800);
+          break; // Success, exit retry loop
+        } catch (e) {
+          if (e.toString().contains('NotInitializedError') && urlRetries < maxUrlRetries - 1) {
+            await Future.delayed(Duration(milliseconds: 500 * (urlRetries + 1)));
+            urlRetries++;
+            continue;
+          }
+          rethrow; // Re-throw if not NotInitializedError or max retries reached
+        }
+      }
 
       print('✅ Document uploaded to Supabase Storage: $storagePath');
       
@@ -121,6 +179,14 @@ class DocumentStorageService {
         'url': signedUrl,
       };
     } catch (e) {
+      // Check if it's a NotInitializedError
+      final errorString = e.toString();
+      if (errorString.contains('NotInitializedError') || 
+          errorString.contains('not initialized')) {
+        print('⚠️ Supabase Storage not ready yet (NotInitializedError). This is non-critical for backup.');
+        // For silent uploads, don't rethrow - just log
+        throw Exception('Supabase Storage not initialized. Please wait for app to fully load.');
+      }
       print('❌ Failed to upload document to Supabase Storage: $e');
       rethrow;
     }
@@ -139,6 +205,12 @@ class DocumentStorageService {
     String? vendorName,
   }) async {
     try {
+      // Check if Supabase is initialized before attempting upload
+      if (!Supabase.instance.isInitialized) {
+        print('⚠️ Supabase not initialized - skipping document backup (non-critical)');
+        return; // Silently skip if not initialized
+      }
+      
       await uploadDocument(
         pdfBytes: pdfBytes,
         fileName: fileName,
@@ -150,7 +222,13 @@ class DocumentStorageService {
       print('✅ Document backed up to Supabase Storage: $fileName');
     } catch (e) {
       // Log error but don't throw - backup is optional
-      print('⚠️ Failed to backup document to Supabase Storage (non-critical): $e');
+      final errorString = e.toString();
+      if (errorString.contains('NotInitializedError') || 
+          errorString.contains('not initialized')) {
+        print('⚠️ Supabase Storage not ready - skipping backup (non-critical)');
+      } else {
+        print('⚠️ Failed to backup document to Supabase Storage (non-critical): $e');
+      }
     }
   }
 

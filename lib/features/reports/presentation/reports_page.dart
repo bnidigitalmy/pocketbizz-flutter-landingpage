@@ -954,10 +954,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 border: Border.all(color: Colors.grey.shade200),
                 boxShadow: AppColors.cardShadow,
               ),
-              child: Column(
-                children: _salesByChannel.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final channel = entry.value;
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _salesByChannel.length,
+                itemBuilder: (context, index) {
+                  final channel = _salesByChannel[index];
                   final colors = [
                     AppColors.primary,
                     AppColors.accent,
@@ -968,7 +970,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   final channelColor = colors[index % colors.length];
                   
                   return Padding(
-                    padding: EdgeInsets.only(bottom: entry.key < _salesByChannel.length - 1 ? 16 : 0),
+                    padding: EdgeInsets.only(bottom: index < _salesByChannel.length - 1 ? 16 : 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1032,7 +1034,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ],
                     ),
                   );
-                }).toList(),
+                },
               ),
             ),
           ],
@@ -1459,11 +1461,16 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
             ),
           const SizedBox(height: 16),
 
-          // Products List - Enhanced
-          ..._topProducts.asMap().entries.map((entry) {
-            final index = entry.key;
-            final product = entry.value;
-            return Container(
+          // Products List - Enhanced (using ListView.builder for virtual scrolling)
+          SizedBox(
+            height: _topProducts.length > 5 ? 400 : null,
+            child: ListView.builder(
+              shrinkWrap: _topProducts.length <= 5,
+              physics: _topProducts.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+              itemCount: _topProducts.length,
+              itemBuilder: (context, index) {
+                final product = _topProducts[index];
+                return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1547,7 +1554,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ),
               ),
             );
-          }),
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -2250,94 +2259,101 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     ],
                   ),
                 ),
-                // Data rows
-                ..._monthlyTrends.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final trend = entry.value;
-                  final profit = trend.sales - trend.costs;
-                  
-                  String periodLabel = trend.month;
-                  try {
-                    if (trend.month.contains('-W')) {
-                      final parts = trend.month.split('-W');
-                      periodLabel = 'Minggu ${parts[1]}';
-                    } else {
-                      final parts = trend.month.split('-');
-                      if (parts.length == 3) {
-                        final day = int.parse(parts[2]);
-                        final monthNum = int.parse(parts[1]);
-                        final months = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
-                        periodLabel = '$day ${months[monthNum - 1]} ${parts[0]}';
-                      } else if (parts.length == 2) {
-                        final monthNum = int.parse(parts[1]);
-                        final months = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
-                        periodLabel = '${months[monthNum - 1]} ${parts[0]}';
+                // Data rows - Use ListView.builder for virtual scrolling
+                SizedBox(
+                  height: _monthlyTrends.length > 8 ? 400 : null,
+                  child: ListView.builder(
+                    shrinkWrap: _monthlyTrends.length <= 8,
+                    physics: _monthlyTrends.length <= 8 ? const NeverScrollableScrollPhysics() : null,
+                    itemCount: _monthlyTrends.length,
+                    itemBuilder: (context, index) {
+                      final trend = _monthlyTrends[index];
+                      final profit = trend.sales - trend.costs;
+                      
+                      String periodLabel = trend.month;
+                      try {
+                        if (trend.month.contains('-W')) {
+                          final parts = trend.month.split('-W');
+                          periodLabel = 'Minggu ${parts[1]}';
+                        } else {
+                          final parts = trend.month.split('-');
+                          if (parts.length == 3) {
+                            final day = int.parse(parts[2]);
+                            final monthNum = int.parse(parts[1]);
+                            final months = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+                            periodLabel = '$day ${months[monthNum - 1]} ${parts[0]}';
+                          } else if (parts.length == 2) {
+                            final monthNum = int.parse(parts[1]);
+                            final months = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
+                            periodLabel = '${months[monthNum - 1]} ${parts[0]}';
+                          }
+                        }
+                      } catch (e) {
+                        // Keep original
                       }
-                    }
-                  } catch (e) {
-                    // Keep original
-                  }
-                  
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: index < _monthlyTrends.length - 1 ? 1 : 0,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            periodLabel,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textPrimary,
+                      
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.grey.shade200,
+                              width: index < _monthlyTrends.length - 1 ? 1 : 0,
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: Text(
-                            'RM ${NumberFormat('#,##0.00').format(trend.sales)}',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                periodLabel,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'RM ${NumberFormat('#,##0.00').format(trend.costs)}',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.error,
+                            Expanded(
+                              child: Text(
+                                'RM ${NumberFormat('#,##0.00').format(trend.sales)}',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'RM ${NumberFormat('#,##0.00').format(profit)}',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: profit >= 0 ? AppColors.success : AppColors.error,
+                            Expanded(
+                              child: Text(
+                                'RM ${NumberFormat('#,##0.00').format(trend.costs)}',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.error,
+                                ),
+                              ),
                             ),
-                          ),
+                            Expanded(
+                              child: Text(
+                                'RM ${NumberFormat('#,##0.00').format(profit)}',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: profit >= 0 ? AppColors.success : AppColors.error,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                }),
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),

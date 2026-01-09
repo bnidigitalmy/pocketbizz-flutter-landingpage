@@ -18,6 +18,7 @@ import '../../../data/models/vendor.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import 'commission_dialog.dart';
 import 'vendor_detail_page.dart';
+import 'vendor_comprehensive_table_page.dart';
 
 /// Vendors Page (Consignment System)
 /// Manage Consignees (kedai yang jual produk untuk user)
@@ -515,6 +516,20 @@ class _VendorsPageState extends State<VendorsPage> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.table_chart),
+            tooltip: 'Lihat Ringkasan (Jadual)',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const VendorComprehensiveTablePage(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(

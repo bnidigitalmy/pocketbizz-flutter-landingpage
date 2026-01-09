@@ -8,6 +8,8 @@ import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/vendor_commission_price_range.dart';
 import 'assign_products_page.dart';
+import 'vendor_deliveries_summary_page.dart';
+import 'vendor_detail_table_page.dart';
 
 /// Vendor Detail Page - View vendor info, claims, payments
 class VendorDetailPage extends StatefulWidget {
@@ -431,19 +433,41 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
               ),
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/deliveries', arguments: {'vendorId': widget.vendorId});
-                },
-                icon: const Icon(Icons.visibility, size: 18),
-                label: const Text('Lihat Semua Penghantaran'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/deliveries', arguments: {'vendorId': widget.vendorId});
+                    },
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('Lihat Semua'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VendorDeliveriesSummaryPage(vendorId: widget.vendorId),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.summarize, size: 18),
+                    label: const Text('Ringkasan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -646,6 +670,21 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
               context,
               MaterialPageRoute(
                 builder: (context) => AssignProductsPage(vendorId: widget.vendorId),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          'Jadual Terperinci',
+          'Lihat jadual lengkap penghantaran, produk, tuntutan & bayaran',
+          Icons.table_chart,
+          Colors.purple,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VendorDetailTablePage(vendorId: widget.vendorId),
               ),
             );
           },

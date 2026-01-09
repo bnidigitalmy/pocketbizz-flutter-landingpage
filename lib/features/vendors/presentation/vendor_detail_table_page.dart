@@ -379,6 +379,8 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
         });
       }
       
+      final invoiceEntries = groupedByInvoice.entries.toList();
+      
       return Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -392,12 +394,20 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              ...groupedByInvoice.entries.map((entry) {
-                return _buildMobileInvoiceGroup(
-                  invoiceNumber: entry.key,
-                  deliveries: entry.value,
-                );
-              }),
+              // Use ListView.builder for virtual scrolling (better performance for large lists)
+              // Use shrinkWrap with NeverScrollableScrollPhysics for nested scrolling in SingleChildScrollView
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: invoiceEntries.length,
+                itemBuilder: (context, index) {
+                  final entry = invoiceEntries[index];
+                  return _buildMobileInvoiceGroup(
+                    invoiceNumber: entry.key,
+                    deliveries: entry.value,
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -665,8 +675,18 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
             ),
           ),
           const SizedBox(height: 12),
-          // Products list
-          ...allItems.map((item) => _buildMobileProductItem(item)),
+          // Products list - Use ListView.builder for virtual scrolling
+          SizedBox(
+            height: allItems.length > 5 ? 300 : null, // Limit height if many items
+            child: ListView.builder(
+              shrinkWrap: allItems.length <= 5, // Only shrinkWrap if few items
+              physics: allItems.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+              itemCount: allItems.length,
+              itemBuilder: (context, index) {
+                return _buildMobileProductItem(allItems[index]);
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -888,7 +908,15 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              ...claims.map((claim) => _buildMobileClaimCard(claim)),
+              // Use ListView.builder for virtual scrolling
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: claims.length,
+                itemBuilder: (context, index) {
+                  return _buildMobileClaimCard(claims[index]);
+                },
+              ),
             ],
           ),
         ),
@@ -1091,7 +1119,15 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              ...payments.map((payment) => _buildMobilePaymentCard(payment)),
+              // Use ListView.builder for virtual scrolling
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: payments.length,
+                itemBuilder: (context, index) {
+                  return _buildMobilePaymentCard(payments[index]);
+                },
+              ),
             ],
           ),
         ),

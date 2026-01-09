@@ -1274,7 +1274,14 @@ class _ClaimsPageState extends State<ClaimsPage> {
               ),
             )
           else
-            ..._deliveries.map((delivery) => _buildDeliveryCard(delivery)),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _deliveries.length,
+              itemBuilder: (context, index) {
+                return _buildDeliveryCard(_deliveries[index]);
+              },
+            ),
         ],
       ),
     );
@@ -1352,27 +1359,38 @@ class _ClaimsPageState extends State<ClaimsPage> {
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 8),
-              ...delivery.items.map((item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.productName,
-                            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              SizedBox(
+                height: delivery.items.length > 5 ? 150 : null,
+                child: ListView.builder(
+                  shrinkWrap: delivery.items.length <= 5,
+                  physics: delivery.items.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+                  itemCount: delivery.items.length,
+                  itemBuilder: (context, itemIndex) {
+                    final item = delivery.items[itemIndex];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.productName,
+                              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${item.quantity.toStringAsFixed(1)}x RM ${item.unitPrice.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontFeatures: [FontFeature.tabularFigures()],
+                          Text(
+                            '${item.quantity.toStringAsFixed(1)}x RM ${item.unitPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  )),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
             const SizedBox(height: 12),
             SizedBox(

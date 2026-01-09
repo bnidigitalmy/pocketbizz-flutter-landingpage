@@ -318,34 +318,43 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
               ],
             ),
             const SizedBox(height: 8),
-            ...upcoming.map((t) {
-              final due = t.dueAt;
-              final when = due != null
-                  ? DateFormat('dd MMM, hh:mm a', 'ms_MY').format(due)
-                  : 'Tiada masa';
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  children: [
-                    const Icon(Icons.circle, size: 6, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        t.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
+            SizedBox(
+              height: upcoming.length > 5 ? 150 : null,
+              child: ListView.builder(
+                shrinkWrap: upcoming.length <= 5,
+                physics: upcoming.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+                itemCount: upcoming.length,
+                itemBuilder: (context, index) {
+                  final t = upcoming[index];
+                  final due = t.dueAt;
+                  final when = due != null
+                      ? DateFormat('dd MMM, hh:mm a', 'ms_MY').format(due)
+                      : 'Tiada masa';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle, size: 6, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            t.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          when,
+                          style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      when,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

@@ -557,14 +557,21 @@ class _DeliveryItemsEditorPageState extends State<_DeliveryItemsEditorPage> {
               subtitle: Text(
                 DateFormat('dd MMM yyyy', 'ms_MY').format(delivery.deliveryDate),
               ),
-              children: delivery.items.map((item) {
-                final itemIndex = delivery.items.indexOf(item);
-                return _buildItemQuantityEditor(
-                  deliveryIndex,
-                  itemIndex,
-                  item,
-                );
-              }).toList(),
+              children: [
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: delivery.items.length,
+                  itemBuilder: (context, itemIndex) {
+                    final item = delivery.items[itemIndex];
+                    return _buildItemQuantityEditor(
+                      deliveryIndex,
+                      itemIndex,
+                      item,
+                    );
+                  },
+                ),
+              ],
             ),
           );
         },

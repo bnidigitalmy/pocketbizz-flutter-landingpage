@@ -506,4 +506,52 @@ class DeliveriesRepositorySupabase {
       'last_delivery_date': lastDeliveryResponse?['delivery_date'],
     };
   }
+
+  /// Get all deliveries for a vendor with complete details (for summary page)
+  Future<List<Delivery>> getAllDeliveriesForVendor(String vendorId) async {
+    final userId = SupabaseHelper.currentUserId;
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    final response = await supabase
+        .from('vendor_deliveries')
+        .select('''
+          *,
+          vendors!inner(vendor_number),
+          vendor_delivery_items (
+            *,
+            products (id, name, sku)
+          )
+        ''')
+        .eq('business_owner_id', userId)
+        .eq('vendor_id', vendorId)
+        .order('delivery_date', ascending: false);
+
+    final deliveries = (response as List).map((json) {
+      final deliveryJson = json as Map<String, dynamic>;
+      final items = (deliveryJson['vendor_delivery_items'] as List<dynamic>?)
+              ?.map((item) {
+            final itemJson = item as Map<String, dynamic>;
+            final product = itemJson['products'] as Map<String, dynamic>?;
+            return {
+              ...itemJson,
+              'product_name': product?['name'] ?? itemJson['product_name'],
+            };
+          }).toList() ??
+          [];
+      
+      // Extract vendor_number from vendors relation
+      final vendorData = deliveryJson['vendors'] as Map<String, dynamic>?;
+      final vendorNumber = vendorData?['vendor_number'] as String?;
+      
+      return Delivery.fromJson({
+        ...deliveryJson,
+        'items': items,
+        'vendor_number': vendorNumber,
+      });
+    }).toList();
+
+    return deliveries;
+  }
 }
