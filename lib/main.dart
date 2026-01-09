@@ -281,23 +281,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // Initialize PWA update checking with periodic checks and event listeners
-    // Delay to ensure Supabase is initialized and context is ready
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        try {
-          // Initialize PWA update system with:
-          // - Immediate check on app start
-          // - Periodic checks every 5 minutes for real-time updates
-          // - Service worker event listeners for immediate detection
-          print('🔄 PWA Update: Initializing update checking system...');
-          PWAUpdateNotifier.initialize(context);
-        } catch (e) {
-          // Silently fail - PWA update check is non-critical
-          print('PWA Update: Failed to initialize update checking: $e');
-        }
-      }
-    });
+    // Note: PWA update checking will be initialized only when user is authenticated
+    // See build() method where we check for session before initializing
   }
 
   @override
@@ -472,6 +457,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
         // Regular session check - if session exists and NOT recovery, go to home
         // IMPORTANT: Only check session AFTER recovery check to prevent auto-login during recovery
         if (session != null) {
+          // Initialize PWA update checking only for authenticated users
+          // Delay to ensure context is ready and user is fully authenticated
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) {
+                try {
+                  print('🔄 PWA Update: Initializing update checking for authenticated user...');
+                  PWAUpdateNotifier.initialize(context);
+                } catch (e) {
+                  // Silently fail - PWA update check is non-critical
+                  print('PWA Update: Failed to initialize update checking: $e');
+                }
+              }
+            });
+          });
           // Final safety check: if URL still has recovery indicators, force reset password page
           final currentUri = Uri.base;
           final currentType = currentUri.queryParameters['type'];

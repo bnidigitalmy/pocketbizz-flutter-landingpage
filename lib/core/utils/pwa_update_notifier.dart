@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
+import '../../core/supabase/supabase_client.dart';
 
 /// PWA Update Notifier
 /// 
@@ -204,8 +205,23 @@ class PWAUpdateNotifier {
   }
 
   /// Show non-intrusive update notification
+  /// Only shows if user is authenticated
   static void _showUpdateNotification(BuildContext context) {
     if (!context.mounted) return;
+
+    // Check if user is authenticated before showing notification
+    try {
+      final currentUser = supabase.auth.currentUser;
+      if (currentUser == null) {
+        // User not logged in, don't show notification
+        print('PWA Update: User not authenticated, skipping notification');
+        return;
+      }
+    } catch (e) {
+      // If we can't check auth state, don't show notification
+      print('PWA Update: Error checking auth state: $e');
+      return;
+    }
 
     // Show SnackBar notification
     ScaffoldMessenger.of(context).showSnackBar(
