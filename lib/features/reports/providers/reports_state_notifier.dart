@@ -992,12 +992,24 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
                 final start = DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day);
                 final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59);
                 
+                // Debug: Log date comparison details
+                debugPrint('📅 Reports: Expense date check - expenseDate: $expenseDate, parsed: $expenseDateTime');
+                debugPrint('📅 Reports: Date range - start: $start, end: $end');
+                debugPrint('📅 Reports: Date comparison - isBefore: ${expenseDateTime.isBefore(start)}, isAfter: ${expenseDateTime.isAfter(end)}');
+                
                 // Skip update if outside date range - prevents unnecessary state changes
                 if (expenseDateTime.isBefore(start) || expenseDateTime.isAfter(end)) {
                   debugPrint('⏭️ Reports: Expense $eventType event outside date range - skipping update (no reload)');
+                  debugPrint('📅 Reports: Expense date ($expenseDateTime) is outside range ($start to $end)');
                   return;
+                } else {
+                  debugPrint('✅ Reports: Expense date ($expenseDateTime) is WITHIN range ($start to $end) - proceeding with update');
                 }
+              } else {
+                debugPrint('⚠️ Reports: Failed to parse expense_date: $expenseDate');
               }
+            } else {
+              debugPrint('⚠️ Reports: Missing date info - expenseDate: $expenseDate, startDate: ${state.startDate}, endDate: ${state.endDate}');
             }
             
             debugPrint('🔄 Reports: Expense $eventType event received - updating P&L incrementally (no reload)');
