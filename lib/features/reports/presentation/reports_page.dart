@@ -10,6 +10,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pdf/pdf.dart';
@@ -30,54 +31,25 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
+import '../providers/reports_state_notifier.dart';
 
 /// Reports Page - Phase 1: Foundation
 /// Shows Profit/Loss, Top Products, Top Vendors, and Monthly Trends
-class ReportsPage extends StatefulWidget {
+/// NOW WITH TRUE REAL-TIME UX via Riverpod StateNotifier
+class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
 
   @override
-  State<ReportsPage> createState() => _ReportsPageState();
+  ConsumerState<ReportsPage> createState() => _ReportsPageState();
 }
 
-class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStateMixin {
-  final _repo = ReportsRepositorySupabase();
+class _ReportsPageState extends ConsumerState<ReportsPage> with SingleTickerProviderStateMixin {
   final _businessProfileRepo = BusinessProfileRepository();
   late TabController _tabController;
-
-  // Data
-  ProfitLossReport? _profitLoss;
-  List<TopProduct> _topProducts = [];
-  List<TopVendor> _topVendors = [];
-  List<MonthlyTrend> _monthlyTrends = [];
-  List<SalesByChannel> _salesByChannel = [];
-
-  // Loading states
-  bool _loadingProfitLoss = true;
-  bool _loadingProducts = true;
-  bool _loadingVendors = true;
-  bool _loadingTrends = true;
-  bool _loadingChannels = true;
 
   // Date range for reports (default: current month)
   DateTime? _startDate;
   DateTime? _endDate;
-
-  // Error states
-  String? _profitLossError;
-  String? _productsError;
-  String? _vendorsError;
-  String? _trendsError;
-  String? _channelsError;
-
-  // Real-time subscriptions
-  StreamSubscription? _salesSubscription;
-  StreamSubscription? _saleItemsSubscription;
-  StreamSubscription? _bookingsSubscription;
-  StreamSubscription? _claimsSubscription;
-  StreamSubscription? _expensesSubscription;
-  StreamSubscription? _vendorDeliveriesSubscription;
-  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -94,275 +66,24 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         ? endOfToday // Use today if last day of month is in future
         : lastDayOfMonth; // Use last day of month
     
-    _loadAllData();
-    _setupRealtimeSubscriptions();
+    // Load data via StateNotifier (real-time subscriptions are handled in StateNotifier)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(reportsStateNotifierProvider.notifier).loadAllData(
+        startDate: _startDate,
+        endDate: _endDate,
+      );
+    });
   }
 
   @override
   void dispose() {
-    _salesSubscription?.cancel();
-    _saleItemsSubscription?.cancel();
-    _bookingsSubscription?.cancel();
-    _claimsSubscription?.cancel();
-    _expensesSubscription?.cancel();
-    _vendorDeliveriesSubscription?.cancel();
-    _debounceTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadAllData() async {
-    await Future.wait<void>([
-      _loadProfitLoss(),
-      _loadTopProducts(),
-      _loadTopVendors(),
-      _loadMonthlyTrends(),
-      _loadSalesByChannel(),
-    ]);
-  }
-
-  /// Setup real-time subscriptions for reports data
-  void _setupRealtimeSubscriptions() {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      // Subscribe to sales table changes (affects P&L, Top Products, Sales by Channel)
-      _salesSubscription = supabase
-          .from('sales')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      // Subscribe to sale_items table changes (affects Top Products, COGS)
-      _saleItemsSubscription = supabase
-          .from('sale_items')
-          .stream(primaryKey: ['id'])
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      // Subscribe to bookings table changes (affects P&L, Sales by Channel)
-      _bookingsSubscription = supabase
-          .from('bookings')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      // Subscribe to consignment_claims table changes (affects P&L, Sales by Channel)
-      _claimsSubscription = supabase
-          .from('consignment_claims')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      // Subscribe to expenses table changes (affects P&L, Monthly Trends)
-      _expensesSubscription = supabase
-          .from('expenses')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      // Subscribe to vendor_deliveries table changes (affects Top Vendors)
-      _vendorDeliveriesSubscription = supabase
-          .from('vendor_deliveries')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((data) {
-            if (mounted) {
-              _debouncedRefresh();
-            }
-          });
-
-      debugPrint('✅ Reports real-time subscriptions setup complete');
-    } catch (e) {
-      debugPrint('⚠️ Error setting up reports real-time subscriptions: $e');
-      // Continue without real-time - fallback to manual refresh
-    }
-  }
-
-  /// Debounced refresh to avoid too many updates
-  void _debouncedRefresh() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        _loadAllData();
-      }
-    });
-  }
-
-  Future<void> _loadProfitLoss() async {
-    setState(() {
-      _loadingProfitLoss = true;
-      _profitLossError = null;
-    });
-    try {
-      final report = await _repo.getProfitLossReport(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      if (mounted) {
-        setState(() {
-          _profitLoss = report;
-          _loadingProfitLoss = false;
-          _profitLossError = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = _getErrorMessage(e, 'laporan untung rugi');
-        setState(() {
-          _loadingProfitLoss = false;
-          _profitLossError = errorMsg;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal memuatkan $errorMsg'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Cuba Lagi',
-              textColor: Colors.white,
-              onPressed: () => _loadProfitLoss(),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _loadTopProducts() async {
-    setState(() {
-      _loadingProducts = true;
-      _productsError = null;
-    });
-    try {
-      final products = await _repo.getTopProducts(
-        limit: 10,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      if (mounted) {
-        setState(() {
-          _topProducts = products;
-          _loadingProducts = false;
-          _productsError = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = _getErrorMessage(e, 'senarai produk');
-        setState(() {
-          _loadingProducts = false;
-          _productsError = errorMsg;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadTopVendors() async {
-    setState(() {
-      _loadingVendors = true;
-      _vendorsError = null;
-    });
-    try {
-      final vendors = await _repo.getTopVendors(
-        limit: 10,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      if (mounted) {
-        setState(() {
-          _topVendors = vendors;
-          _loadingVendors = false;
-          _vendorsError = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = _getErrorMessage(e, 'senarai vendor');
-        setState(() {
-          _loadingVendors = false;
-          _vendorsError = errorMsg;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadMonthlyTrends() async {
-    setState(() {
-      _loadingTrends = true;
-      _trendsError = null;
-    });
-    try {
-      // Use date range if provided, otherwise use last 12 months
-      final trends = await _repo.getMonthlyTrends(
-        months: 12,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      if (mounted) {
-        setState(() {
-          _monthlyTrends = trends;
-          _loadingTrends = false;
-          _trendsError = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = _getErrorMessage(e, 'trend bulanan');
-        setState(() {
-          _loadingTrends = false;
-          _trendsError = errorMsg;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadSalesByChannel() async {
-    setState(() {
-      _loadingChannels = true;
-      _channelsError = null;
-    });
-    try {
-      final channels = await _repo.getSalesByChannel(
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-      if (mounted) {
-        setState(() {
-          _salesByChannel = channels;
-          _loadingChannels = false;
-          _channelsError = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = _getErrorMessage(e, 'jualan mengikut saluran');
-        setState(() {
-          _loadingChannels = false;
-          _channelsError = errorMsg;
-        });
-      }
-    }
-  }
+  // All data loading methods removed - now handled by Riverpod StateNotifier
+  // Real-time subscriptions removed - now handled by StateNotifier with granular updates
+  // No debounce needed - granular updates are instant
 
   /// Get user-friendly error message
   String _getErrorMessage(Object error, String featureName) {
@@ -416,19 +137,31 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         final endOfPickedDay = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
         _endDate = endOfPickedDay.isAfter(endOfToday) ? endOfToday : endOfPickedDay;
       });
-      await _loadAllData();
+      // Reload data with new date range via StateNotifier
+      ref.read(reportsStateNotifierProvider.notifier).loadAllData(
+        startDate: _startDate,
+        endDate: _endDate,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch reports state from Riverpod - UI rebuilds automatically on state changes
+    final reportsState = ref.watch(reportsStateNotifierProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Laporan & Analitik'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadAllData,
+            onPressed: () {
+              ref.read(reportsStateNotifierProvider.notifier).loadAllData(
+                startDate: _startDate,
+                endDate: _endDate,
+              );
+            },
             tooltip: 'Muat semula',
           ),
           IconButton(
@@ -438,7 +171,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: _exportPDF,
+            onPressed: reportsState.profitLoss != null ? () => _exportPDF(reportsState) : null,
             tooltip: 'Export PDF',
           ),
         ],
@@ -455,21 +188,21 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildOverviewTab(),
-          _buildProductsTab(),
-          _buildVendorsTab(),
-          _buildTrendsTab(),
+          _buildOverviewTab(reportsState),
+          _buildProductsTab(reportsState),
+          _buildVendorsTab(reportsState),
+          _buildTrendsTab(reportsState),
         ],
       ),
     );
   }
 
-  Widget _buildOverviewTab() {
-    if (_loadingProfitLoss) {
+  Widget _buildOverviewTab(ReportsState state) {
+    if (state.isLoadingProfitLoss) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_profitLoss == null) {
+    if (state.profitLoss == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -491,7 +224,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Prominent Summary Card - "Jualan Bulan Ini"
-          _buildProminentSummaryCard(),
+          _buildProminentSummaryCard(state),
           const SizedBox(height: 20),
 
           // Date range info - Enhanced
@@ -526,7 +259,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // Revenue Section
           _buildEnhancedMetricCard(
             'Jualan (Revenue)',
-            _profitLoss!.totalSales,
+            state.profitLoss!.totalSales,
             Icons.attach_money,
             AppColors.primary,
             AppColors.primaryLight,
@@ -536,7 +269,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // COGS Section
           _buildEnhancedMetricCard(
             'Kos Pengeluaran (COGS)',
-            _profitLoss!.costOfGoodsSold,
+            state.profitLoss!.costOfGoodsSold,
             Icons.inventory_2,
             AppColors.error,
             AppColors.errorLight,
@@ -547,7 +280,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: _profitLoss!.grossProfit >= 0
+              gradient: state.profitLoss!.grossProfit >= 0
                   ? LinearGradient(
                       colors: [AppColors.success, AppColors.successLight],
                       begin: Alignment.topLeft,
@@ -593,7 +326,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'RM ${NumberFormat('#,##0.00').format(_profitLoss!.grossProfit)}',
+                            'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.grossProfit)}',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -610,7 +343,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '${_profitLoss!.grossProfitMargin.toStringAsFixed(1)}%',
+                        '${state.profitLoss!.grossProfitMargin.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -628,7 +361,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           // Operating Expenses Section
           _buildEnhancedMetricCard(
             'Kos Operasi (Operating Expenses)',
-            _profitLoss!.operatingExpenses,
+            state.profitLoss!.operatingExpenses,
             Icons.receipt_long,
             AppColors.warning,
             AppColors.warningLight,
@@ -642,7 +375,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _profitLoss!.operatingProfit >= 0 
+                color: state.profitLoss!.operatingProfit >= 0 
                     ? AppColors.success.withOpacity(0.3)
                     : AppColors.error.withOpacity(0.3),
                 width: 2,
@@ -655,7 +388,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   children: [
                     Icon(
                       Icons.business_center,
-                      color: _profitLoss!.operatingProfit >= 0 
+                      color: state.profitLoss!.operatingProfit >= 0 
                           ? AppColors.success 
                           : AppColors.error,
                       size: 20,
@@ -671,11 +404,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   ],
                 ),
                 Text(
-                  'RM ${NumberFormat('#,##0.00').format(_profitLoss!.operatingProfit)}',
+                  'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.operatingProfit)}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: _profitLoss!.operatingProfit >= 0 
+                    color: state.profitLoss!.operatingProfit >= 0 
                         ? AppColors.success 
                         : AppColors.error,
                   ),
@@ -689,12 +422,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _profitLoss!.otherExpenses > 0 
+              color: state.profitLoss!.otherExpenses > 0 
                   ? AppColors.warningLight.withOpacity(0.3)
                   : AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _profitLoss!.otherExpenses > 0 
+                color: state.profitLoss!.otherExpenses > 0 
                     ? AppColors.warning.withOpacity(0.3)
                     : AppColors.textSecondary.withOpacity(0.2),
                 width: 1,
@@ -707,7 +440,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   children: [
                     Icon(
                       Icons.block,
-                      color: _profitLoss!.otherExpenses > 0 
+                      color: state.profitLoss!.otherExpenses > 0 
                           ? AppColors.warning 
                           : AppColors.textSecondary,
                       size: 20,
@@ -723,11 +456,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   ],
                 ),
                 Text(
-                  'RM ${NumberFormat('#,##0.00').format(_profitLoss!.otherExpenses)}',
+                  'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.otherExpenses)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: _profitLoss!.otherExpenses > 0 
+                    color: state.profitLoss!.otherExpenses > 0 
                         ? AppColors.warning 
                         : AppColors.textSecondary,
                   ),
@@ -741,7 +474,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: _profitLoss!.netProfit >= 0
+              gradient: state.profitLoss!.netProfit >= 0
                   ? AppColors.successGradient
                   : LinearGradient(
                       colors: [AppColors.error, AppColors.errorLight],
@@ -763,7 +496,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        _profitLoss!.netProfit >= 0 ? Icons.trending_up : Icons.trending_down,
+                        state.profitLoss!.netProfit >= 0 ? Icons.trending_up : Icons.trending_down,
                         color: Colors.white,
                         size: 24,
                       ),
@@ -783,7 +516,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'RM ${NumberFormat('#,##0.00').format(_profitLoss!.netProfit)}',
+                            'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.netProfit)}',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
@@ -824,7 +557,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_profitLoss!.grossProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.grossProfitMargin.toStringAsFixed(2)}%',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -840,7 +573,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: _profitLoss!.netProfitMargin >= 0
+                    gradient: state.profitLoss!.netProfitMargin >= 0
                         ? AppColors.successGradient
                         : LinearGradient(
                             colors: [AppColors.error, AppColors.errorLight],
@@ -862,7 +595,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -880,7 +613,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           if (false) Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: _profitLoss!.netProfitMargin >= 0
+              gradient: state.profitLoss!.netProfitMargin >= 0
                   ? AppColors.successGradient
                   : LinearGradient(
                       colors: [AppColors.error, AppColors.errorLight],
@@ -919,7 +652,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
                         style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -935,7 +668,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 16),
 
           // Sales by Channel Breakdown - Enhanced
-          if (_salesByChannel.isNotEmpty) ...[
+          if (state.salesByChannel.isNotEmpty) ...[
             const SizedBox(height: 8),
             const Text(
               'Jualan Mengikut Saluran',
@@ -957,9 +690,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               child: ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _salesByChannel.length,
+                itemCount: state.salesByChannel.length,
                 itemBuilder: (context, index) {
-                  final channel = _salesByChannel[index];
+                  final channel = state.salesByChannel[index];
                   final colors = [
                     AppColors.primary,
                     AppColors.accent,
@@ -970,7 +703,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   final channelColor = colors[index % colors.length];
                   
                   return Padding(
-                    padding: EdgeInsets.only(bottom: index < _salesByChannel.length - 1 ? 16 : 0),
+                    padding: EdgeInsets.only(bottom: index < state.salesByChannel.length - 1 ? 16 : 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1138,10 +871,10 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
   }
 
   /// Prominent summary card showing total sales
-  Widget _buildProminentSummaryCard() {
-    if (_profitLoss == null) return const SizedBox.shrink();
+  Widget _buildProminentSummaryCard(ReportsState state) {
+    if (state.profitLoss == null) return const SizedBox.shrink();
 
-    final isPositive = _profitLoss!.netProfit >= 0;
+    final isPositive = state.profitLoss!.netProfit >= 0;
     
     // Generate dynamic title based on date range
     String summaryTitle = 'Jualan';
@@ -1246,7 +979,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           ),
           const SizedBox(height: 16),
           Text(
-            'RM ${NumberFormat('#,##0.00').format(_profitLoss!.totalSales)}',
+            'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.totalSales)}',
             style: const TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.bold,
@@ -1265,7 +998,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ),
               ),
               Text(
-                'RM ${NumberFormat('#,##0.00').format(_profitLoss!.netProfit)}',
+                'RM ${NumberFormat('#,##0.00').format(state.profitLoss!.netProfit)}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -1279,12 +1012,12 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildProductsTab() {
-    if (_loadingProducts) {
+  Widget _buildProductsTab(ReportsState state) {
+    if (state.isLoadingProducts) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_topProducts.isEmpty) {
+    if (state.topProducts.isEmpty) {
       return const Center(child: Text('Tiada data produk'));
     }
 
@@ -1337,8 +1070,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: _topProducts.isNotEmpty
-                      ? (_topProducts.map((p) => p.totalProfit).reduce((a, b) => a > b ? a : b) * 1.2).ceilToDouble()
+                  maxY: state.topProducts.isNotEmpty
+                      ? (state.topProducts.map((p) => p.totalProfit).reduce((a, b) => a > b ? a : b) * 1.2).ceilToDouble()
                       : 100.0,
                   minY: 0,
                   barTouchData: BarTouchData(
@@ -1354,8 +1087,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < _topProducts.length) {
-                            final product = _topProducts[value.toInt()];
+                          if (value.toInt() >= 0 && value.toInt() < state.topProducts.length) {
+                            final product = state.topProducts[value.toInt()];
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
@@ -1399,7 +1132,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   ),
                   gridData: FlGridData(show: true),
                   borderData: FlBorderData(show: true),
-                  barGroups: _topProducts.asMap().entries.map((entry) {
+                  barGroups: state.topProducts.asMap().entries.map((entry) {
                     final index = entry.key;
                     final product = entry.value;
                     return BarChartGroupData(
@@ -1423,7 +1156,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
           const SizedBox(height: 24),
 
           // Summary Card - Total Profit from Products
-          if (_topProducts.isNotEmpty)
+          if (state.topProducts.isNotEmpty)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1446,7 +1179,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'RM ${NumberFormat('#,##0.00').format(_topProducts.fold<double>(0.0, (sum, p) => sum + p.totalProfit))}',
+                        'RM ${NumberFormat('#,##0.00').format(state.topProducts.fold<double>(0.0, (sum, p) => sum + p.totalProfit))}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -1463,13 +1196,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
           // Products List - Enhanced (using ListView.builder for virtual scrolling)
           SizedBox(
-            height: _topProducts.length > 5 ? 400 : null,
+            height: state.topProducts.length > 5 ? 400 : null,
             child: ListView.builder(
-              shrinkWrap: _topProducts.length <= 5,
-              physics: _topProducts.length <= 5 ? const NeverScrollableScrollPhysics() : null,
-              itemCount: _topProducts.length,
+              shrinkWrap: state.topProducts.length <= 5,
+              physics: state.topProducts.length <= 5 ? const NeverScrollableScrollPhysics() : null,
+              itemCount: state.topProducts.length,
               itemBuilder: (context, index) {
-                final product = _topProducts[index];
+                final product = state.topProducts[index];
                 return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
@@ -1562,20 +1295,20 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildVendorsTab() {
-    if (_loadingVendors) {
+  Widget _buildVendorsTab(ReportsState state) {
+    if (state.isLoadingVendors) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_topVendors.isEmpty) {
+    if (state.topVendors.isEmpty) {
       return const Center(child: Text('Tiada data vendor'));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _topVendors.length,
+      itemCount: state.topVendors.length,
       itemBuilder: (context, index) {
-        final vendor = _topVendors[index];
+        final vendor = state.topVendors[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -1648,29 +1381,29 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildTrendsTab() {
-    if (_loadingTrends) {
+  Widget _buildTrendsTab(ReportsState state) {
+    if (state.isLoadingTrends) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_monthlyTrends.isEmpty) {
+    if (state.monthlyTrends.isEmpty) {
       return const Center(child: Text('Tiada data trend'));
     }
 
     // Calculate summary statistics
-    final totalSales = _monthlyTrends.fold<double>(0.0, (sum, t) => sum + t.sales);
-    final totalCosts = _monthlyTrends.fold<double>(0.0, (sum, t) => sum + t.costs);
+    final totalSales = state.monthlyTrends.fold<double>(0.0, (sum, t) => sum + t.sales);
+    final totalCosts = state.monthlyTrends.fold<double>(0.0, (sum, t) => sum + t.costs);
     final totalProfit = totalSales - totalCosts;
-    final avgSales = _monthlyTrends.isNotEmpty ? totalSales / _monthlyTrends.length : 0.0;
-    final avgCosts = _monthlyTrends.isNotEmpty ? totalCosts / _monthlyTrends.length : 0.0;
+    final avgSales = state.monthlyTrends.isNotEmpty ? totalSales / state.monthlyTrends.length : 0.0;
+    final avgCosts = state.monthlyTrends.isNotEmpty ? totalCosts / state.monthlyTrends.length : 0.0;
     final avgProfit = avgSales - avgCosts;
     
     // Calculate growth (first vs last period)
     // Only show growth if we have meaningful data
     double? growthRate;
-    if (_monthlyTrends.length >= 2) {
-      final firstSales = _monthlyTrends.first.sales;
-      final lastSales = _monthlyTrends.last.sales;
+    if (state.monthlyTrends.length >= 2) {
+      final firstSales = state.monthlyTrends.first.sales;
+      final lastSales = state.monthlyTrends.last.sales;
       
       // Only calculate growth if both periods have meaningful data
       // Avoid showing misleading 100% changes from zero
@@ -1700,9 +1433,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
       }
     }
 
-    final maxValue = _monthlyTrends.isEmpty
+    final maxValue = state.monthlyTrends.isEmpty
         ? 100.0
-        : _monthlyTrends
+        : state.monthlyTrends
             .map((t) {
               final profit = t.sales - t.costs;
               return t.sales > t.costs ? t.sales : (t.costs > profit ? t.costs : profit);
@@ -1926,11 +1659,11 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         showTitles: true,
                         reservedSize: 40,
                         // Calculate interval: show every 2-3 months depending on data count
-                        interval: _monthlyTrends.length > 6 ? 2.0 : 1.0,
+                        interval: state.monthlyTrends.length > 6 ? 2.0 : 1.0,
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
-                          if (index >= 0 && index < _monthlyTrends.length) {
-                            final trend = _monthlyTrends[index];
+                          if (index >= 0 && index < state.monthlyTrends.length) {
+                            final trend = state.monthlyTrends[index];
                             String label;
                             
                             try {
@@ -1967,8 +1700,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                             }
                             
                             // Show labels at intervals to avoid crowding
-                            final interval = _monthlyTrends.length > 10 ? 2.0 : 1.0;
-                            if (index % interval.toInt() == 0 || index == _monthlyTrends.length - 1) {
+                            final interval = state.monthlyTrends.length > 10 ? 2.0 : 1.0;
+                            if (index % interval.toInt() == 0 || index == state.monthlyTrends.length - 1) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Text(
@@ -2013,7 +1746,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   ),
                   borderData: FlBorderData(show: true),
                   minX: 0,
-                  maxX: _monthlyTrends.isEmpty ? 0 : (_monthlyTrends.length - 1).toDouble(),
+                  maxX: state.monthlyTrends.isEmpty ? 0 : (state.monthlyTrends.length - 1).toDouble(),
                   minY: 0,
                   maxY: maxValue > 0 ? (maxValue * 1.2).ceilToDouble() : 100.0,
                   lineTouchData: LineTouchData(
@@ -2025,8 +1758,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       getTooltipItems: (List<LineBarSpot> touchedSpots) {
                         return touchedSpots.map((LineBarSpot touchedSpot) {
                           final index = touchedSpot.x.toInt();
-                          if (index >= 0 && index < _monthlyTrends.length) {
-                            final trend = _monthlyTrends[index];
+                          if (index >= 0 && index < state.monthlyTrends.length) {
+                            final trend = state.monthlyTrends[index];
                             final profit = trend.sales - trend.costs;
                             String periodLabel = trend.month;
                             
@@ -2080,7 +1813,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                   lineBarsData: [
                     // Sales line
                     LineChartBarData(
-                      spots: _monthlyTrends.asMap().entries.map((entry) {
+                      spots: state.monthlyTrends.asMap().entries.map((entry) {
                         return FlSpot(entry.key.toDouble(), entry.value.sales);
                       }).toList(),
                       isCurved: true,
@@ -2111,7 +1844,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                     ),
                     // Costs line
                     LineChartBarData(
-                      spots: _monthlyTrends.asMap().entries.map((entry) {
+                      spots: state.monthlyTrends.asMap().entries.map((entry) {
                         return FlSpot(entry.key.toDouble(), entry.value.costs);
                       }).toList(),
                       isCurved: true,
@@ -2141,9 +1874,9 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                       ),
                     ),
                     // Profit line (dashed) - only show if there's meaningful variation
-                    if (_monthlyTrends.length > 1)
+                    if (state.monthlyTrends.length > 1)
                       LineChartBarData(
-                        spots: _monthlyTrends.asMap().entries.map((entry) {
+                        spots: state.monthlyTrends.asMap().entries.map((entry) {
                           final profit = entry.value.sales - entry.value.costs;
                           return FlSpot(entry.key.toDouble(), profit);
                         }).toList(),
@@ -2152,7 +1885,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                         barWidth: 3,
                         dashArray: [5, 5], // Dashed line for profit
                         dotData: FlDotData(
-                          show: _monthlyTrends.length <= 20, // Only show dots if not too many points
+                          show: state.monthlyTrends.length <= 20, // Only show dots if not too many points
                           getDotPainter: (spot, percent, barData, index) {
                             return FlDotCirclePainter(
                               radius: 4,
@@ -2261,13 +1994,13 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                 ),
                 // Data rows - Use ListView.builder for virtual scrolling
                 SizedBox(
-                  height: _monthlyTrends.length > 8 ? 400 : null,
+                  height: state.monthlyTrends.length > 8 ? 400 : null,
                   child: ListView.builder(
-                    shrinkWrap: _monthlyTrends.length <= 8,
-                    physics: _monthlyTrends.length <= 8 ? const NeverScrollableScrollPhysics() : null,
-                    itemCount: _monthlyTrends.length,
+                    shrinkWrap: state.monthlyTrends.length <= 8,
+                    physics: state.monthlyTrends.length <= 8 ? const NeverScrollableScrollPhysics() : null,
+                    itemCount: state.monthlyTrends.length,
                     itemBuilder: (context, index) {
-                      final trend = _monthlyTrends[index];
+                      final trend = state.monthlyTrends[index];
                       final profit = trend.sales - trend.costs;
                       
                       String periodLabel = trend.month;
@@ -2298,7 +2031,7 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
                           border: Border(
                             bottom: BorderSide(
                               color: Colors.grey.shade200,
-                              width: index < _monthlyTrends.length - 1 ? 1 : 0,
+                              width: index < state.monthlyTrends.length - 1 ? 1 : 0,
                             ),
                           ),
                         ),
@@ -2447,8 +2180,8 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
     );
   }
 
-  Future<void> _exportPDF() async {
-    if (_profitLoss == null) {
+  Future<void> _exportPDF(ReportsState state) async {
+    if (state.profitLoss == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sila tunggu data dimuatkan terlebih dahulu'),
@@ -2485,14 +2218,14 @@ class _ReportsPageState extends State<ReportsPage> with SingleTickerProviderStat
 
       // Generate PDF
       final pdfBytes = await ReportsPDFGenerator.generateProfitLossPDF(
-        profitLoss: _profitLoss!,
-        topProducts: _topProducts,
-        topVendors: _topVendors,
-        monthlyTrends: _monthlyTrends,
+        profitLoss: state.profitLoss!,
+        topProducts: state.topProducts,
+        topVendors: state.topVendors,
+        monthlyTrends: state.monthlyTrends,
         startDate: _startDate,
         endDate: _endDate,
         businessProfile: businessProfile,
-        salesByChannel: _salesByChannel.isNotEmpty ? _salesByChannel : null,
+        salesByChannel: state.salesByChannel.isNotEmpty ? state.salesByChannel : null,
       );
 
       // Auto-backup to Supabase Storage (non-blocking)
