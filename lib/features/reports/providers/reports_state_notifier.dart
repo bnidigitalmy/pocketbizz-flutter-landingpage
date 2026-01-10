@@ -302,10 +302,16 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     Map<String, dynamic>? oldRecord,
     String eventType,
   ) {
-    // Guard: prevent spam loads if already loading or state is null
-    if (state.isLoadingProfitLoss) return;
+    // Guard: prevent spam loads if already loading
+    if (state.isLoadingProfitLoss) {
+      debugPrint('⏭️ Reports: Already loading P&L - skipping granular update');
+      return;
+    }
     
+    // Only load full data if state is null (first load scenario)
+    // This should NOT happen during real-time updates after initial load
     if (state.profitLoss == null) {
+      debugPrint('⚠️ Reports: P&L state is null - performing initial load (this should be rare during real-time)');
       loadProfitLoss();
       return;
     }
@@ -355,8 +361,12 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     }
 
     // Only update if there's a meaningful change
-    if (salesDelta == 0.0 && cogsDelta == 0.0) return;
+    if (salesDelta == 0.0 && cogsDelta == 0.0) {
+      debugPrint('⏭️ Reports: Sale delta is 0.0 - skipping P&L update');
+      return;
+    }
 
+    debugPrint('📊 Reports: Updating P&L incrementally - salesDelta: $salesDelta, cogsDelta: $cogsDelta (eventType: $eventType)');
     // Update P&L incrementally
     final newTotalSales = currentPL.totalSales + salesDelta;
     final newTotalCogs = currentPL.costOfGoodsSold + cogsDelta;
@@ -381,6 +391,7 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
         endDate: currentPL.endDate,
       ),
     );
+    debugPrint('✅ Reports: P&L state updated incrementally from sale - newTotalSales: ${newTotalSales.toStringAsFixed(2)}, newNetProfit: ${newNetProfit.toStringAsFixed(2)} (NO FULL RELOAD)');
   }
 
   /// Update Profit Loss incrementally from expense change
@@ -390,10 +401,16 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     Map<String, dynamic>? oldRecord,
     String eventType,
   ) {
-    // Guard: prevent spam loads if already loading or state is null
-    if (state.isLoadingProfitLoss) return;
+    // Guard: prevent spam loads if already loading
+    if (state.isLoadingProfitLoss) {
+      debugPrint('⏭️ Reports: Already loading P&L - skipping granular expense update');
+      return;
+    }
     
+    // Only load full data if state is null (first load scenario)
+    // This should NOT happen during real-time updates after initial load
     if (state.profitLoss == null) {
+      debugPrint('⚠️ Reports: P&L state is null - performing initial load (this should be rare during real-time)');
       loadProfitLoss();
       return;
     }
@@ -443,6 +460,7 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
         endDate: currentPL.endDate,
       ),
     );
+    debugPrint('✅ Reports: P&L state updated incrementally from expense - newOperatingExpenses: ${newOperatingExpenses.toStringAsFixed(2)}, newNetProfit: ${newNetProfit.toStringAsFixed(2)} (NO FULL RELOAD)');
   }
 
   /// Update Top Products incrementally from sale_item change
@@ -781,9 +799,28 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
           // Get data record (newRecord for INSERT/UPDATE, oldRecord for DELETE)
           final dataRecord = newRecord ?? oldRecord;
           if (dataRecord != null) {
+            // ✅ CRITICAL: Check date range BEFORE updating to prevent unnecessary updates/reloads
+            final saleDate = dataRecord['created_at'] as String?;
+            if (saleDate != null && state.startDate != null && state.endDate != null) {
+              final date = DateTime.tryParse(saleDate);
+              if (date != null) {
+                final saleDateTime = DateTime(date.year, date.month, date.day);
+                final start = DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day);
+                final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59);
+                
+                // Skip update if outside date range - prevents unnecessary state changes
+                if (saleDateTime.isBefore(start) || saleDateTime.isAfter(end)) {
+                  debugPrint('⏭️ Reports: Sale $eventType event outside date range - skipping update (no reload)');
+                  return;
+                }
+              }
+            }
+            
+            debugPrint('🔄 Reports: Sale $eventType event received - updating incrementally (no reload)');
             _updateProfitLossFromSale(newRecord, oldRecord, eventType);
             _updateSalesByChannelFromData(dataRecord, eventType);
             _updateMonthlyTrendsFromData(dataRecord, eventType);
+            debugPrint('✅ Reports: Sale update complete - UI will rebuild automatically');
           }
         },
       );
@@ -840,9 +877,28 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
             // Only update if booking is completed
             final status = dataRecord['status'] as String?;
             if (status == 'completed' || eventType == 'DELETE') {
+              // ✅ CRITICAL: Check date range BEFORE updating to prevent unnecessary updates/reloads
+              final bookingDate = dataRecord['created_at'] as String?;
+              if (bookingDate != null && state.startDate != null && state.endDate != null) {
+                final date = DateTime.tryParse(bookingDate);
+                if (date != null) {
+                  final bookingDateTime = DateTime(date.year, date.month, date.day);
+                  final start = DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day);
+                  final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59);
+                  
+                  // Skip update if outside date range - prevents unnecessary state changes
+                  if (bookingDateTime.isBefore(start) || bookingDateTime.isAfter(end)) {
+                    debugPrint('⏭️ Reports: Booking $eventType event outside date range - skipping update (no reload)');
+                    return;
+                  }
+                }
+              }
+              
+              debugPrint('🔄 Reports: Booking $eventType event received - updating incrementally (no reload)');
               _updateProfitLossFromSale(newRecord, oldRecord, eventType);
               _updateSalesByChannelFromData(dataRecord, eventType);
               _updateMonthlyTrendsFromData(dataRecord, eventType);
+              debugPrint('✅ Reports: Booking update complete - UI will rebuild automatically');
             }
           }
         },
@@ -876,8 +932,27 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
             // Only update if claim is settled
             final status = dataRecord['status'] as String?;
             if (status == 'settled' || eventType == 'DELETE') {
+              // ✅ CRITICAL: Check date range BEFORE updating to prevent unnecessary updates/reloads
+              final claimDate = dataRecord['created_at'] as String?;
+              if (claimDate != null && state.startDate != null && state.endDate != null) {
+                final date = DateTime.tryParse(claimDate);
+                if (date != null) {
+                  final claimDateTime = DateTime(date.year, date.month, date.day);
+                  final start = DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day);
+                  final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59);
+                  
+                  // Skip update if outside date range - prevents unnecessary state changes
+                  if (claimDateTime.isBefore(start) || claimDateTime.isAfter(end)) {
+                    debugPrint('⏭️ Reports: Claim $eventType event outside date range - skipping update (no reload)');
+                    return;
+                  }
+                }
+              }
+              
+              debugPrint('🔄 Reports: Claim $eventType event received - updating incrementally (no reload)');
               _updateProfitLossFromSale(newRecord, oldRecord, eventType);
               _updateSalesByChannelFromData(dataRecord, eventType);
+              debugPrint('✅ Reports: Claim update complete - UI will rebuild automatically');
             }
           }
         },
@@ -908,18 +983,19 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
           // Get data record (newRecord for INSERT/UPDATE, oldRecord for DELETE)
           final dataRecord = newRecord ?? oldRecord;
           if (dataRecord != null) {
-            // Check if expense is within date range before updating
+            // ✅ CRITICAL: Check date range BEFORE updating to prevent unnecessary updates/reloads
             final expenseDate = dataRecord['expense_date'] as String?;
-            if (expenseDate != null) {
+            if (expenseDate != null && state.startDate != null && state.endDate != null) {
               final date = DateTime.tryParse(expenseDate);
-              if (date != null && state.startDate != null && state.endDate != null) {
+              if (date != null) {
                 final expenseDateTime = DateTime(date.year, date.month, date.day);
                 final start = DateTime(state.startDate!.year, state.startDate!.month, state.startDate!.day);
-                final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day);
+                final end = DateTime(state.endDate!.year, state.endDate!.month, state.endDate!.day, 23, 59, 59);
                 
-                // Only update if expense is within date range
+                // Skip update if outside date range - prevents unnecessary state changes
                 if (expenseDateTime.isBefore(start) || expenseDateTime.isAfter(end)) {
-                  return; // Skip update if outside date range
+                  debugPrint('⏭️ Reports: Expense $eventType event outside date range - skipping update (no reload)');
+                  return;
                 }
               }
             }
@@ -959,12 +1035,26 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
         },
       );
 
-      // Subscribe to channel
-      channel.subscribe();
+      // Subscribe to channel - CRITICAL: This activates all onPostgresChanges listeners
+      channel.subscribe((status, [error]) {
+        if (status == RealtimeSubscribeStatus.subscribed) {
+          debugPrint('✅ Reports: Realtime channel SUBSCRIBED successfully (instance: $_instanceId)');
+          debugPrint('📡 Reports: Listening for changes on: sales, sale_items, bookings, consignment_claims, expenses, vendor_deliveries');
+        } else if (status == RealtimeSubscribeStatus.timedOut) {
+          debugPrint('⚠️ Reports: Realtime channel subscription TIMED OUT (instance: $_instanceId)');
+          debugPrint('⚠️ Reports: Real-time updates may not work. Manual refresh required.');
+        } else if (status == RealtimeSubscribeStatus.channelError) {
+          debugPrint('❌ Reports: Realtime channel ERROR: $error (instance: $_instanceId)');
+          debugPrint('❌ Reports: Real-time updates will not work. Manual refresh required.');
+        } else {
+          debugPrint('🔄 Reports: Realtime channel status: $status (instance: $_instanceId)');
+        }
+      });
       debugPrint('✅ Reports real-time subscriptions setup complete');
       debugPrint('📡 Reports: Each browser window/tab has its own StateNotifier instance');
       debugPrint('📡 Reports: All instances subscribe to same Supabase Realtime channel');
       debugPrint('📡 Reports: When data changes, ALL windows update simultaneously via WebSocket');
+      debugPrint('📡 Reports: Date range filtering applied - only events within startDate/endDate will trigger updates');
     } catch (e) {
       // Log error for debugging - realtime is optional, continue without it
       debugPrint('❌ Error setting up reports real-time subscriptions: $e');
