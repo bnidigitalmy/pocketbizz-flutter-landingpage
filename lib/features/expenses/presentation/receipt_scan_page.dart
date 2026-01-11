@@ -134,7 +134,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     // This helps prevent app hang when permission dialog appears
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
-        _initCamera();
+        _initCamera().catchError((error) {
+          debugPrint('⚠️ Error initializing camera: $error');
+          // Silently fail - camera is optional, user can use gallery instead
+        });
       }
     });
   }
@@ -351,7 +354,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         await _processImage(image);
       } else {
         // User cancelled, restart camera
-        _initCamera();
+        _initCamera().catchError((error) {
+          debugPrint('⚠️ Error restarting camera after gallery cancel: $error');
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -361,7 +366,9 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             backgroundColor: Colors.red,
           ),
         );
-        _initCamera();
+        _initCamera().catchError((error) {
+          debugPrint('⚠️ Error restarting camera after gallery error: $error');
+        });
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
@@ -409,11 +416,17 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       final base64Image = base64Encode(bytes);
 
       // Call Supabase Edge Function for OCR (with image upload option)
+      // Add timeout to prevent indefinite waiting and unhandled promise rejections
       final response = await supabase.functions.invoke(
         'OCR-Cloud-Vision',
         body: {
           'imageBase64': base64Image,
           'uploadImage': true, // Request Edge Function to upload image
+        },
+      ).timeout(
+        const Duration(seconds: 60), // 60 second timeout
+        onTimeout: () {
+          throw Exception('OCR processing timeout. Sila cuba lagi.');
         },
       );
 
@@ -478,7 +491,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _amountController.text = parsed.amount!.toStringAsFixed(2);
     }
 
-    // Auto-fill date
+    // Auto-fill date with validation
     if (parsed.date != null) {
       try {
         final parts = parsed.date!.split(RegExp(r'[\/\-.]'));
@@ -494,10 +507,50 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
             year = int.parse(parts[2]);
             if (year < 100) year += 2000;
           }
-          _selectedDate = DateTime(year, month, day);
-          _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+          
+          // Validate date range: year must be reasonable (2020-2030)
+          // This prevents invalid dates like 1135 from being set
+          final now = DateTime.now();
+          final minYear = 2020;
+          final maxYear = now.year + 1; // Allow up to next year
+          
+          if (year >= minYear && year <= maxYear && 
+              month >= 1 && month <= 12 && 
+              day >= 1 && day <= 31) {
+            try {
+              final parsedDate = DateTime(year, month, day);
+              // Double-check: ensure date is valid and within reasonable range
+              if (parsedDate.year == year && 
+                  parsedDate.month == month && 
+                  parsedDate.day == day &&
+                  parsedDate.isBefore(DateTime.now().add(const Duration(days: 1)))) {
+                _selectedDate = parsedDate;
+                _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+              } else {
+                // Invalid date (e.g., Feb 30), use today instead
+                debugPrint('⚠️ Invalid parsed date: $year-$month-$day, using today');
+                _selectedDate = DateTime.now();
+                _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+              }
+            } catch (e) {
+              // Invalid date (e.g., Feb 30), use today instead
+              debugPrint('⚠️ Error parsing date: $year-$month-$day, error: $e');
+              _selectedDate = DateTime.now();
+              _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+            }
+          } else {
+            // Year out of range (e.g., 1135), use today instead
+            debugPrint('⚠️ Date out of range: $year-$month-$day, using today');
+            _selectedDate = DateTime.now();
+            _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+          }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('⚠️ Error parsing date from OCR: ${parsed.date}, error: $e');
+        // Use today as fallback
+        _selectedDate = DateTime.now();
+        _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      }
     }
 
     // Auto-fill merchant
@@ -1263,17 +1316,54 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
                         border: OutlineInputBorder(),
                       ),
                       onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _selectedDate = picked;
-                            _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+                        try {
+                          // Validate _selectedDate before passing to showDatePicker
+                          // If date is invalid (e.g., year 1135), use today instead
+                          final now = DateTime.now();
+                          final minDate = DateTime(2020);
+                          DateTime initialDate = _selectedDate;
+                          
+                          // Ensure initialDate is within valid range
+                          if (initialDate.isBefore(minDate) || 
+                              initialDate.isAfter(now.add(const Duration(days: 1)))) {
+                            debugPrint('⚠️ _selectedDate out of range: $_selectedDate, using today');
+                            initialDate = now;
+                          }
+                          
+                          // Clamp initialDate to valid range
+                          if (initialDate.isBefore(minDate)) {
+                            initialDate = minDate;
+                          } else if (initialDate.isAfter(now)) {
+                            initialDate = now;
+                          }
+                          
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: initialDate,
+                            firstDate: minDate,
+                            lastDate: now,
+                          ).catchError((error) {
+                            debugPrint('⚠️ Error showing date picker: $error');
+                            // Return null to prevent unhandled promise rejection
+                            return null;
                           });
+                          
+                          if (picked != null && mounted) {
+                            setState(() {
+                              _selectedDate = picked;
+                              _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+                            });
+                          }
+                        } catch (e) {
+                          debugPrint('⚠️ Error in date picker onTap: $e');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Ralat membuka pemilih tarikh: $e'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
                         }
                       },
                     ),
