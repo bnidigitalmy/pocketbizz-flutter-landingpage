@@ -7,6 +7,10 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/projection",
+      "destination": "/projection.html"
+    },
+    {
       "source": "/landing-v2",
       "destination": "/landing-v2.html"
     },
