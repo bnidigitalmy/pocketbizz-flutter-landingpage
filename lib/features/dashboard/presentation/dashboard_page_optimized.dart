@@ -665,6 +665,12 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                         onTap: () => Navigator.of(context).pushNamed('/documents'),
                       ),
                       MoreQuickActionV2(
+                        label: 'Dokumen Resepi',
+                        icon: Icons.menu_book_rounded,
+                        color: Colors.green,
+                        onTap: () => Navigator.of(context).pushNamed('/recipe-documents'),
+                      ),
+                      MoreQuickActionV2(
                         label: 'Komuniti',
                         icon: Icons.groups_rounded,
                         color: Colors.green,

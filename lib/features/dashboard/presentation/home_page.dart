@@ -363,6 +363,15 @@ class _HomePageState extends State<HomePage> {
                 Navigator.pushNamed(context, '/documents');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.menu_book, color: Colors.green),
+              title: const Text('Dokumen Resepi'),
+              subtitle: const Text('Simpan & urus resepi anda', style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/recipe-documents');
+              },
+            ),
             // Hidden from user - development/testing features
             // ListTile(
             //   leading: const Icon(Icons.cloud, color: Colors.blue),
