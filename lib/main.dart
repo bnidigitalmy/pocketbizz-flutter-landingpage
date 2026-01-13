@@ -56,6 +56,7 @@ import 'features/feedback/presentation/community_page.dart';
 import 'features/feedback/presentation/admin/admin_feedback_page.dart';
 import 'features/announcements/presentation/notifications_page.dart';
 import 'features/announcements/presentation/admin/admin_announcements_page.dart';
+import 'features/recipe_documents/presentation/pages/recipe_documents_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -264,6 +265,7 @@ class PocketBizzApp extends StatelessWidget {
         '/admin/feedback': (context) => const AdminFeedbackPage(),
         '/notifications': (context) => const NotificationsPage(),
         '/admin/announcements': (context) => const AdminAnnouncementsPage(),
+        '/recipe-documents': (context) => const RecipeDocumentsPage(),
       },
     );
   }
