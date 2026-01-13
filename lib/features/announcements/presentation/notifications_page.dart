@@ -110,6 +110,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'langganan':
         page = const SubscriptionPage();
         break;
+      case 'recipe-documents':
+      case 'dokumen-resepi':
+        // Navigate to recipe documents page using named route
+        Navigator.pushNamed(context, '/recipe-documents');
+        return;
       default:
         // Unknown route, show error
         ScaffoldMessenger.of(context).showSnackBar(

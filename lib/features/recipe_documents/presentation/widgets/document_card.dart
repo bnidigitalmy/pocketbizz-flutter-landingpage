@@ -129,6 +129,7 @@ class DocumentCard extends StatelessWidget {
                     icon: const Icon(Icons.more_vert, size: 20),
                     itemBuilder: (context) => [
                       PopupMenuItem(
+                        value: 'favourite',
                         child: Row(
                           children: [
                             Icon(
@@ -143,14 +144,9 @@ class DocumentCard extends StatelessWidget {
                                 : 'Tambah ke Favorit'),
                           ],
                         ),
-                        onTap: () {
-                          Future.delayed(
-                            const Duration(milliseconds: 100),
-                            onFavourite,
-                          );
-                        },
                       ),
                       const PopupMenuItem(
+                        value: 'delete',
                         child: Row(
                           children: [
                             Icon(Icons.delete, size: 20, color: Colors.red),
@@ -158,12 +154,13 @@ class DocumentCard extends StatelessWidget {
                             Text('Padam', style: TextStyle(color: Colors.red)),
                           ],
                         ),
-                        onTap: null, // Will be handled by onDelete
                       ),
                     ],
                     onSelected: (value) {
                       if (value == 'delete') {
                         onDelete();
+                      } else if (value == 'favourite') {
+                        onFavourite();
                       }
                     },
                   ),

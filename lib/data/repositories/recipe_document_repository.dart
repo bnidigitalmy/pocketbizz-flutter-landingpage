@@ -215,23 +215,62 @@ class RecipeDocumentRepository with RateLimitMixin {
         }
 
         // Delete file from storage if it exists
-        if (document.isFile && document.filePath != null) {
+        if (document.isFile && document.filePath != null && document.filePath!.isNotEmpty) {
           try {
-            await supabase.storage
-                .from('recipe-documents')
-                .remove([document.filePath!]);
+            // For web, we might need to use HTTP DELETE
+            if (kIsWeb) {
+              final accessToken = supabase.auth.currentSession?.accessToken;
+              if (accessToken != null) {
+                final supabaseUrl = EnvConfig.supabaseUrl;
+                final supabaseAnonKey = EnvConfig.supabaseAnonKey;
+                
+                // Encode path properly for URL
+                final pathSegments = document.filePath!.split('/');
+                final encodedSegments = pathSegments.map((s) => Uri.encodeComponent(s)).join('/');
+                final storageUrl = '$supabaseUrl/storage/v1/object/recipe-documents/$encodedSegments';
+                
+                final response = await http.delete(
+                  Uri.parse(storageUrl),
+                  headers: {
+                    'Authorization': 'Bearer $accessToken',
+                    'apikey': supabaseAnonKey,
+                  },
+                );
+                
+                // 200, 204, or 404 (already deleted) are acceptable
+                if (response.statusCode != 200 && 
+                    response.statusCode != 204 && 
+                    response.statusCode != 404) {
+                  print('Warning: Failed to delete file from storage: ${response.statusCode} - ${response.body}');
+                }
+              }
+            } else {
+              // For mobile: use Supabase client
+              await supabase.storage
+                  .from('recipe-documents')
+                  .remove([document.filePath!]);
+            }
           } catch (e) {
             // Log error but continue with database deletion
-            print('Error deleting file from storage: $e');
+            // File might already be deleted or not exist
+            print('Warning: Error deleting file from storage: $e');
           }
         }
 
         // Delete from database
-        await supabase
+        // Use select() to get deleted rows for verification
+        final deleteResult = await supabase
             .from('recipe_documents')
             .delete()
             .eq('id', id)
-            .eq('business_owner_id', userId);
+            .eq('business_owner_id', userId)
+            .select();
+        
+        // Verify deletion was successful
+        // Supabase returns empty list if no rows were deleted
+        if (deleteResult == null || (deleteResult is List && deleteResult.isEmpty)) {
+          throw Exception('Gagal memadam dokumen. Dokumen mungkin tidak wujud atau anda tidak mempunyai kebenaran.');
+        }
       },
     );
   }

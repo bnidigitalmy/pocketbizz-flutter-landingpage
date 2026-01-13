@@ -238,7 +238,7 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Padam Dokumen'),
-        content: Text('Adakah anda pasti mahu memadam "${document.title}"?'),
+        content: Text('Adakah anda pasti mahu memadam "${document.title}"? Tindakan ini tidak boleh dibatalkan.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -254,9 +254,33 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
     );
 
     if (confirmed == true) {
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text('Memadam dokumen...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
       try {
         await _repo.delete(document.id);
         if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Dokumen telah dipadam'),
@@ -267,10 +291,25 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
         await _loadData();
       } catch (e) {
         if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          String errorMessage = 'Gagal memadam dokumen';
+          
+          // Provide user-friendly error messages
+          if (e.toString().contains('not authenticated')) {
+            errorMessage = 'Sila log masuk semula';
+          } else if (e.toString().contains('not found')) {
+            errorMessage = 'Dokumen tidak dijumpai';
+          } else if (e.toString().contains('permission')) {
+            errorMessage = 'Anda tidak mempunyai kebenaran untuk memadam dokumen ini';
+          } else {
+            errorMessage = 'Ralat: ${e.toString()}';
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting document: $e'),
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
             ),
           );
         }
