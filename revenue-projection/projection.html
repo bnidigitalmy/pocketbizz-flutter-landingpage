@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BNI Digital Enterprise – Unjuran Pertumbuhan & Kewangan PocketBizz (5 Tahun)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #14b8a6;
+            --primary-dark: #0d9488;
+            --primary-light: #2dd4bf;
+            --accent: #3b82f6;
+            --accent-dark: #2563eb;
+            --accent-light: #60a5fa;
+            --logo-gradient: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%);
+            --background: #f9fafb;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .brand-gradient {
+            background: var(--logo-gradient);
+        }
+        
+        .text-primary-brand {
+            color: var(--primary);
+        }
+        
+        .text-accent-brand {
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <!-- Navigation Bar -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="text-lg font-semibold" style="color: var(--primary);">PocketBizz</div>
+                <div class="flex gap-3">
+                    <a href="https://pocketbizz.my" target="_blank" class="px-4 py-2 text-sm rounded-lg border transition-colors" style="background-color: rgba(59, 130, 246, 0.1); color: var(--accent); border-color: rgba(59, 130, 246, 0.2);" onmouseover="this.style.backgroundColor='rgba(59, 130, 246, 0.15)'" onmouseout="this.style.backgroundColor='rgba(59, 130, 246, 0.1)'">
+                        Laman Web
+                    </a>
+                    <a href="https://app.pocketbizz.my" target="_blank" class="px-4 py-2 text-sm rounded-lg text-white transition-colors brand-gradient hover:opacity-90">
+                        Aplikasi
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="bg-gradient-to-b from-white to-gray-50 border-b border-gray-200 py-12">
+        <div class="container mx-auto px-4">
+            <div class="max-w-3xl mx-auto text-center">
+                <h1 class="text-3xl md:text-4xl font-bold mb-4" style="color: var(--text-primary);">
+                    BNI Digital Enterprise
+                </h1>
+                <p class="text-2xl md:text-3xl font-semibold mb-2" style="color: var(--primary);">
+                    Unjuran Pertumbuhan & Kewangan PocketBizz
+                </p>
+                <p class="text-lg md:text-xl mb-2" style="color: var(--text-secondary);">
+                    Platform Pengurusan Perniagaan Mampan untuk PKS <span class="text-primary-brand font-semibold">(Malaysia → Global)</span>
+                </p>
+                <p class="text-sm" style="color: var(--text-secondary);">
+                    Unjuran Kewangan 5 Tahun (2026-2030) | Model Pendapatan Berulang | Pertumbuhan Mampan
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Market Opportunity -->
+    <section class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center">
+                Peluang Pasaran
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <!-- Card 1 -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">
+                        PKS Malaysia
+                    </h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Berjuta-juta perniagaan kecil masih bergantung pada rekod manual dan penjejakan berasaskan WhatsApp.
+                    </p>
+                </div>
+                
+                <!-- Card 2 -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">
+                        Perniagaan Berasaskan Rumah & Mikro
+                    </h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Pembuat kek, penjual dalam talian, dan penjual TikTok memerlukan alatan mudah yang diutamakan untuk peranti mudah alih.
+                    </p>
+                </div>
+                
+                <!-- Card 3 -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-3">
+                        PKS Mikro Antarabangsa
+                    </h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Masalah operasi yang sama wujud secara global untuk perniagaan mikro.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Revenue Model -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 text-center">
+                Model Pendapatan
+            </h2>
+            <p class="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
+                Platform ini menggunakan model langganan bulanan yang memberikan pendapatan berulang dan mampan. Setiap pelanggan membayar yuran bulanan untuk akses penuh kepada semua ciri platform.
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-8">
+                <!-- Starter -->
+                <div class="bg-white border-2 border-gray-300 rounded-lg p-6 text-center">
+                    <h3 class="text-xl font-semibold mb-2" style="color: var(--text-primary);">Starter</h3>
+                    <div class="text-3xl font-bold mb-4 text-primary-brand">RM 29<span class="text-lg text-gray-500">/bulan</span></div>
+                    <p class="text-sm" style="color: var(--text-secondary);">Pelan asas untuk perniagaan kecil</p>
+                </div>
+                
+                <!-- Growth -->
+                <div class="border-2 rounded-lg p-6 text-center brand-gradient text-white" style="border-color: var(--primary);">
+                    <h3 class="text-xl font-semibold mb-2">Growth</h3>
+                    <div class="text-3xl font-bold mb-4">RM 39<span class="text-lg opacity-90">/bulan</span></div>
+                    <p class="text-sm opacity-95">Pelan pertengahan untuk perniagaan yang berkembang</p>
+                </div>
+                
+                <!-- Pro -->
+                <div class="bg-white border-2 border-gray-300 rounded-lg p-6 text-center">
+                    <h3 class="text-xl font-semibold mb-2" style="color: var(--text-primary);">Pro</h3>
+                    <div class="text-3xl font-bold mb-4 text-accent-brand">RM 49<span class="text-lg text-gray-500">/bulan</span></div>
+                    <p class="text-sm" style="color: var(--text-secondary);">Pelan profesional dengan ciri lengkap</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5-Year Financial Projection -->
+    <section class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center">
+                Unjuran Kewangan 5 Tahun
+            </h2>
+            
+            <div class="bg-white rounded-lg border border-gray-200 p-6 md:p-8 shadow-sm max-w-5xl mx-auto mb-8">
+                <div style="position: relative; height: 400px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Summary Table -->
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm max-w-4xl mx-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-900">Tahun</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold text-gray-900">Pendapatan Tahunan (RM)</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold text-gray-900">Pendapatan Bulanan (RM)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900">2026</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 text-right font-medium">55,680</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">4,640</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900">2027</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 text-right font-medium">315,000</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">26,250</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900">2028</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 text-right font-medium">1,400,000</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">116,667</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900">2029</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 text-right font-medium">3,200,000</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">266,667</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900 font-semibold">2030</td>
+                            <td class="px-6 py-4 text-sm text-right font-bold" style="color: var(--primary-dark);">5,800,000</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">483,333</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="bg-gray-100 border-t-2 border-gray-300">
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">Jumlah (5 Tahun)</td>
+                            <td class="px-6 py-4 text-sm font-bold text-gray-900 text-right">10,770,680</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 text-right">-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Metrics Summary -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center">
+                Metrik Utama & Sasaran
+            </h2>
+            
+            <div class="max-w-5xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Target Subscribers -->
+                    <div class="bg-gradient-to-br from-white to-gray-50 rounded-lg border-2 border-gray-200 p-6 text-center">
+                        <div class="text-3xl font-bold mb-2 text-primary-brand">12,393</div>
+                        <div class="text-sm text-gray-600 mb-1">Pelanggan Aktif (2030)</div>
+                        <div class="text-xs text-gray-500">Dari 119 (2026)</div>
+                    </div>
+                    
+                    <!-- Growth Rate -->
+                    <div class="bg-gradient-to-br from-white to-gray-50 rounded-lg border-2 border-gray-200 p-6 text-center">
+                        <div class="text-3xl font-bold mb-2 text-accent-brand">81.3%</div>
+                        <div class="text-sm text-gray-600 mb-1">Kadar Pertumbuhan (2029-2030)</div>
+                        <div class="text-xs text-gray-500">Purata 255% (2026-2030)</div>
+                    </div>
+                    
+                    <!-- Retention Rate -->
+                    <div class="bg-gradient-to-br from-white to-gray-50 rounded-lg border-2 border-gray-200 p-6 text-center">
+                        <div class="text-3xl font-bold mb-2" style="color: var(--primary-dark);">90%</div>
+                        <div class="text-sm text-gray-600 mb-1">Kadar Pengekalan Tahunan</div>
+                        <div class="text-xs text-gray-500">Industry standard: 85-95%</div>
+                    </div>
+                    
+                    <!-- ARPU -->
+                    <div class="bg-gradient-to-br from-white to-gray-50 rounded-lg border-2 border-gray-200 p-6 text-center">
+                        <div class="text-3xl font-bold mb-2 text-primary-brand">RM 39</div>
+                        <div class="text-sm text-gray-600 mb-1">ARPU Bulanan (Purata)</div>
+                        <div class="text-xs text-gray-500">RM 29 - RM 49</div>
+                    </div>
+                </div>
+                
+                <!-- Subscriber Growth Chart -->
+                <div class="bg-white rounded-lg border border-gray-200 p-6 md:p-8 shadow-sm max-w-5xl mx-auto mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 text-center">Graf Pertumbuhan Pelanggan</h3>
+                    <div style="position: relative; height: 300px;">
+                        <canvas id="subscriberChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Subscriber Growth Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Pertumbuhan Pelanggan Mengikut Tahun</h3>
+                    </div>
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-sm font-semibold text-gray-900">Tahun</th>
+                                <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Pelanggan Aktif</th>
+                                <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Pertumbuhan</th>
+                                <th class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Pendapatan/Pelanggan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium">2026</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 text-right font-semibold">119</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">-</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">RM 468/tahun</td>
+                            </tr>
+                            <tr class="bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium">2027</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 text-right font-semibold">673</td>
+                                <td class="px-6 py-4 text-sm text-green-600 text-right font-semibold">+465.7%</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">RM 468/tahun</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium">2028</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 text-right font-semibold">2,991</td>
+                                <td class="px-6 py-4 text-sm text-green-600 text-right font-semibold">+344.4%</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">RM 468/tahun</td>
+                            </tr>
+                            <tr class="bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium">2029</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 text-right font-semibold">6,838</td>
+                                <td class="px-6 py-4 text-sm text-green-600 text-right font-semibold">+128.6%</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">RM 468/tahun</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 text-sm text-gray-900 font-medium font-semibold">2030</td>
+                                <td class="px-6 py-4 text-sm text-right font-bold" style="color: var(--primary-dark);">12,393</td>
+                                <td class="px-6 py-4 text-sm text-green-600 text-right font-semibold">+81.3%</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 text-right">RM 468/tahun</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Growth Roadmap Timeline -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center">
+                Jalan Raya Pertumbuhan
+            </h2>
+            
+            <div class="max-w-3xl mx-auto">
+                <div class="space-y-8">
+                    <!-- 2026 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-20 text-right">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold text-white" style="background-color: var(--primary);">
+                                2026
+                            </span>
+                        </div>
+                        <div class="flex-grow border-l-2 border-gray-300 pl-6 pb-8">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Pelancaran Malaysia</h3>
+                            <p class="text-gray-600">Web + PWA (Progressive Web App)</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 2027 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-20 text-right">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold" style="background-color: rgba(20, 184, 166, 0.15); color: var(--primary-dark);">
+                                2027
+                            </span>
+                        </div>
+                        <div class="flex-grow border-l-2 border-gray-300 pl-6 pb-8">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Android Play Store</h3>
+                            <p class="text-gray-600">Aplikasi mudah alih untuk peranti Android</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 2028 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-20 text-right">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold text-white" style="background-color: var(--accent);">
+                                2028
+                            </span>
+                        </div>
+                        <div class="flex-grow border-l-2 border-gray-300 pl-6 pb-8">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Apple App Store</h3>
+                            <p class="text-gray-600">Aplikasi mudah alih untuk peranti iOS</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 2029 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-20 text-right">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold" style="background-color: rgba(59, 130, 246, 0.15); color: var(--accent-dark);">
+                                2029
+                            </span>
+                        </div>
+                        <div class="flex-grow border-l-2 border-gray-300 pl-6 pb-8">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Pengembangan Asia Tenggara</h3>
+                            <p class="text-gray-600">Memperluas perkhidmatan ke negara-negara ASEAN</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 2030 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-20 text-right">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-semibold text-white brand-gradient">
+                                2030
+                            </span>
+                        </div>
+                        <div class="flex-grow border-l-2 border-gray-300 pl-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Pasaran PKS Mikro Global</h3>
+                            <p class="text-gray-600">Menjangkau pasaran antarabangsa untuk perniagaan mikro</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust & Responsibility -->
+    <section class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="max-w-3xl mx-auto bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6 text-center">
+                    Strategi Pertumbuhan & Kelebihan Kompetitif
+                </h2>
+                
+                <div class="space-y-4 text-gray-700 leading-relaxed">
+                    <p>
+                        <strong class="text-gray-900">Produk Proprietary Dibangunkan In-House:</strong> PocketBizz adalah produk yang dibangunkan sepenuhnya oleh BNI Digital Enterprise, memastikan kawalan penuh terhadap pembangunan, kualiti, dan arah tuju produk. Ini memberikan kelebihan kompetitif dalam pasaran dan memastikan komitmen jangka panjang terhadap inovasi berterusan.
+                    </p>
+                    
+                    <p>
+                        <strong class="text-gray-900">Model Kos Operasi yang Cekap:</strong> Dengan penggunaan teknologi moden dan infrastruktur awan yang dioptimumkan, kos operasi platform dapat dikekalkan pada tahap yang rendah sambil mengekalkan kualiti perkhidmatan. Ini membolehkan penawaran harga yang berpatutan dan margin keuntungan yang sihat untuk pertumbuhan mampan syarikat.
+                    </p>
+                    
+                    <p>
+                        <strong class="text-gray-900">Pendekatan Pertumbuhan Realistik & Mampan:</strong> BNI Digital Enterprise mengamalkan pendekatan pertumbuhan yang realistik dan berasaskan data, bukannya mengejar pertumbuhan yang tidak mampan atau janji-janji yang keterlaluan. Setiap unjuran adalah berdasarkan analisis pasaran, trend industri, dan kapasiti operasi sebenar syarikat.
+                    </p>
+                    
+                    <p>
+                        <strong class="text-gray-900">Komitmen Jangka Panjang kepada Kecemerlangan & Inovasi:</strong> Sebagai syarikat teknologi yang komited kepada kecemerlangan, BNI Digital Enterprise fokus kepada pembangunan produk berkualiti tinggi, perkhidmatan pelanggan yang unggul, dan inovasi berterusan. Komitmen ini memastikan kedudukan kompetitif yang kukuh dalam pasaran dan pertumbuhan jangka panjang yang mampan.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Assumptions Breakdown -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6 text-center">
+                    Andaian & Metodologi Pengiraan
+                </h2>
+                
+                <div class="space-y-6 text-gray-700 leading-relaxed">
+                    <!-- Model Pendapatan dengan Visual -->
+                    <div class="border-l-4 pl-4 pb-4" style="border-color: var(--primary);">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Model Pendapatan</h3>
+                        <p class="text-sm mb-4">
+                            <strong>Formula:</strong> Pendapatan Tahunan = Bilangan Pelanggan × ARPU Tahunan (RM 468)
+                        </p>
+                        
+                        <!-- Visual Formula Box -->
+                        <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-4 mb-4 border border-teal-200">
+                            <div class="flex flex-col md:flex-row items-center justify-center gap-3 text-center">
+                                <div class="bg-white rounded-lg px-4 py-2 shadow-sm border border-teal-200">
+                                    <div class="text-xs text-gray-600 mb-1">Bilangan Pelanggan</div>
+                                    <div class="text-lg font-bold text-primary-brand">12,393</div>
+                                </div>
+                                <div class="text-2xl font-bold text-gray-400">×</div>
+                                <div class="bg-white rounded-lg px-4 py-2 shadow-sm border border-teal-200">
+                                    <div class="text-xs text-gray-600 mb-1">ARPU Tahunan</div>
+                                    <div class="text-lg font-bold text-primary-brand">RM 468</div>
+                                </div>
+                                <div class="text-2xl font-bold text-gray-400">=</div>
+                                <div class="bg-white rounded-lg px-4 py-2 shadow-sm border-2 border-teal-400">
+                                    <div class="text-xs text-gray-600 mb-1">Pendapatan Tahunan</div>
+                                    <div class="text-lg font-bold text-primary-dark">RM 5.8M</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ARPU Breakdown -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                            <div class="bg-white rounded-lg p-3 border border-gray-200 text-center">
+                                <div class="text-xs text-gray-500 mb-1">Starter</div>
+                                <div class="text-sm font-semibold text-gray-900">RM 29/bulan</div>
+                                <div class="text-xs text-gray-500 mt-1">40% pelanggan</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border-2 border-primary text-center" style="border-color: var(--primary);">
+                                <div class="text-xs text-gray-500 mb-1">Growth</div>
+                                <div class="text-sm font-semibold text-primary-brand">RM 39/bulan</div>
+                                <div class="text-xs text-gray-500 mt-1">40% pelanggan</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border border-gray-200 text-center">
+                                <div class="text-xs text-gray-500 mb-1">Pro</div>
+                                <div class="text-sm font-semibold text-gray-900">RM 49/bulan</div>
+                                <div class="text-xs text-gray-500 mt-1">20% pelanggan</div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 italic">
+                            <strong>ARPU Purata:</strong> (40% × RM29) + (40% × RM39) + (20% × RM49) = RM 37/bulan ≈ RM 39/bulan
+                        </p>
+                    </div>
+                    
+                    <div class="border-l-4 pl-4 pb-4" style="border-color: var(--accent);">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Pertumbuhan Pelanggan</h3>
+                        
+                        <!-- Growth Timeline Visual -->
+                        <div class="space-y-3 mb-4">
+                            <div class="flex items-start gap-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    <div class="bg-white rounded-full w-12 h-12 flex items-center justify-center border-2 border-blue-400 mx-auto">
+                                        <span class="text-xs font-bold text-blue-600">119</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">2026</div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="text-sm font-semibold text-gray-900 mb-1">Fasa Pelancaran</div>
+                                    <div class="text-xs text-gray-600">Fokus kepada early adopters dan beta users</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center text-blue-500">
+                                <div class="text-2xl font-bold">+465.7%</div>
+                            </div>
+                            
+                            <div class="flex items-start gap-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    <div class="bg-white rounded-full w-12 h-12 flex items-center justify-center border-2 border-green-400 mx-auto">
+                                        <span class="text-xs font-bold text-green-600">673</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">2027</div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="text-sm font-semibold text-gray-900 mb-1">Momentum Growth</div>
+                                    <div class="text-xs text-gray-600">Word-of-mouth, content marketing, early adopter adoption</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center text-green-500">
+                                <div class="text-2xl font-bold">+344.4%</div>
+                            </div>
+                            
+                            <div class="flex items-start gap-3 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    <div class="bg-white rounded-full w-12 h-12 flex items-center justify-center border-2 border-purple-400 mx-auto">
+                                        <span class="text-xs font-bold text-purple-600">2,991</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">2028</div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="text-sm font-semibold text-gray-900 mb-1">Android Launch</div>
+                                    <div class="text-xs text-gray-600">Pelancaran Android Play Store meningkatkan aksesibiliti</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center text-purple-500">
+                                <div class="text-2xl font-bold">+128.6%</div>
+                            </div>
+                            
+                            <div class="flex items-start gap-3 bg-orange-50 rounded-lg p-3 border border-orange-200">
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    <div class="bg-white rounded-full w-12 h-12 flex items-center justify-center border-2 border-orange-400 mx-auto">
+                                        <span class="text-xs font-bold text-orange-600">6,838</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">2029</div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="text-sm font-semibold text-gray-900 mb-1">iOS Launch</div>
+                                    <div class="text-xs text-gray-600">Pelancaran Apple App Store membuka pasaran iOS users</div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-center text-orange-500">
+                                <div class="text-2xl font-bold">+81.3%</div>
+                            </div>
+                            
+                            <div class="flex items-start gap-3 bg-teal-50 rounded-lg p-3 border-2 border-teal-400">
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    <div class="bg-white rounded-full w-12 h-12 flex items-center justify-center border-2 border-teal-500 mx-auto">
+                                        <span class="text-xs font-bold text-teal-700">12,393</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">2030</div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="text-sm font-semibold text-gray-900 mb-1">Pertumbuhan Mampan</div>
+                                    <div class="text-xs text-gray-600">Network effects, referral program, market penetration</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-l-4 pl-4 pb-4" style="border-color: var(--primary-dark);">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Kadar Pengekalan (Retention Rate)</h3>
+                        
+                        <!-- Retention Visual -->
+                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 mb-3 border border-green-200">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="text-sm font-semibold text-gray-900">Kadar Pengekalan Tahunan</div>
+                                <div class="text-2xl font-bold text-green-600">90%</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                                <div class="bg-gradient-to-r from-green-400 to-emerald-500 h-4 rounded-full flex items-center justify-end pr-2" style="width: 90%;">
+                                    <span class="text-xs font-semibold text-white">90%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-600">
+                                <span>Industry Standard: 85-95%</span>
+                                <span>Churn: 10%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="bg-white rounded-lg p-3 border border-gray-200 text-center">
+                                <div class="text-2xl mb-1">📱</div>
+                                <div class="text-xs font-semibold text-gray-900">Mudah Digunakan</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border border-gray-200 text-center">
+                                <div class="text-2xl mb-1">💰</div>
+                                <div class="text-xs font-semibold text-gray-900">Harga Berpatutan</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 border border-gray-200 text-center">
+                                <div class="text-2xl mb-1">✅</div>
+                                <div class="text-xs font-semibold text-gray-900">Nilai Jelas</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-l-4 pl-4 pb-4" style="border-color: var(--primary);">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Faktor Pertumbuhan</h3>
+                        
+                        <!-- Growth Factors Visual -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="text-xl">📢</div>
+                                    <div class="text-sm font-semibold text-gray-900">2026-2027</div>
+                                </div>
+                                <div class="text-xs text-gray-600">Word-of-mouth, content marketing, early adopter adoption</div>
+                            </div>
+                            
+                            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="text-xl">🤖</div>
+                                    <div class="text-sm font-semibold text-gray-900">2027-2028</div>
+                                </div>
+                                <div class="text-xs text-gray-600">Pelancaran Android app meningkatkan aksesibiliti</div>
+                            </div>
+                            
+                            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="text-xl">🍎</div>
+                                    <div class="text-sm font-semibold text-gray-900">2028-2029</div>
+                                </div>
+                                <div class="text-xs text-gray-600">Pelancaran iOS app membuka pasaran Apple users</div>
+                            </div>
+                            
+                            <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="text-xl">🌐</div>
+                                    <div class="text-sm font-semibold text-gray-900">2029-2030</div>
+                                </div>
+                                <div class="text-xs text-gray-600">Network effects, referral program, market penetration</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-l-4 pl-4 pb-4" style="border-color: var(--accent);">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Berdasarkan Penyelidikan Pasaran</h3>
+                        
+                        <!-- Market Research Visual -->
+                        <div class="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 mb-3 border border-indigo-200">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-white rounded-lg p-3 text-center border border-gray-200">
+                                    <div class="text-2xl font-bold text-indigo-600 mb-1">1.2M</div>
+                                    <div class="text-xs text-gray-600">PKS di Malaysia</div>
+                                    <div class="text-xs text-gray-500 mt-1">(SME Corp, 2024)</div>
+                                </div>
+                                
+                                <div class="bg-white rounded-lg p-3 text-center border border-gray-200">
+                                    <div class="text-2xl font-bold text-indigo-600 mb-1">5-10%</div>
+                                    <div class="text-xs text-gray-600">Market Penetration</div>
+                                    <div class="text-xs text-gray-500 mt-1">Target: 60K-120K</div>
+                                </div>
+                                
+                                <div class="bg-white rounded-lg p-3 text-center border border-gray-200">
+                                    <div class="text-2xl font-bold text-indigo-600 mb-1">1%</div>
+                                    <div class="text-xs text-gray-600">Current Target</div>
+                                    <div class="text-xs text-gray-500 mt-1">12,393 (2030)</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                            <div class="flex items-start gap-2">
+                                <div class="text-lg">📊</div>
+                                <div class="text-xs text-gray-600">
+                                    <strong>Pertumbuhan Realistik:</strong> Unjuran ini konservatif dan berdasarkan analisis competitor, trend SaaS, dan kapasiti operasi syarikat
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 mt-6">
+                        <p class="text-sm text-gray-600 italic">
+                            <strong>Nota Penting:</strong> Unjuran ini adalah anggaran profesional berdasarkan andaian yang munasabah. 
+                            Hasil sebenar mungkin berbeza berdasarkan faktor-faktor seperti perubahan pasaran, persaingan, 
+                            dan keupayaan eksekusi syarikat. Unjuran ini tidak menjamin prestasi masa hadapan.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call To Action Section -->
+    <section class="py-16 bg-white border-y border-gray-200">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                    Ingin Melihat Projek PocketBizz Secara Langsung?
+                </h2>
+                <p class="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+                    Terokai aplikasi PocketBizz yang sebenar dan lihat sendiri bagaimana kami membantu usahawan kecil dan SME Malaysia menguruskan perniagaan mereka dengan lebih efisien.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <a 
+                        href="https://pocketbizz.my" 
+                        target="_blank" 
+                        class="px-8 py-4 text-base font-semibold rounded-lg border-2 transition-all hover:shadow-lg w-full sm:w-auto"
+                        style="background-color: rgba(59, 130, 246, 0.05); color: var(--accent); border-color: var(--accent);"
+                        onmouseover="this.style.backgroundColor='rgba(59, 130, 246, 0.1)'; this.style.transform='translateY(-2px)'"
+                        onmouseout="this.style.backgroundColor='rgba(59, 130, 246, 0.05)'; this.style.transform='translateY(0)'"
+                    >
+                        🌐 Lawati Laman Web
+                    </a>
+                    <a 
+                        href="https://app.pocketbizz.my" 
+                        target="_blank" 
+                        class="px-8 py-4 text-base font-semibold rounded-lg text-white transition-all hover:shadow-lg hover:opacity-90 w-full sm:w-auto brand-gradient"
+                        onmouseover="this.style.transform='translateY(-2px)'"
+                        onmouseout="this.style.transform='translateY(0)'"
+                    >
+                        🚀 Cubalah Aplikasi
+                    </a>
+                </div>
+                
+                <p class="text-sm text-gray-500 mt-6">
+                    Daftar percuma dan mulakan perjalanan anda untuk menguruskan perniagaan dengan lebih baik
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-8">
+        <div class="container mx-auto px-4">
+            <div class="max-w-3xl mx-auto">
+                <div class="text-center mb-6 pb-6 border-b border-gray-200">
+                    <p class="text-gray-600 text-sm mb-1">
+                        <strong class="text-gray-900">Disediakan oleh:</strong>
+                    </p>
+                    <p class="text-gray-700 text-base font-medium">
+                        BNI Digital Enterprise
+                    </p>
+                    <p class="text-gray-600 text-sm mt-1">
+                        Mohd Syabani Bin Zainon – Founder & CEO
+                    </p>
+                    <p class="text-gray-500 text-xs mt-2">
+                        PocketBizz – Aplikasi Pengurusan Bisnes Lengkap Untuk Usahawan Kecil & SME Malaysia
+                    </p>
+                </div>
+                <div class="text-center">
+                    <p class="text-gray-600 text-sm">
+                        BNI Digital Enterprise – Unjuran Pertumbuhan & Kewangan PocketBizz (2026-2030)
+                    </p>
+                    <p class="text-gray-500 text-xs mt-2">
+                        *Unjuran adalah anggaran profesional berdasarkan penyelidikan pasaran, analisis trend industri, dan kapasiti operasi syarikat
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Revenue Data
+        const revenueData = {
+            years: ['2026', '2027', '2028', '2029', '2030'],
+            annual: [55680, 315000, 1400000, 3200000, 5800000]
+        };
+
+        // Subscriber Data (calculated from revenue ÷ ARPU)
+        const subscriberData = {
+            years: ['2026', '2027', '2028', '2029', '2030'],
+            subscribers: [119, 673, 2991, 6838, 12393],
+            growthRates: [0, 465.7, 344.4, 128.6, 81.3]
+        };
+
+        // Format currency in RM
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('ms-MY', {
+                style: 'currency',
+                currency: 'MYR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value);
+        }
+
+        // Revenue Chart - Initialize after everything loads
+        window.addEventListener('load', function() {
+            const revenueCtx = document.getElementById('revenueChart');
+            if (!revenueCtx) {
+                console.error('Canvas element not found');
+                return;
+            }
+            
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js library not loaded. Please check CDN link.');
+                return;
+            }
+            
+            try {
+                new Chart(revenueCtx, {
+                    type: 'line',
+                    data: {
+                        labels: revenueData.years,
+                        datasets: [{
+                            label: 'Pendapatan Tahunan (RM)',
+                            data: revenueData.annual,
+                            borderColor: '#14b8a6',
+                            backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#14b8a6',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: '600'
+                                    },
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Pendapatan: ' + formatCurrency(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatCurrency(value);
+                                    },
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing chart:', error);
+            }
+        });
+
+        // Subscriber Growth Bar Chart
+        window.addEventListener('load', function() {
+            const subscriberCtx = document.getElementById('subscriberChart');
+            if (!subscriberCtx) {
+                console.error('Subscriber chart canvas element not found');
+                return;
+            }
+            
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js library not loaded. Please check CDN link.');
+                return;
+            }
+            
+            try {
+                new Chart(subscriberCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: subscriberData.years,
+                        datasets: [{
+                            label: 'Pelanggan Aktif',
+                            data: subscriberData.subscribers,
+                            backgroundColor: 'rgba(20, 184, 166, 0.7)',
+                            borderColor: '#14b8a6',
+                            borderWidth: 2,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        weight: '600'
+                                    },
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const yearIndex = context.dataIndex;
+                                        const subscribers = context.parsed.y;
+                                        const growth = subscriberData.growthRates[yearIndex];
+                                        let tooltip = `Pelanggan: ${subscribers.toLocaleString()}`;
+                                        if (growth > 0) {
+                                            tooltip += `\nPertumbuhan: +${growth}%`;
+                                        }
+                                        return tooltip;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    },
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Bilangan Pelanggan',
+                                    font: {
+                                        size: 14,
+                                        weight: '600'
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Tahun',
+                                    font: {
+                                        size: 14,
+                                        weight: '600'
+                                    }
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing subscriber chart:', error);
+            }
+        });
+    </script>
+</body>
+</html>
