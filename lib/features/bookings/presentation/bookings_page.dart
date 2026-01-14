@@ -7,9 +7,12 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/supabase/supabase_client.dart' show supabase;
 
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
@@ -24,10 +27,56 @@ class _BookingsPageState extends State<BookingsPage> {
   bool _loading = false;
   String? _selectedStatus;
 
+  // Real-time subscription
+  StreamSubscription? _bookingsSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _loadBookings();
+    _setupRealtimeSubscription();
+  }
+
+  @override
+  void dispose() {
+    _bookingsSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for bookings table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to bookings changes for current user only
+      _bookingsSubscription = supabase
+          .from('bookings')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Bookings updated - refresh with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Bookings page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up bookings real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadBookings();
+      }
+    });
   }
 
   Future<void> _loadBookings() async {
@@ -115,10 +164,9 @@ class _BookingsPageState extends State<BookingsPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).pushNamed('/bookings/create');
-          if (result == true && mounted) {
-            _loadBookings();
-          }
+          // Navigate to create page - real-time subscription will auto-update
+          await Navigator.of(context).pushNamed('/bookings/create');
+          // No manual reload needed - real-time subscription handles updates
         },
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -262,7 +310,7 @@ class _BookingsPageState extends State<BookingsPage> {
   Future<void> _updateStatus(String bookingId, String status) async {
     try {
       await _repo.updateBookingStatus(bookingId: bookingId, status: status);
-      await _loadBookings();
+      // No manual reload needed - real-time subscription will auto-update
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Booking updated to $status')),

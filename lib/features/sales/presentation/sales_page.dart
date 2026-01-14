@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/sales_receipt_pdf_generator.dart';
 import '../../../core/utils/pdf_generator.dart';
+import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
@@ -29,10 +32,56 @@ class _SalesPageState extends State<SalesPage> {
   bool _loading = false;
   String? _selectedChannel;
 
+  // Real-time subscription
+  StreamSubscription? _salesSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _loadSales();
+    _setupRealtimeSubscription();
+  }
+
+  @override
+  void dispose() {
+    _salesSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for sales table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to sales changes for current user only
+      _salesSubscription = supabase
+          .from('sales')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Sales updated - refresh with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Sales page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up sales real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadSales();
+      }
+    });
   }
 
   Future<void> _loadSales() async {
@@ -121,10 +170,9 @@ class _SalesPageState extends State<SalesPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).pushNamed('/sales/create');
-          if (result == true && mounted) {
-            _loadSales();
-          }
+          // Navigate to create page - real-time subscription will auto-update
+          await Navigator.of(context).pushNamed('/sales/create');
+          // No manual reload needed - real-time subscription handles updates
         },
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,

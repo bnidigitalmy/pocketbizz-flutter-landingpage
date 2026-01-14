@@ -43,6 +43,7 @@ import 'widgets/v2/today_snapshot_hero_v2.dart';
 import 'widgets/v2/top_products_cards_v2.dart';
 import 'widgets/v2/weekly_cashflow_card_v2.dart';
 import 'widgets/booking_alerts_widget.dart';
+import 'widgets/claim_alerts_widget.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -729,6 +730,11 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   // Booking Alerts (overdue, upcoming, pending)
                   const BookingAlertsWidget(),
+
+                  const SizedBox(height: 20),
+
+                  // Claim Alerts (deliveries ready, outstanding, overdue)
+                  const ClaimAlertsWidget(),
 
                   const SizedBox(height: 20),
 

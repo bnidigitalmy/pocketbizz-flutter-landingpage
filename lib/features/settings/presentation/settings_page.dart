@@ -14,6 +14,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/services/image_upload_service.dart';
+import '../../../core/services/user_preferences_service.dart';
 
 /// Settings Page
 /// Manage business profile and user profile
@@ -30,7 +31,11 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
   late TabController _tabController;
   final _imageUploadService = ImageUploadService();
   final _imagePicker = ImagePicker();
+  final _preferencesService = UserPreferencesService();
   bool _uploadingQrCode = false;
+  
+  // App Preferences
+  int _claimGracePeriodDays = 7;
 
   // Business Profile Controllers
   final _businessNameController = TextEditingController();
@@ -74,6 +79,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     _tabController = TabController(length: 2, vsync: this);
     _loadBusinessProfile();
     _loadUserProfile();
+    _loadAppPreferences();
   }
 
   @override
@@ -145,6 +151,42 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
       }
     } catch (e) {
       debugPrint('Error loading user profile: $e');
+    }
+  }
+
+  Future<void> _loadAppPreferences() async {
+    try {
+      final gracePeriod = await _preferencesService.getClaimGracePeriodDays();
+      if (mounted) {
+        setState(() {
+          _claimGracePeriodDays = gracePeriod;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading app preferences: $e');
+    }
+  }
+
+  Future<void> _saveAppPreferences() async {
+    try {
+      await _preferencesService.setClaimGracePeriodDays(_claimGracePeriodDays);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Tetapan aplikasi berjaya disimpan!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -534,6 +576,16 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           ),
           const SizedBox(height: 16),
           _buildPasswordForm(),
+
+          const SizedBox(height: 32),
+
+          _buildSectionHeader(
+            'Tetapan Aplikasi',
+            Icons.settings_applications_rounded,
+            'Konfigurasi tetapan aplikasi',
+          ),
+          const SizedBox(height: 16),
+          _buildAppPreferencesForm(),
 
           const SizedBox(height: 32),
 
@@ -1247,6 +1299,155 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAppPreferencesForm() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Claim Grace Period Setting
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Stack vertically on narrow screens, horizontally on wide screens
+              if (constraints.maxWidth < 600) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tempoh Grace untuk Alert Tuntutan',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Alert akan muncul selepas X hari dari tarikh penghantaran',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildGracePeriodDropdown(),
+                    ),
+                  ],
+                );
+              } else {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Tempoh Grace untuk Alert Tuntutan',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Alert akan muncul selepas X hari dari tarikh penghantaran',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      child: _buildGracePeriodDropdown(),
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Ini adalah tempoh masa selepas penghantaran sebelum alert untuk buat tuntutan muncul di dashboard. Pilih "Segera" untuk alert muncul terus bila ada delivery.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGracePeriodDropdown() {
+    return DropdownButtonFormField<int>(
+      value: _claimGracePeriodDays,
+      isExpanded: true, // Prevent overflow
+      decoration: InputDecoration(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+      ),
+      items: [0, 3, 7, 14, 21, 30].map((days) {
+        String label;
+        if (days == 0) {
+          label = 'Segera';
+        } else {
+          label = '$days hari';
+        }
+        return DropdownMenuItem(
+          value: days,
+          child: Text(label),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _claimGracePeriodDays = value;
+          });
+          _saveAppPreferences();
+        }
+      },
     );
   }
 

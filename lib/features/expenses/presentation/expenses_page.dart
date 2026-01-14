@@ -7,6 +7,8 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/receipt_storage_service.dart';
 import '../../../core/utils/date_time_helper.dart';
+import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/models/expense.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
@@ -40,6 +43,10 @@ class _ExpensesPageState extends State<ExpensesPage> {
   List<Expense> _expenses = [];
   String _selectedCategory = 'all';
 
+  // Real-time subscription
+  StreamSubscription? _expensesSubscription;
+  Timer? _debounceTimer;
+
   // Form state for dialog
   final _formKey = GlobalKey<FormState>();
   String _formCategory = 'bahan';
@@ -65,12 +72,49 @@ class _ExpensesPageState extends State<ExpensesPage> {
       text: DateFormat('yyyy-MM-dd').format(_formDate),
     );
     _loadExpenses();
+    _setupRealtimeSubscription();
   }
 
   @override
   void dispose() {
+    _expensesSubscription?.cancel();
+    _debounceTimer?.cancel();
     _dateController.dispose();
     super.dispose();
+  }
+
+  /// Setup real-time subscription for expenses table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to expenses changes for current user only
+      _expensesSubscription = supabase
+          .from('expenses')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Expenses updated - refresh with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Expenses page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up expenses real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _loadExpenses();
+      }
+    });
   }
 
   Future<void> _loadExpenses() async {
@@ -308,7 +352,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
       setState(() => _isSaving = true);
       try {
         final amount = double.parse(_formAmount);
-        final expense = await _repo.createExpense(
+        await _repo.createExpense(
           category: _formCategory,
           amount: amount,
           expenseDate: _formDate,
@@ -318,7 +362,6 @@ class _ExpensesPageState extends State<ExpensesPage> {
 
         if (mounted) {
           setState(() {
-            _expenses.insert(0, expense);
             _isSaving = false;
           });
           Navigator.pop(context);
@@ -328,6 +371,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
               backgroundColor: AppColors.success,
             ),
           );
+          // No manual insert needed - real-time subscription will auto-update
         }
       } catch (e) {
         if (mounted) {
@@ -532,15 +576,14 @@ class _ExpensesPageState extends State<ExpensesPage> {
     );
   }
 
-  /// Open Receipt Scan page and refresh on success
+  /// Open Receipt Scan page - real-time subscription will auto-update
   Future<void> _openScanReceipt() async {
-    final result = await Navigator.push<bool>(
+    // Navigate to scan page - real-time subscription will auto-update
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const ReceiptScanPage()),
     );
-    if (result == true) {
-      _loadExpenses(); // Refresh list after successful save
-    }
+    // No manual reload needed - real-time subscription handles updates
   }
 
   PreferredSizeWidget _buildAppBar() {
