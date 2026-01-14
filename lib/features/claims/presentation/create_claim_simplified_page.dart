@@ -24,6 +24,8 @@ import '../../../data/models/consignment_claim.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../data/models/carry_forward_item.dart';
 import '../../../core/utils/pdf_generator.dart';
+import '../../../core/services/user_preferences_service.dart';
+import '../../../core/supabase/supabase_client.dart' show supabase;
 import 'widgets/claim_summary_card.dart';
 
 /// Simplified Create Claim Page
@@ -43,6 +45,7 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
   final _priceRangesRepo = VendorCommissionPriceRangesRepository();
   final _businessProfileRepo = BusinessProfileRepository();
   final _carryForwardRepo = CarryForwardRepositorySupabase();
+  final _preferencesService = UserPreferencesService();
 
   // Data
   List<Vendor> _vendors = [];
@@ -50,6 +53,8 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
   List<Delivery> _availableDeliveries = []; // Only unclaimed deliveries
   Set<String> _claimedDeliveryIds = {}; // Track claimed delivery IDs
   List<Delivery> _claimedDeliveries = []; // Deliveries that have been claimed
+  Map<String, int> _vendorReadyCounts = {}; // Track how many deliveries ready per vendor
+  int _gracePeriodDays = 7; // Default, will load from preferences
   List<Delivery> _selectedDeliveries = [];
   List<Map<String, dynamic>> _deliveryItems =
       []; // Items with quantities to edit
@@ -77,7 +82,21 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
   @override
   void initState() {
     super.initState();
+    _loadPreferences();
     _loadData();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final gracePeriod = await _preferencesService.getClaimGracePeriodDays();
+      if (mounted) {
+        setState(() {
+          _gracePeriodDays = gracePeriod;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading preferences: $e');
+    }
   }
 
   @override
@@ -100,12 +119,78 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
           _allDeliveries = deliveries;
           _isLoading = false;
         });
+        // Calculate ready counts for each vendor
+        _calculateVendorReadyCounts();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         _showError('Ralat memuatkan data: $e');
       }
+    }
+  }
+
+  /// Calculate how many deliveries are ready for claim per vendor
+  Future<void> _calculateVendorReadyCounts() async {
+    final counts = <String, int>{};
+    final now = DateTime.now();
+    
+    // Get all claimed delivery IDs
+    final allClaimedDeliveryIds = <String>{};
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        final claimsResponse = await supabase
+            .from('consignment_claims')
+            .select('id')
+            .eq('business_owner_id', userId)
+            .inFilter('status', ['draft', 'submitted', 'approved', 'settled', 'rejected']);
+        
+        final claims = (claimsResponse as List).cast<Map<String, dynamic>>();
+        if (claims.isNotEmpty) {
+          final claimIds = claims.map((c) => c['id'] as String).toList();
+          
+          final itemsResponse = await supabase
+              .from('consignment_claim_items')
+              .select('delivery_id')
+              .inFilter('claim_id', claimIds);
+          
+          final items = (itemsResponse as List).cast<Map<String, dynamic>>();
+          for (final item in items) {
+            final deliveryId = item['delivery_id'] as String?;
+            if (deliveryId != null && deliveryId.isNotEmpty) {
+              allClaimedDeliveryIds.add(deliveryId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading claimed delivery IDs: $e');
+    }
+
+    // Count ready deliveries per vendor
+    for (final vendor in _vendors) {
+      int readyCount = 0;
+      for (final delivery in _allDeliveries) {
+        // Skip if already claimed
+        if (allClaimedDeliveryIds.contains(delivery.id)) continue;
+        
+        // Skip if not for this vendor
+        if (delivery.vendorId != vendor.id) continue;
+        
+        // Check grace period
+        final daysSinceDelivery = now.difference(delivery.deliveryDate).inDays;
+        if (daysSinceDelivery >= _gracePeriodDays) {
+          readyCount++;
+        }
+      }
+      counts[vendor.id] = readyCount;
+    }
+
+    if (mounted) {
+      setState(() {
+        _vendorReadyCounts = counts;
+      });
     }
   }
 
@@ -813,24 +898,47 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: DropdownButtonFormField<String>(
-              value: _selectedVendorId,
-              decoration: const InputDecoration(
-                labelText: 'Pilih Vendor',
-                border: OutlineInputBorder(),
-                helperText: 'Pilih vendor untuk lihat senarai penghantaran',
-              ),
-              items: _vendors.map((vendor) {
-                return DropdownMenuItem(
-                  value: vendor.id,
-                  child: Text(
-                    vendor.name,
-                    overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _selectedVendorId,
+                  decoration: const InputDecoration(
+                    labelText: 'Pilih Vendor',
+                    border: OutlineInputBorder(),
+                    helperText: 'Vendor dengan tuntutan sedia akan ditanda',
                   ),
-                );
-              }).toList(),
-              onChanged: _onVendorSelected,
-              isExpanded: true,
+                  items: _buildVendorDropdownItems(),
+                  onChanged: _onVendorSelected,
+                  isExpanded: true,
+                ),
+                if (_vendorReadyCounts.values.any((count) => count > 0)) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${_vendorReadyCounts.values.where((c) => c > 0).length} vendor ada tuntutan sedia',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -860,6 +968,101 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
         ],
       ],
     );
+  }
+
+  /// Build vendor dropdown items with badges for ready claims
+  List<DropdownMenuItem<String>> _buildVendorDropdownItems() {
+    // Separate vendors into two groups: with ready claims and without
+    final vendorsWithReady = <Vendor>[];
+    final vendorsWithoutReady = <Vendor>[];
+
+    for (final vendor in _vendors) {
+      final readyCount = _vendorReadyCounts[vendor.id] ?? 0;
+      if (readyCount > 0) {
+        vendorsWithReady.add(vendor);
+      } else {
+        vendorsWithoutReady.add(vendor);
+      }
+    }
+
+    // Sort by ready count (descending)
+    vendorsWithReady.sort((a, b) {
+      final countA = _vendorReadyCounts[a.id] ?? 0;
+      final countB = _vendorReadyCounts[b.id] ?? 0;
+      return countB.compareTo(countA);
+    });
+
+    // Sort alphabetically for vendors without ready
+    vendorsWithoutReady.sort((a, b) => a.name.compareTo(b.name));
+
+    final items = <DropdownMenuItem<String>>[];
+
+    // Add vendors with ready claims first (priority)
+    if (vendorsWithReady.isNotEmpty) {
+      for (final vendor in vendorsWithReady) {
+        final readyCount = _vendorReadyCounts[vendor.id] ?? 0;
+        items.add(
+          DropdownMenuItem(
+            value: vendor.id,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    vendor.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$readyCount',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    // Add separator if both groups exist
+    if (vendorsWithReady.isNotEmpty && vendorsWithoutReady.isNotEmpty) {
+      items.add(
+        const DropdownMenuItem(
+          enabled: false,
+          value: '__separator__',
+          child: Divider(height: 1),
+        ),
+      );
+    }
+
+    // Add vendors without ready claims
+    for (final vendor in vendorsWithoutReady) {
+      items.add(
+        DropdownMenuItem(
+          value: vendor.id,
+          child: Text(
+            vendor.name,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
+    return items;
   }
 
   Widget _buildStep2DeliverySelection() {
