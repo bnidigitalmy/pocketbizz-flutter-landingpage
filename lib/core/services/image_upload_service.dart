@@ -2,16 +2,12 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 import '../supabase/supabase_client.dart';
-
-// Conditional import for File - only import dart:io when NOT on web
-// On web, we use a stub that provides a minimal File interface
-import 'dart:io' if (dart.library.html) 'io_stub.dart' show File;
 
 /// Service for handling image uploads to Supabase Storage
 class ImageUploadService {
+  // Bucket name: product-images (lowercase) - matches Supabase Dashboard and policies
   static const String _bucketName = 'product-images';
   final ImagePicker _picker = ImagePicker();
 
@@ -87,70 +83,35 @@ class ImageUploadService {
       final String fileName = '$productId-${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String filePath = 'products/$fileName';
 
-      // Handle platform-specific file upload
-      if (kIsWeb) {
-        // For web: read bytes from XFile
-        final Uint8List fileBytes = await imageFile.readAsBytes();
-        
-        // Check authentication
-        final accessToken = supabase.auth.currentSession?.accessToken;
-        if (accessToken == null || accessToken.isEmpty) {
-          throw Exception('User not authenticated. Please login first.');
-        }
-        
-        // For web, use HTTP PUT with proper headers
-        // Supabase Storage API endpoint
-        final encodedPath = Uri.encodeComponent(filePath);
-        // Get Supabase URL from environment (required)
-        // For web builds, use fallback if .env is not available
-        String? supabaseUrl = dotenv.env['SUPABASE_URL'];
-        String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
-        
-        // Fallback for web production builds
-        if (kIsWeb && (supabaseUrl == null || supabaseAnonKey == null)) {
-          supabaseUrl = supabaseUrl ?? 'https://gxllowlurizrkvpdircw.supabase.co';
-          supabaseAnonKey = supabaseAnonKey ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
-        }
-        
-        if (supabaseUrl == null || supabaseAnonKey == null) {
-          throw Exception('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env file');
-        }
-        
-        final storageUrl = '$supabaseUrl/storage/v1/object/$_bucketName/$encodedPath';
-        
-        // Upload using HTTP PUT
-        final response = await http.put(
-          Uri.parse(storageUrl),
-          headers: {
-            'Authorization': 'Bearer $accessToken',
-            'Content-Type': 'image/jpeg',
-            'apikey': supabaseAnonKey,
-            'x-upsert': 'false',
-          },
-          body: fileBytes,
-        );
-        
-        if (response.statusCode != 200 && response.statusCode != 201) {
-          throw Exception('Upload failed: ${response.statusCode} - ${response.body}');
-        }
-      } else {
-        // For mobile: use File from dart:io
-        final File file = File(imageFile.path);
-        
-        // Upload to Supabase Storage
-        await supabase.storage
-            .from(_bucketName)
-            .upload(
-              filePath,
-              file,
-            );
-      }
-
+      // Read bytes from XFile (works for both web and mobile)
+      final Uint8List fileBytes = await imageFile.readAsBytes();
+      
+      // Use Supabase SDK uploadBinary for both web and mobile (more reliable)
+      await supabase.storage
+          .from(_bucketName)
+          .uploadBinary(
+            filePath,
+            fileBytes,
+            fileOptions: FileOptions(
+              contentType: 'image/jpeg',
+              upsert: false,
+            ),
+          );
+      
+      // Small delay to ensure file is fully committed to storage
+      // This helps prevent 400 errors when immediately trying to retrieve the image
+      await Future.delayed(const Duration(milliseconds: 500));
+      
       // Get public URL
       final String publicUrl = supabase.storage
           .from(_bucketName)
           .getPublicUrl(filePath);
-
+      
+      // Log for debugging
+      print('✅ Upload successful');
+      print('   Storage path: $filePath');
+      print('   Public URL: $publicUrl');
+      
       return publicUrl;
     } catch (e) {
       throw Exception('Failed to upload image: $e');
@@ -210,68 +171,26 @@ class ImageUploadService {
       final String fileName = 'qr-code-${userId}-${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String filePath = 'business-assets/$fileName';
 
-      // Handle platform-specific file upload
-      if (kIsWeb) {
-        // For web: read bytes from XFile
-        final Uint8List fileBytes = await imageFile.readAsBytes();
-        
-        // Check authentication
-        final accessToken = supabase.auth.currentSession?.accessToken;
-        if (accessToken == null || accessToken.isEmpty) {
-          throw Exception('User not authenticated. Please login first.');
-        }
-        
-        // Get Supabase URL from environment
-        String? supabaseUrl = dotenv.env['SUPABASE_URL'];
-        String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
-        
-        // Fallback for web production builds
-        if (kIsWeb && (supabaseUrl == null || supabaseAnonKey == null)) {
-          supabaseUrl = supabaseUrl ?? 'https://gxllowlurizrkvpdircw.supabase.co';
-          supabaseAnonKey = supabaseAnonKey ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4bGxvd2x1cml6cmt2cGRpcmN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyMTAyMDksImV4cCI6MjA3OTc4NjIwOX0.Avft6LyKGwmU8JH3hXmO7ukNBlgG1XngjBX-prObycs';
-        }
-        
-        if (supabaseUrl == null || supabaseAnonKey == null) {
-          throw Exception('SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env file');
-        }
-        
-        final encodedPath = Uri.encodeComponent(filePath);
-        // Use product-images bucket for business assets (QR codes)
-        final storageUrl = '$supabaseUrl/storage/v1/object/product-images/$encodedPath';
-        
-        // Upload using HTTP PUT
-        final response = await http.put(
-          Uri.parse(storageUrl),
-          headers: {
-            'Authorization': 'Bearer $accessToken',
-            'Content-Type': 'image/jpeg',
-            'apikey': supabaseAnonKey,
-            'x-upsert': 'false',
-          },
-          body: fileBytes,
-        );
-        
-        if (response.statusCode != 200 && response.statusCode != 201) {
-          throw Exception('Upload failed: ${response.statusCode} - ${response.body}');
-        }
-      } else {
-        // For mobile: use File from dart:io
-        final File file = File(imageFile.path);
-        
-        // Upload to Supabase Storage
-        await supabase.storage
-            .from(_bucketName)
-            .upload(
-              filePath,
-              file,
-            );
-      }
-
+      // Read bytes from XFile (works for both web and mobile)
+      final Uint8List fileBytes = await imageFile.readAsBytes();
+      
+      // Use Supabase SDK uploadBinary for both web and mobile (more reliable)
+      await supabase.storage
+          .from(_bucketName)
+          .uploadBinary(
+            filePath,
+            fileBytes,
+            fileOptions: FileOptions(
+              contentType: 'image/jpeg',
+              upsert: false,
+            ),
+          );
+      
       // Get public URL
       final String publicUrl = supabase.storage
           .from(_bucketName)
           .getPublicUrl(filePath);
-
+      
       return publicUrl;
     } catch (e) {
       throw Exception('Failed to upload QR code: $e');
