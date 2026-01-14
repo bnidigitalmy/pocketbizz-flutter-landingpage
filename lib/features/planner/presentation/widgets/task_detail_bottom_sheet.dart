@@ -8,6 +8,7 @@ import '../../../../data/models/planner_subtask.dart';
 import '../../../../data/models/planner_comment.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
 import '../../../../core/supabase/supabase_client.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class TaskDetailBottomSheet extends StatefulWidget {
   final PlannerTask task;
@@ -44,27 +45,35 @@ class _TaskDetailBottomSheetState extends State<TaskDetailBottomSheet> {
   }
 
   Future<void> _updateStatus(String newStatus) async {
-    setState(() => _loading = true);
-    try {
-      await widget.repo.updateTask(_task.id, {'status': newStatus});
-      if (newStatus == 'done') {
-        await widget.repo.updateTask(_task.id, {
-          'completed_at': DateTime.now().toUtc().toIso8601String(),
-        });
+    await requirePro(context, 'Kemaskini Status Tugasan', () async {
+      setState(() => _loading = true);
+      try {
+        await widget.repo.updateTask(_task.id, {'status': newStatus});
+        if (newStatus == 'done') {
+          await widget.repo.updateTask(_task.id, {
+            'completed_at': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        await _refreshTask();
+        widget.onUpdated();
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Kemaskini Status Tugasan',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _loading = false);
+        }
       }
-      await _refreshTask();
-      widget.onUpdated();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+    });
   }
 
   Future<void> _toggleSubtask(int index) async {
@@ -81,21 +90,53 @@ class _TaskDetailBottomSheetState extends State<TaskDetailBottomSheet> {
   }
 
   Future<void> _addSubtask(String title) async {
-    final newSubtask = PlannerSubtask(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title,
-      done: false,
-    );
-    final subtasks = <PlannerSubtask>[...(_task.subtasks ?? []), newSubtask];
-    await widget.repo.updateSubtasks(_task.id, subtasks);
-    await _refreshTask();
-    widget.onUpdated();
+    await requirePro(context, 'Tambah Subtask', () async {
+      final newSubtask = PlannerSubtask(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        done: false,
+      );
+      final subtasks = <PlannerSubtask>[...(_task.subtasks ?? []), newSubtask];
+      try {
+        await widget.repo.updateSubtasks(_task.id, subtasks);
+        await _refreshTask();
+        widget.onUpdated();
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Subtask',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    });
   }
 
   Future<void> _addComment(String text) async {
-    await widget.repo.addComment(_task.id, text);
-    await _refreshTask();
-    widget.onUpdated();
+    await requirePro(context, 'Tambah Komen', () async {
+      try {
+        await widget.repo.addComment(_task.id, text);
+        await _refreshTask();
+        widget.onUpdated();
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Komen',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    });
   }
 
   Future<void> _updateTimeSpent(int minutes) async {

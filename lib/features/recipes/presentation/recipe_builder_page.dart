@@ -8,6 +8,7 @@ import '../../../data/repositories/stock_repository_supabase.dart' as stock_repo
 import '../../../data/models/recipe.dart';
 import '../../../data/models/recipe_item.dart';
 import '../../../data/models/stock_item.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -571,32 +572,40 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
   Future<void> _addIngredientToRecipe(StockItem stock, double quantity, String unit) async {
     if (_activeRecipe == null) return;
 
-    try {
-      await _recipesRepo.addRecipeItem(
-        recipeId: _activeRecipe!.id,
-        stockItemId: stock.id,
-        quantityNeeded: quantity,
-        usageUnit: unit,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Bahan berjaya ditambah'),
-            backgroundColor: Colors.green,
-          ),
+    await requirePro(context, 'Tambah Bahan Resepi', () async {
+      try {
+        await _recipesRepo.addRecipeItem(
+          recipeId: _activeRecipe!.id,
+          stockItemId: stock.id,
+          quantityNeeded: quantity,
+          usageUnit: unit,
         );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Bahan berjaya ditambah'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadData();
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Bahan Resepi',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-      _loadData();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ralat: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    });
   }
 
   Future<void> _editIngredient(RecipeItem item) async {
@@ -618,51 +627,59 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
       final quantity = result['quantity'] as double;
       final unit = result['unit'] as String;
 
-      try {
-        // Recalculate cost using unit conversion:
-        // total_cost = (quantity converted to stock.unit) * stock.costPerUnit
-        if (unit.toLowerCase().trim() != stock.unit.toLowerCase().trim() &&
-            !UnitConversion.canConvert(unit, stock.unit)) {
-          throw Exception(
-            'Unit tidak serasi. Resepi: "$unit", Stok: "${stock.unit}". '
-            'Sila pilih unit yang serasi (contoh ml↔liter, g↔kg).',
-          );
-        }
+      await requirePro(context, 'Kemaskini Bahan Resepi', () async {
+        try {
+          // Recalculate cost using unit conversion:
+          // total_cost = (quantity converted to stock.unit) * stock.costPerUnit
+          if (unit.toLowerCase().trim() != stock.unit.toLowerCase().trim() &&
+              !UnitConversion.canConvert(unit, stock.unit)) {
+            throw Exception(
+              'Unit tidak serasi. Resepi: "$unit", Stok: "${stock.unit}". '
+              'Sila pilih unit yang serasi (contoh ml↔liter, g↔kg).',
+            );
+          }
 
-        final convertedQty = UnitConversion.convert(
-          quantity: quantity,
-          fromUnit: unit,
-          toUnit: stock.unit,
-        );
-        final costPerUnit = stock.costPerUnit; // cost per stock.unit
-        final totalCost = convertedQty * costPerUnit;
+          final convertedQty = UnitConversion.convert(
+            quantity: quantity,
+            fromUnit: unit,
+            toUnit: stock.unit,
+          );
+          final costPerUnit = stock.costPerUnit; // cost per stock.unit
+          final totalCost = convertedQty * costPerUnit;
 
-        await _recipesRepo.updateRecipeItem(item.id, {
-          'quantity_needed': quantity,
-          'usage_unit': unit,
-          'cost_per_unit': costPerUnit,
-          'total_cost': totalCost,
-        });
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Bahan berjaya dikemaskini'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          await _recipesRepo.updateRecipeItem(item.id, {
+            'quantity_needed': quantity,
+            'usage_unit': unit,
+            'cost_per_unit': costPerUnit,
+            'total_cost': totalCost,
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Bahan berjaya dikemaskini'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          _loadData();
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Kemaskini Bahan Resepi',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Ralat: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-        _loadData();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Ralat: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      });
     }
   }
 
@@ -687,27 +704,35 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     );
 
     if (confirmed == true && mounted) {
-      try {
-        await _recipesRepo.deleteRecipeItem(item.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Bahan berjaya dipadam'),
-              backgroundColor: Colors.green,
-            ),
-          );
+      await requirePro(context, 'Padam Bahan Resepi', () async {
+        try {
+          await _recipesRepo.deleteRecipeItem(item.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Bahan berjaya dipadam'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+          _loadData();
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Padam Bahan Resepi',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Ralat: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-        _loadData();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Ralat: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      });
     }
   }
 

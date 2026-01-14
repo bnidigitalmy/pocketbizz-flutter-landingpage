@@ -3,6 +3,7 @@ import '../../../../data/repositories/recipe_document_repository.dart';
 import '../../../../data/repositories/recipe_document_category_repository.dart';
 import '../../../../data/models/recipe_document.dart';
 import '../../../../data/models/recipe_document_category.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class EditRecipeDocumentPage extends StatefulWidget {
   final RecipeDocument document;
@@ -91,9 +92,11 @@ class _EditRecipeDocumentPageState extends State<EditRecipeDocumentPage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _loading = true);
+    // PHASE: Subscriber Expired System - Protect edit action
+    await requirePro(context, 'Kemaskini Dokumen Resepi', () async {
+      setState(() => _loading = true);
 
-    try {
+      try {
       // Parse tags
       final tags = _tagsController.text
           .split(',')
@@ -142,17 +145,24 @@ class _EditRecipeDocumentPageState extends State<EditRecipeDocumentPage> {
           ),
         );
       }
-    } catch (e) {
-      setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      } catch (e) {
+        setState(() => _loading = false);
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Kemaskini Dokumen Resepi',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    }
+    });
   }
 
   @override

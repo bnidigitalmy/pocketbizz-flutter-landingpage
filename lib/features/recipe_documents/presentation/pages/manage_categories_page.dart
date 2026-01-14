@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../data/repositories/recipe_document_category_repository.dart';
 import '../../../../data/models/recipe_document_category.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class ManageCategoriesPage extends StatefulWidget {
   const ManageCategoriesPage({super.key});
@@ -200,62 +201,72 @@ class _ManageCategoriesPageState extends State<ManageCategoriesPage> {
     );
 
     if (result != null) {
-      try {
-        final category = RecipeDocumentCategory(
-          id: '',
-          businessOwnerId: '',
-          name: result['name'] as String,
-          icon: result['icon'] as String?,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-
-        await _repo.create(category);
-        await _loadCategories();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Kategori berjaya ditambah!'),
-              backgroundColor: Colors.green,
-            ),
+      // PHASE: Subscriber Expired System - Protect create action
+      await requirePro(context, 'Tambah Kategori Dokumen Resepi', () async {
+        try {
+          final category = RecipeDocumentCategory(
+            id: '',
+            businessOwnerId: '',
+            name: result['name'] as String,
+            icon: result['icon'] as String?,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
           );
-        }
-      } catch (e) {
-        if (mounted) {
-          String errorMessage = 'Ralat berlaku semasa menambah kategori';
-          
-          // Check for duplicate key error (unique constraint violation)
-          final errorString = e.toString();
-          if (errorString.contains('23505') || 
-              errorString.contains('unique constraint') ||
-              errorString.contains('duplicate key') ||
-              errorString.contains('unique_category_per_user')) {
-            errorMessage = 'Nama kategori ini sudah wujud. Sila gunakan nama lain.';
-          } else if (errorString.contains('User not authenticated')) {
-            errorMessage = 'Sila log masuk semula.';
-          } else if (errorString.contains('PostgrestException')) {
-            // Try to extract a more user-friendly message from PostgrestException
-            if (errorString.contains('message:')) {
-              final match = RegExp(r'message:\s*([^,]+)').firstMatch(errorString);
-              if (match != null) {
-                final extractedMsg = match.group(1)?.trim() ?? '';
-                if (extractedMsg.isNotEmpty && !extractedMsg.contains('duplicate')) {
-                  errorMessage = extractedMsg;
+
+          await _repo.create(category);
+          await _loadCategories();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Kategori berjaya ditambah!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Tambah Kategori Dokumen Resepi',
+              error: e,
+            );
+            if (handled) return;
+            
+            String errorMessage = 'Ralat berlaku semasa menambah kategori';
+            
+            // Check for duplicate key error (unique constraint violation)
+            final errorString = e.toString();
+            if (errorString.contains('23505') || 
+                errorString.contains('unique constraint') ||
+                errorString.contains('duplicate key') ||
+                errorString.contains('unique_category_per_user')) {
+              errorMessage = 'Nama kategori ini sudah wujud. Sila gunakan nama lain.';
+            } else if (errorString.contains('User not authenticated')) {
+              errorMessage = 'Sila log masuk semula.';
+            } else if (errorString.contains('PostgrestException')) {
+              // Try to extract a more user-friendly message from PostgrestException
+              if (errorString.contains('message:')) {
+                final match = RegExp(r'message:\s*([^,]+)').firstMatch(errorString);
+                if (match != null) {
+                  final extractedMsg = match.group(1)?.trim() ?? '';
+                  if (extractedMsg.isNotEmpty && !extractedMsg.contains('duplicate')) {
+                    errorMessage = extractedMsg;
+                  }
                 }
               }
             }
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
           }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
         }
-      }
+      });
     }
   }
 
@@ -282,44 +293,54 @@ class _ManageCategoriesPageState extends State<ManageCategoriesPage> {
     );
 
     if (confirmed == true) {
-      try {
-        await _repo.delete(category.id);
-        await _loadCategories();
+      // PHASE: Subscriber Expired System - Protect delete action
+      await requirePro(context, 'Padam Kategori Dokumen Resepi', () async {
+        try {
+          await _repo.delete(category.id);
+          await _loadCategories();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Kategori telah dipadam'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          String errorMessage = 'Ralat berlaku semasa memadam kategori';
-          
-          final errorString = e.toString();
-          if (errorString.contains('sedang digunakan')) {
-            // Extract the user-friendly message from the exception
-            final match = RegExp(r'Exception:\s*(.+)').firstMatch(errorString);
-            if (match != null) {
-              errorMessage = match.group(1)?.trim() ?? errorMessage;
-            } else {
-              errorMessage = 'Kategori ini sedang digunakan. Sila alihkan dokumen ke kategori lain terlebih dahulu.';
-            }
-          } else if (errorString.contains('User not authenticated')) {
-            errorMessage = 'Sila log masuk semula.';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Kategori telah dipadam'),
+                backgroundColor: Colors.green,
+              ),
+            );
           }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Padam Kategori Dokumen Resepi',
+              error: e,
+            );
+            if (handled) return;
+            
+            String errorMessage = 'Ralat berlaku semasa memadam kategori';
+            
+            final errorString = e.toString();
+            if (errorString.contains('sedang digunakan')) {
+              // Extract the user-friendly message from the exception
+              final match = RegExp(r'Exception:\s*(.+)').firstMatch(errorString);
+              if (match != null) {
+                errorMessage = match.group(1)?.trim() ?? errorMessage;
+              } else {
+                errorMessage = 'Kategori ini sedang digunakan. Sila alihkan dokumen ke kategori lain terlebih dahulu.';
+              }
+            } else if (errorString.contains('User not authenticated')) {
+              errorMessage = 'Sila log masuk semula.';
+            }
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         }
-      }
+      });
     }
   }
 

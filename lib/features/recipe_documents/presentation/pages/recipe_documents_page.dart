@@ -9,6 +9,7 @@ import 'recipe_document_detail_page.dart';
 import 'manage_categories_page.dart';
 import '../widgets/document_card.dart';
 import '../widgets/category_chip.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class RecipeDocumentsPage extends StatefulWidget {
   const RecipeDocumentsPage({super.key});
@@ -254,31 +255,33 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
     );
 
     if (confirmed == true) {
-      // Show loading indicator
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      // PHASE: Subscriber Expired System - Protect delete action
+      await requirePro(context, 'Padam Dokumen Resepi', () async {
+        // Show loading indicator
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
                   ),
-                ),
-                SizedBox(width: 12),
-                Text('Memadam dokumen...'),
-              ],
+                  SizedBox(width: 12),
+                  Text('Memadam dokumen...'),
+                ],
+              ),
+              duration: Duration(seconds: 2),
             ),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+          );
+        }
 
-      try {
-        await _repo.delete(document.id);
+        try {
+          await _repo.delete(document.id);
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -292,6 +295,13 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam Dokumen Resepi',
+            error: e,
+          );
+          if (handled) return;
+          
           String errorMessage = 'Gagal memadam dokumen';
           
           // Provide user-friendly error messages
@@ -314,6 +324,7 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
           );
         }
       }
+      });
     }
   }
 

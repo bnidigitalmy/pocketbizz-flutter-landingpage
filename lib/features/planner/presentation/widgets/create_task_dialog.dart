@@ -5,6 +5,7 @@ import '../../../../data/models/planner_task.dart';
 import '../../../../data/models/planner_category.dart';
 import '../../../../data/models/planner_project.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class CreateTaskDialog extends StatefulWidget {
   final PlannerTasksRepositorySupabase repo;
@@ -79,52 +80,60 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
   Future<void> _saveTask() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _loading = true);
+    await requirePro(context, 'Cipta Tugasan', () async {
+      setState(() => _loading = true);
 
-    try {
-      DateTime? dueAt;
-      if (_dueDate != null) {
-        final time = _dueTime ?? const TimeOfDay(hour: 9, minute: 0);
-        dueAt = DateTime(
-          _dueDate!.year,
-          _dueDate!.month,
-          _dueDate!.day,
-          time.hour,
-          time.minute,
+      try {
+        DateTime? dueAt;
+        if (_dueDate != null) {
+          final time = _dueTime ?? const TimeOfDay(hour: 9, minute: 0);
+          dueAt = DateTime(
+            _dueDate!.year,
+            _dueDate!.month,
+            _dueDate!.day,
+            time.hour,
+            time.minute,
+          );
+        }
+
+        final task = await widget.repo.createTask(
+          title: _titleController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          dueAt: dueAt,
+          priority: _priority,
+          categoryId: _selectedCategoryId,
+          projectId: _selectedProjectId,
+          tags: _tags.isEmpty ? null : _tags,
+          estimatedHours: _estimatedHours,
+          isRecurring: _isRecurring,
+          recurrencePattern: _isRecurring ? _recurrencePattern : null,
+          recurrenceInterval: _isRecurring ? _recurrenceInterval : null,
         );
-      }
 
-      final task = await widget.repo.createTask(
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-        dueAt: dueAt,
-        priority: _priority,
-        categoryId: _selectedCategoryId,
-        projectId: _selectedProjectId,
-        tags: _tags.isEmpty ? null : _tags,
-        estimatedHours: _estimatedHours,
-        isRecurring: _isRecurring,
-        recurrencePattern: _isRecurring ? _recurrencePattern : null,
-        recurrenceInterval: _isRecurring ? _recurrenceInterval : null,
-      );
-
-      if (mounted && task != null) {
-        Navigator.pop(context, task);
+        if (mounted && task != null) {
+          Navigator.pop(context, task);
+        }
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Cipta Tugasan',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _loading = false);
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+    });
   }
 
   @override

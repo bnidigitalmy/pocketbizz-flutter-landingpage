@@ -8,7 +8,7 @@
 // Only READ-ONLY reference allowed.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -80,13 +80,100 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       ]);
 
       if (mounted) {
+        // Get current subscription first (needed for payment filtering)
+        final currentSubscription = results[0] as Subscription?;
+        final allSubscriptionHistory = results[3] as List<Subscription>;
+        final allPaymentHistory = results[5] as List<SubscriptionPayment>;
+        final currentSubId = currentSubscription?.id;
+        
+        // Filter subscription history - only show successful subscriptions
+        // Repository already excludes active/trial/grace, so we only need to filter out pendingPayment
+        final filteredSubscriptionHistory = allSubscriptionHistory.where((sub) {
+          // Exclude pendingPayment status (only show successfully activated subscriptions)
+          if (sub.status == SubscriptionStatus.pendingPayment) return false;
+          
+          // Show expired subscriptions that were successfully paid (have paymentCompletedAt)
+          if (sub.status == SubscriptionStatus.expired) {
+            return sub.paymentCompletedAt != null;
+          }
+          
+          // Show cancelled subscriptions that were successfully paid
+          if (sub.status == SubscriptionStatus.cancelled) {
+            return sub.paymentCompletedAt != null;
+          }
+          
+          // Show other statuses (shouldn't happen based on repository filter, but keep for safety)
+          return true;
+        }).toList();
+        
+        // Filter payment history - only show successful payments
+        // A payment is successful if it has clear evidence of completion:
+        // 1. status == 'completed' OR
+        // 2. paidAt != null (payment was paid) OR
+        // 3. gatewayTransactionId != null (has transaction ID = payment processed) OR
+        // 4. receiptUrl != null (has receipt/invoice PDF = payment completed) OR
+        // 5. payment is linked to current active subscription (if subscription is active)
+        // 
+        // IMPORTANT: Exclude payments with status 'pending' unless they have clear evidence of payment
+        // (paidAt, gatewayTransactionId, or receiptUrl) OR linked to active subscription
+        final isCurrentSubActive = currentSubscription != null && 
+                                   (currentSubscription!.status == SubscriptionStatus.active ||
+                                    currentSubscription!.status == SubscriptionStatus.trial ||
+                                    currentSubscription!.status == SubscriptionStatus.grace);
+        
+        final filteredPaymentHistory = allPaymentHistory.where((payment) {
+          // Exclude clearly failed payments (only if not linked to active subscription)
+          if (payment.status == 'failed' && payment.paidAt == null && payment.gatewayTransactionId == null) {
+            // But if linked to active subscription, show it (might be old failed payment that was later resolved)
+            if (isCurrentSubActive && currentSubId != null && payment.subscriptionId == currentSubId) {
+              return true;
+            }
+            return false;
+          }
+          
+          // Check if payment is linked to current active subscription
+          final isLinkedToActiveSub = isCurrentSubActive && 
+                                       currentSubId != null && 
+                                       payment.subscriptionId == currentSubId;
+          
+          // If linked to active subscription, always show it (payment was successful enough to activate subscription)
+          if (isLinkedToActiveSub) {
+            return true;
+          }
+          
+          // Exclude pending payments that don't have clear evidence of payment
+          if (payment.status == 'pending') {
+            // Only show pending if there's clear evidence it was paid
+            final hasPaidAt = payment.paidAt != null;
+            final hasTransactionId = payment.gatewayTransactionId != null && payment.gatewayTransactionId!.isNotEmpty;
+            final hasReceipt = payment.receiptUrl != null && payment.receiptUrl!.isNotEmpty;
+            
+            // If pending but has evidence of payment, show it
+            if (hasPaidAt || hasTransactionId || hasReceipt) {
+              return true;
+            }
+            
+            // Otherwise, exclude pending payments
+            return false;
+          }
+          
+          // For non-pending payments, check if payment is successful
+          final isCompleted = payment.status == 'completed';
+          final hasPaidAt = payment.paidAt != null;
+          final hasTransactionId = payment.gatewayTransactionId != null && payment.gatewayTransactionId!.isNotEmpty;
+          final hasReceipt = payment.receiptUrl != null && payment.receiptUrl!.isNotEmpty;
+          
+          // Payment is successful if any of these conditions are true
+          return isCompleted || hasPaidAt || hasTransactionId || hasReceipt;
+        }).toList();
+        
         setState(() {
-          _currentSubscription = results[0] as Subscription?;
+          _currentSubscription = currentSubscription;
           _plans = results[1] as List<SubscriptionPlan>;
           _planLimits = results[2] as PlanLimits;
-          _subscriptionHistory = results[3] as List<Subscription>;
+          _subscriptionHistory = filteredSubscriptionHistory;
           _isEarlyAdopter = results[4] as bool;
-          _paymentHistory = results[5] as List<SubscriptionPayment>;
+          _paymentHistory = filteredPaymentHistory;
           _loading = false;
         });
 
@@ -311,8 +398,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
               const SizedBox(height: 24),
 
-              // Payment History
-              _buildPaymentHistory(),
+              // Payment History - Disabled
+              // _buildPaymentHistory(),
 
               const SizedBox(height: 24),
 
@@ -2405,7 +2492,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Maklumat Bil',
+              'Maklumat Bayaran',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

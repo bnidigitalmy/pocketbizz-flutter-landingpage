@@ -90,15 +90,20 @@ class _ExpensesPageState extends State<ExpensesPage> {
       if (userId == null) return;
 
       // Subscribe to expenses changes for current user only
+      // This listens to INSERT, UPDATE, and DELETE operations
       _expensesSubscription = supabase
           .from('expenses')
           .stream(primaryKey: ['id'])
           .eq('business_owner_id', userId)
           .listen((data) {
-            // Expenses updated - refresh with debounce
+            // Expenses updated (INSERT/UPDATE/DELETE) - refresh with debounce
+            debugPrint('🔄 Expenses real-time update detected: ${data.length} items');
+            debugPrint('   Data: ${data.map((e) => e['id']).toList()}');
             if (mounted) {
               _debouncedRefresh();
             }
+          }, onError: (error) {
+            debugPrint('❌ Expenses real-time subscription error: $error');
           });
 
       debugPrint('✅ Expenses page real-time subscription setup complete');
@@ -803,141 +808,231 @@ class _ExpensesPageState extends State<ExpensesPage> {
         final categoryLabel = _categoryLabels[expense.category] ??
             expense.category.toUpperCase();
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+        return Dismissible(
+          key: Key(expense.id),
+          direction: DismissDirection.horizontal,
+          background: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.only(left: 20),
+            child: const Row(
+              children: [
+                Icon(Icons.edit, color: Colors.white, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Edit',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: InkWell(
-            onTap: () => _showExpenseDetail(expense),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                categoryLabel,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('dd MMM yyyy', 'ms_MY')
-                                  .format(expense.expenseDate),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            if (isToday) ...[
-                              const SizedBox(width: 6),
+          secondaryBackground: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Padam',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.delete, color: Colors.white, size: 24),
+              ],
+            ),
+          ),
+          confirmDismiss: (direction) async {
+            if (direction == DismissDirection.endToStart) {
+              // Delete action - show confirmation
+              return await _confirmDeleteExpense(expense);
+            } else if (direction == DismissDirection.startToEnd) {
+              // Edit action - no confirmation needed
+              _openEditDialog(expense);
+              return false; // Don't dismiss, we'll handle it in the dialog
+            }
+            return false;
+          },
+          onDismissed: (direction) {
+            // This will only be called for delete (after confirmation)
+            // Note: Item is already dismissed from UI at this point
+            // We'll handle delete and let real-time update refresh the list
+            if (direction == DismissDirection.endToStart) {
+              _deleteExpense(expense.id);
+            }
+          },
+          child: Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              onTap: () => _showExpenseDetail(expense),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text(
-                                  'Hari ini',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.primaryDark,
+                                child: Text(
+                                  categoryLabel,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Text(
+                                DateFormat('dd MMM yyyy', 'ms_MY')
+                                    .format(expense.expenseDate),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              if (isToday) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Hari ini',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          expense.notes ?? 'Tiada penerangan',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textSecondary,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _formatCurrency(expense.amount),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.error,
-                        ),
-                      ),
-                      // Show receipt icon if image available
-                      if (expense.receiptImageUrl != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                          const SizedBox(height: 6),
+                          Text(
+                            expense.notes ?? 'Tiada penerangan',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
+                          // Visual hint for swipe actions
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
                               Icon(
-                                Icons.receipt,
-                                size: 14,
-                                color: Colors.blue,
+                                Icons.swipe,
+                                size: 12,
+                                color: Colors.grey[400],
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
                               Text(
-                                'Resit',
+                                'Swipe untuk edit/padam',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[400],
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _formatCurrency(expense.amount),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.error,
+                          ),
+                        ),
+                        // Show receipt icon if image available
+                        if (expense.receiptImageUrl != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.receipt,
+                                  size: 14,
+                                  color: Colors.blue,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Resit',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Arrow indicator to show it's clickable
+                        const SizedBox(height: 4),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: Colors.grey[400],
                         ),
                       ],
-                      // Arrow indicator to show it's clickable
-                      const SizedBox(height: 4),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: Colors.grey[400],
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1554,6 +1649,298 @@ class _ExpensesPageState extends State<ExpensesPage> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  /// Confirm delete expense action
+  Future<bool> _confirmDeleteExpense(Expense expense) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Padam Perbelanjaan?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Adakah anda pasti mahu padam perbelanjaan ini?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Kategori: ${_categoryLabels[expense.category] ?? expense.category}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Jumlah: ${_formatCurrency(expense.amount)}'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tarikh: ${DateFormat('dd MMM yyyy', 'ms_MY').format(expense.expenseDate)}',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tindakan ini tidak boleh dibatalkan.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Padam'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  /// Delete expense with subscription protection
+  Future<void> _deleteExpense(String expenseId) async {
+    await requirePro(context, 'Padam Perbelanjaan', () async {
+      try {
+        // Optimistic update: Remove from local state immediately
+        setState(() {
+          _expenses = _expenses.where((e) => e.id != expenseId).toList();
+        });
+        
+        await _repo.deleteExpense(expenseId);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Perbelanjaan telah dipadam.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          
+          // Manual refresh as backup (DELETE events may not always trigger real-time)
+          // Real-time subscription will also trigger, but this ensures immediate update
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              _loadExpenses();
+            }
+          });
+        }
+      } catch (e) {
+        // Rollback optimistic update on error
+        if (mounted) {
+          _loadExpenses(); // Reload to restore correct state
+          
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Padam Perbelanjaan',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat memadam perbelanjaan: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  /// Open edit expense dialog
+  Future<void> _openEditDialog(Expense expense) async {
+    // Initialize form with existing expense data
+    _formCategory = expense.category;
+    _formAmount = expense.amount.toStringAsFixed(2);
+    _formDescription = expense.notes ?? '';
+    _formDate = expense.expenseDate;
+    _dateController.text = DateFormat('yyyy-MM-dd').format(_formDate);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Perbelanjaan'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _formCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Kategori',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _categoryLabels.entries
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: e.key,
+                            child: Text(e.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _formCategory = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      labelText: 'Jumlah (RM)',
+                      border: OutlineInputBorder(),
+                      prefixText: 'RM ',
+                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    initialValue: _formAmount,
+                    onChanged: (value) => _formAmount = value,
+                    validator: (value) {
+                      final v = double.tryParse(value ?? '');
+                      if (v == null || v <= 0) {
+                        return 'Masukkan jumlah yang sah';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      labelText: 'Penerangan (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: _formDescription,
+                    maxLines: 2,
+                    onChanged: (value) => _formDescription = value,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Tarikh',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    controller: _dateController,
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _formDate,
+                        firstDate: DateTime(2020, 1, 1),
+                        lastDate: DateTime.now().add(const Duration(days: 1)),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _formDate = picked;
+                          _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                    },
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: _isSaving ? null : () => _updateExpense(expense.id),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Simpan Perubahan'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Update expense with subscription protection
+  Future<void> _updateExpense(String expenseId) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+    try {
+      final amount = double.parse(_formAmount);
+      await _repo.updateExpense(
+        id: expenseId,
+        category: _formCategory,
+        amount: amount,
+        expenseDate: _formDate,
+        description:
+            _formDescription.trim().isEmpty ? null : _formDescription.trim(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+        Navigator.pop(context); // Close edit dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Perbelanjaan telah dikemaskini.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // No manual reload needed - real-time subscription will auto-update
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          context,
+          action: 'Edit Perbelanjaan',
+          error: e,
+        );
+        if (handled) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ralat mengemaskini perbelanjaan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

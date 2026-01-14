@@ -5,6 +5,7 @@ import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../data/models/stock_movement.dart';
 import '../../../core/utils/unit_conversion.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 /// Adjust Stock Page - Add or remove stock with reasons
 class AdjustStockPage extends StatefulWidget {
@@ -59,42 +60,52 @@ class _AdjustStockPageState extends State<AdjustStockPage> {
   Future<void> _adjustStock() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    // PHASE: Subscriber Expired System - Protect adjust stock action
+    final action = _isAdding ? 'Tambah Stok' : 'Kurangkan Stok';
+    await requirePro(context, action, () async {
+      setState(() => _isLoading = true);
 
-    try {
-      // Convert from pek/pcs to base unit
-      final quantityInPek = double.parse(_quantityController.text);
-      final quantity = quantityInPek * widget.stockItem.packageSize;
-      final quantityChange = _isAdding ? quantity : -quantity;
+      try {
+        // Convert from pek/pcs to base unit
+        final quantityInPek = double.parse(_quantityController.text);
+        final quantity = quantityInPek * widget.stockItem.packageSize;
+        final quantityChange = _isAdding ? quantity : -quantity;
 
-      await _stockRepository.recordStockMovement(
-        StockMovementInput(
-          stockItemId: widget.stockItem.id,
-          movementType: _selectedType,
-          quantityChange: quantityChange,
-          reason: _reasonController.text.trim().isEmpty
-              ? '${_isAdding ? "Added" : "Removed"} ${quantityInPek.toStringAsFixed(0)} pek/pcs (${quantity.toStringAsFixed(2)} ${widget.stockItem.unit})'
-              : _reasonController.text.trim(),
-        ),
-      );
-
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Stock adjusted successfully!'),
-            backgroundColor: Colors.green,
+        await _stockRepository.recordStockMovement(
+          StockMovementInput(
+            stockItemId: widget.stockItem.id,
+            movementType: _selectedType,
+            quantityChange: quantityChange,
+            reason: _reasonController.text.trim().isEmpty
+                ? '${_isAdding ? "Added" : "Removed"} ${quantityInPek.toStringAsFixed(0)} pek/pcs (${quantity.toStringAsFixed(2)} ${widget.stockItem.unit})'
+                : _reasonController.text.trim(),
           ),
         );
+
+        if (mounted) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Stock adjusted successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: action,
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    });
   }
 
   @override

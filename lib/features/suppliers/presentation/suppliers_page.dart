@@ -62,48 +62,52 @@ class _SuppliersPageState extends State<SuppliersPage> {
   }
 
   Future<void> _showAddDialog() async {
-    final result = await showDialog<Supplier>(
-      context: context,
-      builder: (context) => _SupplierFormDialog(
-        title: 'Tambah Supplier Baru',
-        description: 'Masukkan maklumat supplier untuk memudahkan proses pembelian',
-      ),
-    );
+    await requirePro(context, 'Tambah Supplier', () async {
+      final result = await showDialog<Supplier>(
+        context: context,
+        builder: (context) => _SupplierFormDialog(
+          title: 'Tambah Supplier Baru',
+          description: 'Masukkan maklumat supplier untuk memudahkan proses pembelian',
+        ),
+      );
 
-    if (result != null) {
-      _loadSuppliers();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Supplier berjaya ditambah!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+      if (result != null) {
+        _loadSuppliers();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Supplier berjaya ditambah!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
       }
-    }
+    });
   }
 
   Future<void> _showEditDialog(Supplier supplier) async {
-    final result = await showDialog<Supplier>(
-      context: context,
-      builder: (context) => _SupplierFormDialog(
-        title: 'Edit Supplier',
-        description: 'Kemaskini maklumat supplier',
-        supplier: supplier,
-      ),
-    );
+    await requirePro(context, 'Kemaskini Supplier', () async {
+      final result = await showDialog<Supplier>(
+        context: context,
+        builder: (context) => _SupplierFormDialog(
+          title: 'Edit Supplier',
+          description: 'Kemaskini maklumat supplier',
+          supplier: supplier,
+        ),
+      );
 
-    if (result != null) {
-      _loadSuppliers();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Supplier berjaya dikemaskini!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+      if (result != null) {
+        _loadSuppliers();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Supplier berjaya dikemaskini!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
       }
-    }
+    });
   }
 
   Future<void> _showDeleteDialog(Supplier supplier) async {
@@ -143,34 +147,36 @@ class _SuppliersPageState extends State<SuppliersPage> {
     );
 
     if (confirmed == true) {
-      try {
-        await _repo.deleteSupplier(supplier.id);
-        _loadSuppliers();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Supplier berjaya dipadam!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+      await requirePro(context, 'Padam Supplier', () async {
+        try {
+          await _repo.deleteSupplier(supplier.id);
+          _loadSuppliers();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Supplier berjaya dipadam!'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            // PHASE: Handle subscription enforcement errors (fallback)
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Padam Supplier',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal padam: Sila cuba lagi'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-      } catch (e) {
-        if (mounted) {
-          // PHASE: Handle subscription enforcement errors
-          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-            context,
-            action: 'Padam Supplier',
-            error: e,
-          );
-          if (handled) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal padam: Sila cuba lagi'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      });
     }
   }
 

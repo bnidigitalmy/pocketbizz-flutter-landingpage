@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../../core/services/announcement_media_service.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
@@ -389,21 +390,41 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
   Future<void> _pickAndUploadImage() async {
     try {
       setState(() => _isUploadingAttachment = true);
+      debugPrint('📸 Picking image...');
       final img = await _mediaService.pickImage();
-      if (img == null) return;
+      if (img == null) {
+        debugPrint('⚠️ Image picker cancelled or returned null');
+        return;
+      }
+      debugPrint('✅ Image picked: ${img.name}');
       final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      debugPrint('📤 Uploading image...');
       final uploaded = await _mediaService.uploadImage(
         img,
         'fb-$tempId',
         folderPrefix: _folderPrefix(),
       );
       if (!mounted) return;
+      debugPrint('✅ Image uploaded successfully: ${uploaded.url}');
       setState(() => _attachments.add(uploaded));
-    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Gambar berjaya dilampirkan'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error picking/uploading image: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (!mounted) return;
       final msg = _friendlyUploadError(e, jenis: 'gambar');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
@@ -413,21 +434,41 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
   Future<void> _pickAndUploadVideo() async {
     try {
       setState(() => _isUploadingAttachment = true);
+      debugPrint('🎥 Picking video...');
       final vid = await _mediaService.pickVideo();
-      if (vid == null) return;
+      if (vid == null) {
+        debugPrint('⚠️ Video picker cancelled or returned null');
+        return;
+      }
+      debugPrint('✅ Video picked: ${vid.name}');
       final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      debugPrint('📤 Uploading video...');
       final uploaded = await _mediaService.uploadVideo(
         vid,
         'fb-$tempId',
         folderPrefix: _folderPrefix(),
       );
       if (!mounted) return;
+      debugPrint('✅ Video uploaded successfully: ${uploaded.url}');
       setState(() => _attachments.add(uploaded));
-    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Video berjaya dilampirkan'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error picking/uploading video: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (!mounted) return;
       final msg = _friendlyUploadError(e, jenis: 'video');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);
@@ -437,24 +478,44 @@ class _SubmitFeedbackPageState extends State<SubmitFeedbackPage> {
   Future<void> _pickAndUploadFile() async {
     try {
       setState(() => _isUploadingAttachment = true);
+      debugPrint('📄 Picking file...');
       final result = await _mediaService.pickFile(
         allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'jpg', 'jpeg', 'png', 'mp4', 'mov'],
       );
-      if (result == null || result.files.isEmpty) return;
+      if (result == null || result.files.isEmpty) {
+        debugPrint('⚠️ File picker cancelled or returned empty');
+        return;
+      }
       final file = result.files.single;
+      debugPrint('✅ File picked: ${file.name} (${file.size} bytes)');
       final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      debugPrint('📤 Uploading file...');
       final uploaded = await _mediaService.uploadFile(
         file,
         'fb-$tempId',
         folderPrefix: _folderPrefix(),
       );
       if (!mounted) return;
+      debugPrint('✅ File uploaded successfully: ${uploaded.url}');
       setState(() => _attachments.add(uploaded));
-    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Fail berjaya dilampirkan'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error picking/uploading file: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (!mounted) return;
       final msg = _friendlyUploadError(e, jenis: 'fail');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUploadingAttachment = false);

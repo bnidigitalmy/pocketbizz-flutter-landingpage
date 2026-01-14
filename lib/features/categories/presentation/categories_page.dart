@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../data/repositories/categories_repository_supabase.dart';
 import '../../../data/models/category.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../subscription/widgets/subscription_guard.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
@@ -84,31 +85,39 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
 
     if (result == true && nameController.text.isNotEmpty) {
-      try {
-        await _repo.create(
-          nameController.text.trim(),
-          description: descController.text.trim().isEmpty 
-              ? null 
-              : descController.text.trim(),
-          icon: selectedIcon,
-          color: selectedColor,
-        );
-        await _loadCategories();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Category added successfully'),
-              backgroundColor: Colors.green,
-            ),
+      await requirePro(context, 'Tambah Kategori', () async {
+        try {
+          await _repo.create(
+            nameController.text.trim(),
+            description: descController.text.trim().isEmpty 
+                ? null 
+                : descController.text.trim(),
+            icon: selectedIcon,
+            color: selectedColor,
           );
+          await _loadCategories();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Category added successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Tambah Kategori',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
+      });
     }
   }
 
@@ -133,24 +142,32 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
 
     if (confirmed == true) {
-      try {
-        await _repo.delete(category.id);
-        await _loadCategories();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Category deleted'),
-              backgroundColor: Colors.green,
-            ),
-          );
+      await requirePro(context, 'Padam Kategori', () async {
+        try {
+          await _repo.delete(category.id);
+          await _loadCategories();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Category deleted'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Padam Kategori',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
+      });
     }
   }
 

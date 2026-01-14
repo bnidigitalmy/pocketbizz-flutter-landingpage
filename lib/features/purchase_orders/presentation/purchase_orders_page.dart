@@ -157,71 +157,75 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   }
 
   Future<void> _updateStatus(String id, String status) async {
-    try {
-      await _poRepo.updateStatus(id, status);
-      _loadPurchaseOrders();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Status dikemaskini'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+    await requirePro(context, 'Kemaskini Status Purchase Order', () async {
+      try {
+        await _poRepo.updateStatus(id, status);
+        _loadPurchaseOrders();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Status dikemaskini'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Kemaskini Status Purchase Order',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Kemaskini Status PO',
-          error: e,
-        );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    });
   }
 
   Future<void> _markAsReceived(String id) async {
-    try {
-      await _poRepo.markAsReceived(id);
-      _loadPurchaseOrders();
-      
-      // Wait a bit for stock to update via RPC function
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Barang Diterima! Stok telah dikemaskini. Dashboard akan refresh secara automatik.'),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        Navigator.pop(context);
+    await requirePro(context, 'Tandakan Purchase Order Diterima', () async {
+      try {
+        await _poRepo.markAsReceived(id);
+        _loadPurchaseOrders();
         
-        // Force refresh after a short delay to ensure stock is updated
-        // This helps if real-time subscription doesn't trigger immediately
-        Future.delayed(const Duration(seconds: 1), () {
-          // Trigger a manual refresh by navigating back and forth
-          // This will cause didChangeDependencies to run in other pages
-        });
+        // Wait a bit for stock to update via RPC function
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Barang Diterima! Stok telah dikemaskini. Dashboard akan refresh secara automatik.'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          Navigator.pop(context);
+          
+          // Force refresh after a short delay to ensure stock is updated
+          // This helps if real-time subscription doesn't trigger immediately
+          Future.delayed(const Duration(seconds: 1), () {
+            // Trigger a manual refresh by navigating back and forth
+            // This will cause didChangeDependencies to run in other pages
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tandakan Purchase Order Diterima',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Terima Barang',
-          error: e,
-        );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    });
   }
 
   Future<void> _deletePO(String id) async {
@@ -245,14 +249,46 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
     );
 
     if (confirmed == true) {
+      await requirePro(context, 'Padam Purchase Order', () async {
+        try {
+          await _poRepo.deletePurchaseOrder(id);
+          _loadPurchaseOrders();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ PO dipadam'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Padam Purchase Order',
+              error: e,
+            );
+            if (handled) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
+        }
+      });
+    }
+  }
+
+  Future<void> _duplicatePO(String id) async {
+    await requirePro(context, 'Duplikasi Purchase Order', () async {
       try {
-        await _poRepo.deletePurchaseOrder(id);
+        await _poRepo.duplicatePurchaseOrder(id);
         _loadPurchaseOrders();
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✅ PO dipadam'),
+              content: Text('✅ PO diduplikasi sebagai Draft'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -261,7 +297,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
         if (mounted) {
           final handled = await SubscriptionEnforcement.maybePromptUpgrade(
             context,
-            action: 'Padam PO',
+            action: 'Duplikasi Purchase Order',
             error: e,
           );
           if (handled) return;
@@ -270,35 +306,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
           );
         }
       }
-    }
-  }
-
-  Future<void> _duplicatePO(String id) async {
-    try {
-      await _poRepo.duplicatePurchaseOrder(id);
-      _loadPurchaseOrders();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ PO diduplikasi sebagai Draft'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Duplikasi PO',
-          error: e,
-        );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    });
   }
 
   Future<void> _updatePO() async {
@@ -324,7 +332,8 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       return;
     }
     
-    try {
+    await requirePro(context, 'Kemaskini Purchase Order', () async {
+      try {
       final updateData = {
         'supplier_name': _editSupplierNameController.text.trim(),
         'supplier_phone': _editSupplierPhoneController.text.trim().isEmpty 
@@ -397,19 +406,20 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
         );
         Navigator.pop(context);
       }
-    } catch (e) {
-      if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Kemaskini PO',
-          error: e,
-        );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+      } catch (e) {
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Kemaskini Purchase Order',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
       }
-    }
+    });
   }
 
   Future<void> _shareWhatsApp(PurchaseOrder po) async {

@@ -5,6 +5,7 @@ import '../../../../data/repositories/recipe_document_repository.dart';
 import '../../../../data/repositories/recipe_document_category_repository.dart';
 import '../../../../data/models/recipe_document.dart';
 import '../../../../data/models/recipe_document_category.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class AddFileRecipePage extends StatefulWidget {
   const AddFileRecipePage({super.key});
@@ -117,9 +118,11 @@ class _AddFileRecipePageState extends State<AddFileRecipePage> {
       return;
     }
 
-    setState(() => _loading = true);
+    // PHASE: Subscriber Expired System - Protect upload action
+    await requirePro(context, 'Muat Naik Dokumen Resepi', () async {
+      setState(() => _loading = true);
 
-    try {
+      try {
       // Upload file to storage
       final fileExtension = _selectedFile!.extension ?? '';
       final fileType = _getFileType(fileExtension);
@@ -165,17 +168,24 @@ class _AddFileRecipePageState extends State<AddFileRecipePage> {
           ),
         );
       }
-    } catch (e) {
-      setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      } catch (e) {
+        setState(() => _loading = false);
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Muat Naik Dokumen Resepi',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    }
+    });
   }
 
   @override

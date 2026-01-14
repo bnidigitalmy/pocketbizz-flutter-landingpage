@@ -379,49 +379,51 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    await requirePro(context, 'Rekod Produksi', () async {
+      setState(() => _isLoading = true);
 
-    if (_selectedProduct == null) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    try {
-      final input = ProductionBatchInput(
-        productId: _selectedProduct!.id,
-        quantity: _quantity * _selectedProduct!.unitsPerBatch,
-        batchDate: _batchDate,
-        expiryDate: _expiryDate,
-        notes: _notes.trim().isEmpty ? null : _notes.trim(),
-      );
-
-      await widget.productionBatchRepo.recordProductionBatch(input);
-
-      if (mounted) {
-        Navigator.pop(context);
-        widget.onSuccess();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Produksi telah direkod dan stok telah dikurangkan.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+      if (_selectedProduct == null) {
+        setState(() => _isLoading = false);
+        return;
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        // PHASE: Handle subscription enforcement errors
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
-          context,
-          action: 'Rekod Produksi',
-          error: e,
+
+      try {
+        final input = ProductionBatchInput(
+          productId: _selectedProduct!.id,
+          quantity: _quantity * _selectedProduct!.unitsPerBatch,
+          batchDate: _batchDate,
+          expiryDate: _expiryDate,
+          notes: _notes.trim().isEmpty ? null : _notes.trim(),
         );
-        if (handled) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal rekod produksi: Sila cuba lagi'), backgroundColor: Colors.red),
-        );
+
+        await widget.productionBatchRepo.recordProductionBatch(input);
+
+        if (mounted) {
+          Navigator.pop(context);
+          widget.onSuccess();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Produksi telah direkod dan stok telah dikurangkan.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          // PHASE: Handle subscription enforcement errors
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Rekod Produksi',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal rekod produksi: Sila cuba lagi'), backgroundColor: Colors.red),
+          );
+        }
       }
-    }
+    });
   }
 
   @override

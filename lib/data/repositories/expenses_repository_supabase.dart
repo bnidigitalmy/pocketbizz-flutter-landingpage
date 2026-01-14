@@ -97,6 +97,56 @@ class ExpensesRepositorySupabase {
     if (response == null) return null;
     return Expense.fromJson(response as Map<String, dynamic>);
   }
+
+  /// Update an existing expense
+  Future<Expense> updateExpense({
+    required String id,
+    required String category,
+    required double amount,
+    required DateTime expenseDate,
+    String? description,
+  }) async {
+    final userId = supabase.auth.currentUser!.id;
+
+    final payload = {
+      'category': category,
+      'amount': amount,
+      'expense_date': DateFormat('yyyy-MM-dd').format(expenseDate),
+      'notes': description,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    try {
+      final response = await supabase
+          .from('expenses')
+          .update(payload)
+          .eq('id', id)
+          .eq('business_owner_id', userId)
+          .select()
+          .single();
+
+      return Expense.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      print('❌ Error updating expense: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an expense
+  Future<void> deleteExpense(String id) async {
+    final userId = supabase.auth.currentUser!.id;
+
+    try {
+      await supabase
+          .from('expenses')
+          .delete()
+          .eq('id', id)
+          .eq('business_owner_id', userId);
+    } catch (e) {
+      print('❌ Error deleting expense: $e');
+      rethrow;
+    }
+  }
 }
 
 

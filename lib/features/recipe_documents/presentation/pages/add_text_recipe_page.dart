@@ -3,6 +3,7 @@ import '../../../../data/repositories/recipe_document_repository.dart';
 import '../../../../data/repositories/recipe_document_category_repository.dart';
 import '../../../../data/models/recipe_document.dart';
 import '../../../../data/models/recipe_document_category.dart';
+import '../../../subscription/widgets/subscription_guard.dart';
 
 class AddTextRecipePage extends StatefulWidget {
   const AddTextRecipePage({super.key});
@@ -51,46 +52,55 @@ class _AddTextRecipePageState extends State<AddTextRecipePage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _loading = true);
+    // PHASE: Subscriber Expired System - Protect create action
+    await requirePro(context, 'Tambah Resepi Text', () async {
+      setState(() => _loading = true);
 
-    try {
-      final document = RecipeDocument(
-        id: '',
-        businessOwnerId: '',
-        title: _titleController.text.trim(),
-        categoryId: _selectedCategoryId,
-        contentType: 'text',
-        textContent: _textContentController.text.trim(),
-        source: _sourceController.text.trim().isEmpty
-            ? null
-            : _sourceController.text.trim(),
-        uploadedAt: DateTime.now(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await _repo.create(document);
-
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Resepi berjaya disimpan!'),
-            backgroundColor: Colors.green,
-          ),
+      try {
+        final document = RecipeDocument(
+          id: '',
+          businessOwnerId: '',
+          title: _titleController.text.trim(),
+          categoryId: _selectedCategoryId,
+          contentType: 'text',
+          textContent: _textContentController.text.trim(),
+          source: _sourceController.text.trim().isEmpty
+              ? null
+              : _sourceController.text.trim(),
+          uploadedAt: DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
         );
+
+        await _repo.create(document);
+
+        if (mounted) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Resepi berjaya disimpan!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _loading = false);
+        if (mounted) {
+          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            context,
+            action: 'Tambah Resepi Text',
+            error: e,
+          );
+          if (handled) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } catch (e) {
-      setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    });
   }
 
   @override
