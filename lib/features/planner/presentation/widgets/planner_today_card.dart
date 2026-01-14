@@ -36,10 +36,15 @@ class _PlannerTodayCardState extends State<PlannerTodayCard> {
         _repo.listTasks(scope: 'upcoming', limit: 5),
       ]);
       if (!mounted) return;
+      
+      // Filter out auto-generated tasks (only show user-created tasks)
+      final filterUserTasks = (List<PlannerTask> tasks) => 
+        tasks.where((t) => !t.isAuto).toList();
+      
       setState(() {
-        _today = results[0];
-        _overdue = results[1];
-        _upcoming = results[2];
+        _today = filterUserTasks(results[0]);
+        _overdue = filterUserTasks(results[1]);
+        _upcoming = filterUserTasks(results[2]);
         _loading = false;
       });
     } catch (_) {

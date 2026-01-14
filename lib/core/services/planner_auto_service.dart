@@ -27,14 +27,13 @@ class PlannerAutoService {
   final ProductionRepository _productionRepo;
   final ConsignmentClaimsRepositorySupabase _claimsRepo;
 
+  /// DISABLED: Auto-generate tasks removed
+  /// Planner now only shows user-created tasks
+  /// Dashboard alert widgets handle system alerts (bookings, low stock, expiry, etc.)
   Future<void> runAll() async {
-    await Future.wait([
-      _generateLowStockTasks(),
-      _generatePendingPOTasks(),
-      _generateTodayBookingTasks(),
-      _generateClaimBalanceTasks(),
-      _generateExpiryBatchTasks(),
-    ]);
+    // Auto-generate tasks disabled - planner is now for user-created tasks only
+    // This prevents duplicate alerts with dashboard alert widgets
+    return;
   }
 
   Future<void> _generateLowStockTasks() async {

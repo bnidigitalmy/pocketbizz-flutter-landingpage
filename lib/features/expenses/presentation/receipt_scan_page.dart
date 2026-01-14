@@ -7,7 +7,9 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
@@ -77,6 +79,21 @@ class ReceiptScanPage extends StatefulWidget {
 class _ReceiptScanPageState extends State<ReceiptScanPage> {
   final _repo = ExpensesRepositorySupabase();
   final _picker = ImagePicker();
+
+  /// Convert PlatformFile to XFile (for web FilePicker)
+  XFile _xFileFromPickedBytes(PlatformFile f) {
+    final bytes = f.bytes;
+    if (bytes == null) {
+      throw Exception('Fail gambar tidak dapat dibaca');
+    }
+    final ext = (f.extension ?? 'jpg').toLowerCase();
+    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+    return XFile.fromData(
+      bytes,
+      name: f.name,
+      mimeType: mime,
+    );
+  }
 
   // Camera elements
   html.VideoElement? _videoElement;
@@ -344,12 +361,27 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     _stopCamera(); // Stop camera when switching to gallery
     setState(() => _isCapturing = true);
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
+      XFile? image;
+      
+      // Web: use FilePicker to avoid blob: URL issues with CSP
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true,
+        );
+        if (result != null && result.files.isNotEmpty) {
+          image = _xFileFromPickedBytes(result.files.single);
+        }
+      } else {
+        // Mobile: use ImagePicker
+        image = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1200,
+          maxHeight: 1600,
+          imageQuality: 85,
+        );
+      }
+      
       if (image != null) {
         await _processImage(image);
       } else {

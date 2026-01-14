@@ -31,7 +31,6 @@ class _EnhancedPlannerPageState extends State<EnhancedPlannerPage>
   final _views = const [
     Tab(icon: Icon(Icons.list), text: 'Senarai'),
     Tab(icon: Icon(Icons.calendar_today), text: 'Kalendar'),
-    Tab(icon: Icon(Icons.view_kanban), text: 'Kanban'),
   ];
 
   int _currentViewIndex = 0;
@@ -98,10 +97,7 @@ class _EnhancedPlannerPageState extends State<EnhancedPlannerPage>
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => _showSearchDialog(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(),
+            tooltip: 'Cari',
           ),
           PopupMenuButton(
             itemBuilder: (context) => [
@@ -203,9 +199,9 @@ class _EnhancedPlannerPageState extends State<EnhancedPlannerPage>
                   ),
                   const SizedBox(width: 8),
                   _ScopeChip(
-                    label: 'Auto',
-                    value: 'auto',
-                    selected: _currentScope == 'auto',
+                    label: 'Selesai',
+                    value: 'done',
+                    selected: _currentScope == 'done',
                     onSelected: (v) => setState(() => _currentScope = v),
                   ),
                 ],
@@ -227,12 +223,6 @@ class _EnhancedPlannerPageState extends State<EnhancedPlannerPage>
                   onTaskTap: _showTaskDetail,
                 ),
                 PlannerCalendarView(
-                  repo: _repo,
-                  categoryId: _selectedCategoryId,
-                  projectId: _selectedProjectId,
-                  onTaskTap: _showTaskDetail,
-                ),
-                PlannerKanbanView(
                   repo: _repo,
                   categoryId: _selectedCategoryId,
                   projectId: _selectedProjectId,

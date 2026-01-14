@@ -301,9 +301,11 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     try {
       // Run planner auto-service in background (non-blocking)
       // Don't wait for it - let it run while we load critical data
-      _plannerAuto.runAll().catchError((e) {
-        debugPrint('Planner auto-service error (non-critical): $e');
-      });
+      // Auto-generate tasks disabled - planner is now for user-created tasks only
+      // Dashboard alert widgets handle system alerts (bookings, low stock, expiry, etc.)
+      // _plannerAuto.runAll().catchError((e) {
+      //   debugPrint('Planner auto-service error (non-critical): $e');
+      // });
 
       // Load critical data first (what user needs to see immediately)
       // Use cache for faster loading - invalidated by real-time subscriptions
