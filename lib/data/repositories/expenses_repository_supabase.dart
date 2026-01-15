@@ -14,8 +14,13 @@ import '../models/expense.dart';
 
 /// Expenses repository using Supabase `expenses` table.
 class ExpensesRepositorySupabase {
-  /// Fetch all expenses for current business owner, newest first.
-  Future<List<Expense>> getExpenses() async {
+  /// Fetch expenses for current business owner, newest first.
+  /// [limit] - Maximum number of expenses to fetch (default: 50 for initial load)
+  /// [offset] - Number of expenses to skip (default: 0)
+  Future<List<Expense>> getExpenses({
+    int limit = 50,
+    int offset = 0,
+  }) async {
     final userId = supabase.auth.currentUser!.id;
 
     final response = await supabase
@@ -23,7 +28,8 @@ class ExpensesRepositorySupabase {
         .select()
         .eq('business_owner_id', userId)
         .order('expense_date', ascending: false)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1); // Add pagination
 
     final data = (response as List).cast<Map<String, dynamic>>();
     return data.map(Expense.fromJson).toList();

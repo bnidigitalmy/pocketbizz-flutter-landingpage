@@ -8,7 +8,9 @@
 // Only READ-ONLY reference allowed.
 
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../core/services/cache_service.dart';
@@ -25,7 +27,6 @@ import 'widgets/shopping_list_dialog.dart';
 import 'widgets/bulk_assign_supplier_dialog.dart';
 import 'bulk_add_stock_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 
 /// Stock Management Page - List all stock items
@@ -291,19 +292,117 @@ class _StockPageState extends State<StockPage> {
     }
   }
 
+  Future<void> _handleDownloadTemplate() async {
+    try {
+      setState(() => _isExporting = true);
+      final filePath = await StockExportImport.downloadSampleTemplate();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Template berjaya dimuat turun: $filePath'),
+            backgroundColor: AppColors.success,
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
   Future<void> _handleImport() async {
     // PHASE: Subscriber Expired System - Protect import action
     await requirePro(context, 'Import CSV/Excel', () async {
+      // Show dialog with options: Download Template or Import File
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Import Stock Items'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pilih tindakan:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '1. Muat turun template untuk format yang betul\n'
+                '2. Isi data dalam template\n'
+                '3. Import file yang sudah diisi',
+                style: TextStyle(fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () => Navigator.pop(context, 'download'),
+              icon: const Icon(Icons.file_download),
+              label: const Text('Muat Turun Template'),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.pop(context, 'import'),
+              icon: const Icon(Icons.upload),
+              label: const Text('Import File'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+          ],
+        ),
+      );
+
+      if (action == 'download') {
+        await _handleDownloadTemplate();
+        return;
+      }
+      
+      if (action != 'import') return;
+
       try {
-        final filePath = await StockExportImport.pickFile();
-        if (filePath == null) return;
+        final fileData = await StockExportImport.pickFile();
+        if (fileData == null) return;
 
         // Parse file
         List<Map<String, dynamic>> data;
-        if (filePath.endsWith('.csv')) {
-          data = await StockExportImport.parseCSVFile(filePath);
+        final extension = fileData['extension'] as String;
+        final isCSV = extension.toLowerCase() == 'csv';
+        
+        if (kIsWeb) {
+          // Web: use bytes
+          final bytes = fileData['bytes'] as Uint8List;
+          if (isCSV) {
+            data = await StockExportImport.parseCSVFile(bytes);
+          } else {
+            data = await StockExportImport.parseExcelFile(bytes);
+          }
         } else {
-          data = await StockExportImport.parseExcelFile(filePath);
+          // Mobile/Desktop: use file path
+          final filePath = fileData['path'] as String;
+          if (isCSV) {
+            data = await StockExportImport.parseCSVFile(filePath);
+          } else {
+            data = await StockExportImport.parseExcelFile(filePath);
+          }
         }
 
         // Validate
@@ -777,23 +876,23 @@ class _StockPageState extends State<StockPage> {
                   onPressed: _toggleSelectionMode,
                   tooltip: 'Mode Pilihan',
                 ),
-                // Export Excel
-                IconButton(
-                  icon: const Icon(Icons.table_chart),
-                  onPressed: _isExporting ? null : _handleExportExcel,
-                  tooltip: 'Export Excel',
-                ),
                 // Export CSV
                 IconButton(
                   icon: const Icon(Icons.download),
                   onPressed: _isExporting ? null : _handleExportCSV,
                   tooltip: 'Export CSV',
                 ),
+                // Download Template
+                IconButton(
+                  icon: const Icon(Icons.file_download),
+                  onPressed: _isExporting ? null : _handleDownloadTemplate,
+                  tooltip: 'Muat Turun Template',
+                ),
                 // Import
                 IconButton(
                   icon: const Icon(Icons.upload),
                   onPressed: _handleImport,
-                  tooltip: 'Import',
+                  tooltip: 'Import CSV/Excel',
                 ),
               ],
       ),

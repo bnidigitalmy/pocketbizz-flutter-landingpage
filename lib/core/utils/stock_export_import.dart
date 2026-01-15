@@ -1,9 +1,15 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:excel/excel.dart';
 import 'package:csv/csv.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../data/models/stock_item.dart';
+
+// Conditional imports
+import 'dart:io' if (dart.library.html) '../services/io_stub.dart';
+import 'package:path_provider/path_provider.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 /// Stock Export/Import Utilities
 /// Handles Excel & CSV export/import for Stock Management
@@ -37,19 +43,30 @@ class StockExportImport {
       ]);
     }
 
-    // Save file
-    final directory = await getApplicationDocumentsDirectory();
-    final filename = 'stock-items-${DateTime.now().toIso8601String().split('T')[0]}.xlsx';
-    final filePath = '${directory.path}/$filename';
-    
     final fileBytes = excel.save();
-    if (fileBytes != null) {
+    if (fileBytes == null) {
+      throw Exception('Failed to save Excel file');
+    }
+
+    final filename = 'stock-items-${DateTime.now().toIso8601String().split('T')[0]}.xlsx';
+
+    if (kIsWeb) {
+      // Web: trigger browser download
+      final blob = html.Blob([fileBytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', filename)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      return 'Downloaded: $filename';
+    } else {
+      // Mobile/Desktop: save to file system
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/$filename';
       final file = File(filePath);
       await file.writeAsBytes(fileBytes);
       return filePath;
     }
-
-    throw Exception('Failed to save Excel file');
   }
 
   /// Export stock items to CSV
@@ -81,16 +98,26 @@ class StockExportImport {
     }
 
     final csv = const ListToCsvConverter().convert(rows);
-
-    // Save file
-    final directory = await getApplicationDocumentsDirectory();
     final filename = 'stock-items-${DateTime.now().toIso8601String().split('T')[0]}.csv';
-    final filePath = '${directory.path}/$filename';
-    
-    final file = File(filePath);
-    await file.writeAsString(csv);
-    
-    return filePath;
+
+    if (kIsWeb) {
+      // Web: trigger browser download
+      final csvBytes = Uint8List.fromList(csv.codeUnits);
+      final blob = html.Blob([csvBytes], 'text/csv');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', filename)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      return 'Downloaded: $filename';
+    } else {
+      // Mobile/Desktop: save to file system
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/$filename';
+      final file = File(filePath);
+      await file.writeAsString(csv);
+      return filePath;
+    }
   }
 
   /// Download sample template
@@ -130,27 +157,49 @@ class StockExportImport {
       TextCellValue(''),
     ]);
 
-    // Save file
-    final directory = await getApplicationDocumentsDirectory();
-    const filename = 'stock-template.xlsx';
-    final filePath = '${directory.path}/$filename';
-    
     final fileBytes = excel.save();
-    if (fileBytes != null) {
+    if (fileBytes == null) {
+      throw Exception('Failed to save template file');
+    }
+
+    const filename = 'stock-template.xlsx';
+
+    if (kIsWeb) {
+      // Web: trigger browser download
+      final blob = html.Blob([fileBytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', filename)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      return 'Downloaded: $filename';
+    } else {
+      // Mobile/Desktop: save to file system
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/$filename';
       final file = File(filePath);
       await file.writeAsBytes(fileBytes);
       return filePath;
     }
-
-    throw Exception('Failed to save template file');
   }
 
   /// Parse Excel file for import
-  static Future<List<Map<String, dynamic>>> parseExcelFile(String filePath) async {
-    final file = File(filePath);
-    final bytes = await file.readAsBytes();
-    final excel = Excel.decodeBytes(bytes);
+  /// Accepts either file path (mobile) or bytes (web)
+  static Future<List<Map<String, dynamic>>> parseExcelFile(dynamic fileInput) async {
+    Uint8List bytes;
+    
+    if (fileInput is String) {
+      // Mobile: read from file path
+      final file = File(fileInput);
+      bytes = await file.readAsBytes();
+    } else if (fileInput is Uint8List) {
+      // Web: use bytes directly
+      bytes = fileInput;
+    } else {
+      throw Exception('Invalid file input type');
+    }
 
+    final excel = Excel.decodeBytes(bytes);
     final List<Map<String, dynamic>> items = [];
     
     for (final table in excel.tables.keys) {
@@ -179,9 +228,20 @@ class StockExportImport {
   }
 
   /// Parse CSV file for import
-  static Future<List<Map<String, dynamic>>> parseCSVFile(String filePath) async {
-    final file = File(filePath);
-    final csvString = await file.readAsString();
+  /// Accepts either file path (mobile) or bytes (web)
+  static Future<List<Map<String, dynamic>>> parseCSVFile(dynamic fileInput) async {
+    String csvString;
+    
+    if (fileInput is String) {
+      // Mobile: read from file path
+      final file = File(fileInput);
+      csvString = await file.readAsString();
+    } else if (fileInput is Uint8List) {
+      // Web: convert bytes to string
+      csvString = String.fromCharCodes(fileInput);
+    } else {
+      throw Exception('Invalid file input type');
+    }
     
     final List<List<dynamic>> rows = const CsvToListConverter().convert(csvString);
     final List<Map<String, dynamic>> items = [];
@@ -208,17 +268,41 @@ class StockExportImport {
   }
 
   /// Pick file using file picker
-  static Future<String?> pickFile() async {
+  /// Returns file path for mobile, or bytes for web
+  static Future<Map<String, dynamic>?> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls', 'csv'],
+      withData: kIsWeb, // Get bytes for web
     );
 
-    if (result != null && result.files.single.path != null) {
-      return result.files.single.path!;
+    if (result == null || result.files.isEmpty) {
+      return null;
     }
 
-    return null;
+    final file = result.files.single;
+    
+    if (kIsWeb) {
+      // Web: return bytes and filename
+      if (file.bytes == null) {
+        throw Exception('File bytes tidak tersedia');
+      }
+      return {
+        'bytes': file.bytes!,
+        'name': file.name,
+        'extension': file.extension ?? '',
+      };
+    } else {
+      // Mobile/Desktop: return file path
+      if (file.path == null) {
+        return null;
+      }
+      return {
+        'path': file.path!,
+        'name': file.name,
+        'extension': file.extension ?? '',
+      };
+    }
   }
 
   /// Validate import data

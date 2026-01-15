@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/receipt_storage_service.dart';
+import '../../../core/services/cache_service.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/models/expense.dart';
@@ -42,6 +43,12 @@ class _ExpensesPageState extends State<ExpensesPage> {
   bool _isSaving = false;
   List<Expense> _expenses = [];
   String _selectedCategory = 'all';
+  
+  // Pagination state
+  int _currentOffset = 0;
+  static const int _pageSize = 50;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   // Real-time subscription
   StreamSubscription? _expensesSubscription;
@@ -96,10 +103,17 @@ class _ExpensesPageState extends State<ExpensesPage> {
           .stream(primaryKey: ['id'])
           .eq('business_owner_id', userId)
           .listen((data) {
-            // Expenses updated (INSERT/UPDATE/DELETE) - refresh with debounce
-            debugPrint('🔄 Expenses real-time update detected: ${data.length} items');
-            debugPrint('   Data: ${data.map((e) => e['id']).toList()}');
+            // Expenses updated (INSERT/UPDATE/DELETE) - invalidate cache and refresh
+            // Note: Real-time subscription returns all items, but we only load first page
+            debugPrint('🔄 Expenses real-time update detected: ${data.length} total items in DB');
             if (mounted) {
+              // Invalidate all expense caches when expenses change
+              CacheService.invalidate('expenses_list');
+              // Also invalidate paginated caches
+              for (int i = 0; i < 10; i++) {
+                CacheService.invalidate('expenses_list_${i * _pageSize}');
+              }
+              // Only reload first page (50 items) for performance
               _debouncedRefresh();
             }
           }, onError: (error) {
@@ -122,13 +136,38 @@ class _ExpensesPageState extends State<ExpensesPage> {
     });
   }
 
-  Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadExpenses({bool reset = true}) async {
+    if (reset) {
+      setState(() {
+        _isLoading = true;
+        _currentOffset = 0;
+        _hasMore = true;
+      });
+    } else {
+      setState(() => _isLoadingMore = true);
+    }
+    
     try {
-      final data = await _repo.getExpenses();
+      // Use cache for expenses - faster loading (only for initial load)
+      final cacheKey = reset ? 'expenses_list' : 'expenses_list_${_currentOffset}';
+      final data = await CacheService.getOrFetch<List<Expense>>(
+        cacheKey,
+        () => _repo.getExpenses(limit: _pageSize, offset: _currentOffset),
+        ttl: const Duration(minutes: 3), // Expenses change frequently, shorter TTL
+      );
+      
       if (mounted) {
         setState(() {
-          _expenses = data;
+          if (reset) {
+            _expenses = data;
+          } else {
+            _expenses.addAll(data);
+          }
+          
+          // Check if there are more items
+          _hasMore = data.length == _pageSize;
+          _currentOffset = _expenses.length;
+          
           // Ensure we know about any categories already stored in DB.
           for (final exp in data) {
             if (!_categoryLabels.containsKey(exp.category)) {
@@ -148,9 +187,17 @@ class _ExpensesPageState extends State<ExpensesPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
       }
     }
+  }
+  
+  Future<void> _loadMoreExpenses() async {
+    if (!_hasMore || _isLoadingMore) return;
+    await _loadExpenses(reset: false);
   }
 
   Map<String, double> get _categoryTotals {
@@ -357,6 +404,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
       setState(() => _isSaving = true);
       try {
         final amount = double.parse(_formAmount);
+        // Invalidate cache before creating (optimistic)
+        CacheService.invalidate('expenses_list');
         await _repo.createExpense(
           category: _formCategory,
           amount: amount,
@@ -801,8 +850,17 @@ class _ExpensesPageState extends State<ExpensesPage> {
       );
     }
 
-    return Column(
-      children: _filteredExpenses.map((expense) {
+    // Use ListView.builder for virtual scrolling (better performance with large lists)
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(), // Parent SingleChildScrollView handles scrolling
+      itemCount: _filteredExpenses.length + (_hasMore ? 1 : 0), // +1 for "Load More" button
+      itemBuilder: (context, index) {
+        // Show "Load More" button at the end
+        if (index == _filteredExpenses.length) {
+          return _buildLoadMoreButton();
+        }
+        final expense = _filteredExpenses[index];
         final isToday =
             DateUtils.isSameDay(expense.expenseDate, DateTime.now());
         final categoryLabel = _categoryLabels[expense.category] ??
@@ -1037,7 +1095,29 @@ class _ExpensesPageState extends State<ExpensesPage> {
             ),
           ),
         );
-      }).toList(),
+      },
+    );
+  }
+
+  /// Build "Load More" button for pagination
+  Widget _buildLoadMoreButton() {
+    if (!_hasMore) return const SizedBox.shrink();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: _isLoadingMore
+            ? const CircularProgressIndicator()
+            : ElevatedButton.icon(
+                onPressed: _loadMoreExpenses,
+                icon: const Icon(Icons.expand_more),
+                label: const Text('Muat Lebih Banyak'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+      ),
     );
   }
 
@@ -1725,6 +1805,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
           _expenses = _expenses.where((e) => e.id != expenseId).toList();
         });
         
+        // Invalidate cache before deleting (optimistic)
+        CacheService.invalidate('expenses_list');
         await _repo.deleteExpense(expenseId);
         
         if (mounted) {
@@ -1903,6 +1985,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
     setState(() => _isSaving = true);
     try {
       final amount = double.parse(_formAmount);
+      // Invalidate cache before updating (optimistic)
+      CacheService.invalidate('expenses_list');
       await _repo.updateExpense(
         id: expenseId,
         category: _formCategory,
