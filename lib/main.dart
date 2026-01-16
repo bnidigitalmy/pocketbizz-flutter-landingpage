@@ -57,6 +57,8 @@ import 'features/feedback/presentation/admin/admin_feedback_page.dart';
 import 'features/announcements/presentation/notifications_page.dart';
 import 'features/announcements/presentation/admin/admin_announcements_page.dart';
 import 'features/recipe_documents/presentation/pages/recipe_documents_page.dart';
+import 'features/onboarding/presentation/onboarding_page.dart';
+import 'features/onboarding/services/onboarding_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -499,8 +501,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
             return const ResetPasswordPage();
           }
           
-          // Normal authenticated user - go to home
-          return const HomePage();
+          // Normal authenticated user - check onboarding first
+          return const _AuthenticatedUserWrapper();
         } else {
           return const LoginPage();
         }
@@ -509,3 +511,60 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
+/// Wrapper for authenticated users - checks onboarding status
+class _AuthenticatedUserWrapper extends StatefulWidget {
+  const _AuthenticatedUserWrapper();
+
+  @override
+  State<_AuthenticatedUserWrapper> createState() => _AuthenticatedUserWrapperState();
+}
+
+class _AuthenticatedUserWrapperState extends State<_AuthenticatedUserWrapper> {
+  final OnboardingService _onboardingService = OnboardingService();
+  bool _loading = true;
+  bool _shouldShowOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    try {
+      final shouldShow = await _onboardingService.shouldShowOnboarding();
+      if (mounted) {
+        setState(() {
+          _shouldShowOnboarding = shouldShow;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      // On error, skip onboarding and go to home
+      debugPrint('Error checking onboarding: $e');
+      if (mounted) {
+        setState(() {
+          _shouldShowOnboarding = false;
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_shouldShowOnboarding) {
+      return const OnboardingPage();
+    }
+
+    return const HomePage();
+  }
+}

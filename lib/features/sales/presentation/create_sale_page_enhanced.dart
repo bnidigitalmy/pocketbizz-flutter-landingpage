@@ -7,6 +7,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../features/subscription/exceptions/subscription_limit_exception.dart';
 import '../../../features/subscription/presentation/subscription_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -154,6 +155,9 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
             ? _deliveryAddressController.text.trim()
             : null,
       );
+
+      // Update onboarding progress
+      OnboardingService().markSaleRecorded();
 
       if (mounted) {
         Navigator.pop(context, true);

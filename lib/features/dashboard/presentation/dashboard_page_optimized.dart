@@ -44,6 +44,7 @@ import 'widgets/v2/top_products_cards_v2.dart';
 import 'widgets/v2/weekly_cashflow_card_v2.dart';
 import 'widgets/booking_alerts_widget.dart';
 import 'widgets/claim_alerts_widget.dart';
+import '../../onboarding/widgets/setup_checklist_widget.dart';
 
 /// Optimized Dashboard for SME Malaysia
 /// Concept: "Urus bisnes dari poket tanpa stress"
@@ -599,6 +600,11 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                   // Subscription Expiring Alert
                   if (_subscription != null && _subscription!.isExpiringSoon)
                     _buildSubscriptionAlert(),
+
+                  // Setup Checklist Widget (for new users)
+                  SetupChecklistWidget(
+                    onDismiss: () => _loadAllData(),
+                  ),
 
                   // Morning Briefing Card (Adaptive based on mood)
                   MorningBriefingCard(

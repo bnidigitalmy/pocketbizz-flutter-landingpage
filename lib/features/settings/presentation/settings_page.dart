@@ -15,6 +15,7 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/services/image_upload_service.dart';
 import '../../../core/services/user_preferences_service.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Settings Page
 /// Manage business profile and user profile
@@ -240,6 +241,9 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
             ? null
             : _bookingPrefixController.text.trim().toUpperCase(),
       );
+
+      // Update onboarding progress
+      OnboardingService().markProfileCompleted();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

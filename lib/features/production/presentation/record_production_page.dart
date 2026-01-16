@@ -17,6 +17,7 @@ import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/production_batch.dart';
 import '../../../data/models/product.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Record Production Page - Create new production batch
 class RecordProductionPage extends StatefulWidget {
@@ -106,6 +107,9 @@ class _RecordProductionPageState extends State<RecordProductionPage> {
       );
 
         await _productionRpc.recordProductionBatch(input);
+
+        // Update onboarding progress
+        OnboardingService().markProductionRecorded();
 
         if (mounted) {
           Navigator.pop(context, true);

@@ -16,6 +16,7 @@ import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/categories_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -558,6 +559,11 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
       }
       
       if (mounted) {
+        // Update onboarding progress for new products
+        if (!isEditMode) {
+          OnboardingService().markProductCreated();
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isEditMode 

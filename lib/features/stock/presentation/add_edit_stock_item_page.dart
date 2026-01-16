@@ -10,6 +10,7 @@ import '../../../core/utils/unit_conversion.dart';
 import '../../../features/subscription/exceptions/subscription_limit_exception.dart';
 import '../../../features/subscription/presentation/subscription_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Add/Edit Stock Item Page
 class AddEditStockItemPage extends StatefulWidget {
@@ -137,6 +138,9 @@ class _AddEditStockItemPageState extends State<AddEditStockItemPage> {
         } else {
           // Create new item
           final newItem = await _stockRepository.createStockItem(input);
+
+          // Update onboarding progress - increment stock count
+          OnboardingService().incrementStockCount();
 
           // If initial quantity provided, add it (convert from pek/pcs to base unit)
           final initialQtyInPek = _initialQuantityController.text.trim();
