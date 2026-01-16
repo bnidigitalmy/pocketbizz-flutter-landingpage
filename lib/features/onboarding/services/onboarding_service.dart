@@ -133,6 +133,17 @@ class OnboardingService {
 
   // ==================== Setup Widget ====================
 
+  /// Check if ALL tasks (required + optional) are complete
+  Future<bool> isAllTasksComplete() async {
+    final progress = await getSetupProgress();
+    return progress['stock_added'] == true &&
+           progress['product_created'] == true &&
+           progress['production_recorded'] == true &&
+           progress['sale_recorded'] == true &&
+           progress['profile_completed'] == true &&
+           progress['delivery_recorded'] == true;
+  }
+
   /// Check if setup widget should be shown
   Future<bool> shouldShowSetupWidget() async {
     final prefs = await SharedPreferences.getInstance();
@@ -140,21 +151,12 @@ class OnboardingService {
     // Don't show if dismissed
     final isDismissed = prefs.getBool(_setupDismissed) ?? false;
     if (isDismissed) {
-      // Check if 14 days passed since dismiss - force hide permanently
-      final dismissedAtStr = prefs.getString(_setupDismissedAt);
-      if (dismissedAtStr != null) {
-        final dismissedAt = DateTime.parse(dismissedAtStr);
-        final daysSinceDismiss = DateTime.now().difference(dismissedAt).inDays;
-        if (daysSinceDismiss >= 14) {
-          return false; // Permanently hidden after 14 days
-        }
-      }
       return false;
     }
     
-    // Don't show if setup is complete
-    final isComplete = await isSetupComplete();
-    if (isComplete) return false;
+    // Don't show if ALL tasks complete (required + optional)
+    final allComplete = await isAllTasksComplete();
+    if (allComplete) return false;
     
     // Check if 14 days passed since onboarding - auto hide
     final completedAtStr = prefs.getString(_onboardingCompletedAt);

@@ -22,6 +22,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
   bool _loading = true;
   Map<String, dynamic> _progress = {};
   int _progressPercentage = 0;
+  bool _requiredComplete = false;
 
   @override
   void initState() {
@@ -33,12 +34,14 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
     final shouldShow = await _onboardingService.shouldShowSetupWidget();
     final progress = await _onboardingService.getSetupProgress();
     final percentage = await _onboardingService.getSetupProgressPercentage();
+    final requiredComplete = await _onboardingService.isSetupComplete();
 
     if (mounted) {
       setState(() {
         _shouldShow = shouldShow;
         _progress = progress;
         _progressPercentage = percentage;
+        _requiredComplete = requiredComplete;
         _loading = false;
       });
     }
@@ -121,9 +124,11 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
           const SizedBox(height: 8),
 
           // Subtitle
-          const Text(
-            'Complete setup untuk guna semua features!',
-            style: TextStyle(
+          Text(
+            _requiredComplete 
+                ? 'Setup wajib selesai! Lengkapkan task optional di bawah.'
+                : 'Complete setup untuk guna semua features!',
+            style: const TextStyle(
               fontSize: 13,
               color: AppColors.textSecondary,
             ),
@@ -160,6 +165,54 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
           ),
 
           const SizedBox(height: 16),
+
+          // Congratulations banner when required tasks complete
+          if (_requiredComplete)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tahniah! Setup Wajib Selesai',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Anda boleh mula guna app! Task di bawah adalah optional.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Checklist items
           _buildChecklistItem(
