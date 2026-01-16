@@ -57,7 +57,7 @@ class OnboardingContent {
     tipContent: 'Sistem kira kos setiap produk dari resepi anda.',
     primaryButtonText: 'Cipta Produk Pertama',
     secondaryButtonText: 'Nanti Dulu',
-    navigateTo: '/products/add',
+    navigateTo: '/products/create',
   );
 
   // Screen 4: Step 3 - Rekod Pengeluaran

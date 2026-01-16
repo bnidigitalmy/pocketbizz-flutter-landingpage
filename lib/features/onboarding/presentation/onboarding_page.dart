@@ -107,7 +107,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   // Screen 3: Step 2 - Cipta Produk
                   StepScreen(
                     content: OnboardingContent.stepProduct,
-                    onPrimary: () => _navigateToPage('/products/add'),
+                    onPrimary: () => _navigateToPage('/products/create'),
                     onSecondary: _goToNextPage,
                     onBack: _goToPreviousPage,
                   ),

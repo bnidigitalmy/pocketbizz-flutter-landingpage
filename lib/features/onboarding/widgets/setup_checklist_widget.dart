@@ -179,7 +179,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             title: 'Cipta produk pertama',
             subtitle: _progress['product_created'] == true ? 'Siap!' : null,
             isCompleted: _progress['product_created'] == true,
-            route: '/products/add',
+            route: '/products/create',
           ),
 
           _buildChecklistItem(
