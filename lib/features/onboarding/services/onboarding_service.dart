@@ -15,6 +15,7 @@ class OnboardingService {
   static const String _productionRecorded = 'setup_production_recorded';
   static const String _saleRecorded = 'setup_sale_recorded';
   static const String _profileCompleted = 'setup_profile_completed';
+  static const String _deliveryRecorded = 'setup_delivery_recorded';
 
   /// Check if should show onboarding (first time user)
   Future<bool> shouldShowOnboarding() async {
@@ -59,6 +60,7 @@ class OnboardingService {
       'production_recorded': prefs.getBool(_productionRecorded) ?? false,
       'sale_recorded': prefs.getBool(_saleRecorded) ?? false,
       'profile_completed': prefs.getBool(_profileCompleted) ?? false,
+      'delivery_recorded': prefs.getBool(_deliveryRecorded) ?? false,
     };
   }
 
@@ -75,13 +77,14 @@ class OnboardingService {
   Future<int> getSetupProgressPercentage() async {
     final progress = await getSetupProgress();
     int completed = 0;
-    int total = 5; // 4 required + 1 optional
+    int total = 6; // 4 required + 2 optional
     
     if (progress['stock_added'] == true) completed++;
     if (progress['product_created'] == true) completed++;
     if (progress['production_recorded'] == true) completed++;
     if (progress['sale_recorded'] == true) completed++;
     if (progress['profile_completed'] == true) completed++;
+    if (progress['delivery_recorded'] == true) completed++;
     
     return ((completed / total) * 100).round();
   }
@@ -120,6 +123,12 @@ class OnboardingService {
   Future<void> markProfileCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_profileCompleted, true);
+  }
+
+  /// Mark delivery as recorded (optional - for consignment users)
+  Future<void> markDeliveryRecorded() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_deliveryRecorded, true);
   }
 
   // ==================== Setup Widget ====================
@@ -183,6 +192,7 @@ class OnboardingService {
     await prefs.remove(_productionRecorded);
     await prefs.remove(_saleRecorded);
     await prefs.remove(_profileCompleted);
+    await prefs.remove(_deliveryRecorded);
     await prefs.remove(_setupDismissed);
     await prefs.remove(_setupDismissedAt);
   }

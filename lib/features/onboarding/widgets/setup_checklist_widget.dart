@@ -210,6 +210,16 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             isOptional: true,
           ),
 
+          _buildChecklistItem(
+            icon: Icons.local_shipping,
+            color: Colors.teal,
+            title: 'Hantar ke kedai vendor',
+            subtitle: _progress['delivery_recorded'] == true ? 'Siap!' : '(optional)',
+            isCompleted: _progress['delivery_recorded'] == true,
+            route: '/deliveries',
+            isOptional: true,
+          ),
+
           const SizedBox(height: 12),
 
           // Guide link

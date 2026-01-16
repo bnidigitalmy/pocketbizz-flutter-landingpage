@@ -21,6 +21,7 @@ import '../../../data/models/product.dart';
 import '../../../core/utils/vendor_price_calculator.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Delivery Form Dialog
 /// Handles creating new deliveries with items
@@ -884,6 +885,9 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
           status: _status,
           items: itemsData,
         );
+
+        // Update onboarding progress
+        OnboardingService().markDeliveryRecorded();
 
         if (mounted) {
           widget.onSuccess(delivery);
