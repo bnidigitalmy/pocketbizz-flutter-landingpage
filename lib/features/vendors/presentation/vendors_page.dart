@@ -16,6 +16,7 @@ import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 import 'commission_dialog.dart';
 import 'vendor_detail_page.dart';
 import 'vendor_comprehensive_table_page.dart';
@@ -367,6 +368,9 @@ class _VendorsPageState extends State<VendorsPage> {
         commissionType: _commissionType,
         defaultCommissionRate: commissionRate,
       );
+
+      // Update onboarding progress
+      OnboardingService().markVendorAdded();
 
       // Create price ranges if commission type is price_range
       if (_commissionType == 'price_range' && _priceRanges.isNotEmpty) {
