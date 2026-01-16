@@ -264,13 +264,28 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
           ),
 
           _buildChecklistItem(
+            icon: Icons.storefront,
+            color: Colors.indigo,
+            title: 'Tambah kedai vendor',
+            subtitle: _progress['vendor_added'] == true ? 'Siap!' : '(optional)',
+            isCompleted: _progress['vendor_added'] == true,
+            route: '/vendors',
+            isOptional: true,
+          ),
+
+          _buildChecklistItem(
             icon: Icons.local_shipping,
             color: Colors.teal,
             title: 'Hantar ke kedai vendor',
-            subtitle: _progress['delivery_recorded'] == true ? 'Siap!' : '(optional)',
+            subtitle: _progress['delivery_recorded'] == true 
+                ? 'Siap!' 
+                : _progress['vendor_added'] == true 
+                    ? '(optional)' 
+                    : '(Tambah vendor dulu)',
             isCompleted: _progress['delivery_recorded'] == true,
             route: '/deliveries',
             isOptional: true,
+            isDisabled: _progress['vendor_added'] != true,
           ),
 
           const SizedBox(height: 12),
@@ -305,15 +320,17 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
     required bool isCompleted,
     required String route,
     bool isOptional = false,
+    bool isDisabled = false,
   }) {
+    final canTap = !isCompleted && !isDisabled;
     return InkWell(
-      onTap: isCompleted
-          ? null
-          : () async {
+      onTap: canTap
+          ? () async {
               await Navigator.pushNamed(context, route);
               // Refresh progress after returning
               _loadProgress();
-            },
+            }
+          : null,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -342,10 +359,10 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: isDisabled ? Colors.grey.withOpacity(0.1) : color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(icon, color: color, size: 18),
+              child: Icon(icon, color: isDisabled ? Colors.grey : color, size: 18),
             ),
 
             const SizedBox(width: 12),
@@ -360,7 +377,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: isCompleted
+                      color: isCompleted || isDisabled
                           ? AppColors.textSecondary
                           : AppColors.textPrimary,
                       decoration:
@@ -372,7 +389,11 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isCompleted ? Colors.green : AppColors.textSecondary,
+                        color: isCompleted 
+                            ? Colors.green 
+                            : isDisabled 
+                                ? Colors.orange 
+                                : AppColors.textSecondary,
                       ),
                     ),
                 ],
@@ -380,7 +401,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             ),
 
             // Action button
-            if (!isCompleted)
+            if (!isCompleted && !isDisabled)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(

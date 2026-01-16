@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Add Vendor Page - Create new vendor
 class AddVendorPage extends StatefulWidget {
@@ -61,6 +62,9 @@ class _AddVendorPageState extends State<AddVendorPage> {
         bankAccountHolder: _bankHolderController.text.trim().isEmpty ? null : _bankHolderController.text.trim(),
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       );
+
+      // Update onboarding progress
+      OnboardingService().markVendorAdded();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

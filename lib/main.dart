@@ -29,6 +29,7 @@ import 'features/production/presentation/production_planning_page.dart';
 import 'features/shopping/presentation/shopping_list_page.dart';
 import 'features/purchase_orders/presentation/purchase_orders_page.dart';
 import 'features/deliveries/presentation/deliveries_page.dart';
+import 'features/vendors/presentation/vendors_page.dart';
 import 'features/claims/presentation/claims_page.dart';
 import 'features/claims/presentation/create_consignment_claim_page.dart';
 import 'features/claims/presentation/create_claim_simplified_page.dart';
@@ -211,6 +212,7 @@ class PocketBizzApp extends StatelessWidget {
         '/production': (context) => const ProductionPlanningPage(),
         '/shopping-list': (context) => const ShoppingListPage(),
         '/purchase-orders': (context) => const PurchaseOrdersPage(),
+        '/vendors': (context) => const VendorsPage(),
         '/deliveries': (context) => const DeliveriesPage(),
         '/claims': (context) => const ClaimsPage(),
         '/claims/create': (context) => const CreateClaimSimplifiedPage(), // New simplified flow

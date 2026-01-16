@@ -15,6 +15,7 @@ class OnboardingService {
   static const String _productionRecorded = 'setup_production_recorded';
   static const String _saleRecorded = 'setup_sale_recorded';
   static const String _profileCompleted = 'setup_profile_completed';
+  static const String _vendorAdded = 'setup_vendor_added';
   static const String _deliveryRecorded = 'setup_delivery_recorded';
 
   /// Check if should show onboarding (first time user)
@@ -60,6 +61,7 @@ class OnboardingService {
       'production_recorded': prefs.getBool(_productionRecorded) ?? false,
       'sale_recorded': prefs.getBool(_saleRecorded) ?? false,
       'profile_completed': prefs.getBool(_profileCompleted) ?? false,
+      'vendor_added': prefs.getBool(_vendorAdded) ?? false,
       'delivery_recorded': prefs.getBool(_deliveryRecorded) ?? false,
     };
   }
@@ -77,13 +79,14 @@ class OnboardingService {
   Future<int> getSetupProgressPercentage() async {
     final progress = await getSetupProgress();
     int completed = 0;
-    int total = 6; // 4 required + 2 optional
+    int total = 7; // 4 required + 3 optional (profile, vendor, delivery)
     
     if (progress['stock_added'] == true) completed++;
     if (progress['product_created'] == true) completed++;
     if (progress['production_recorded'] == true) completed++;
     if (progress['sale_recorded'] == true) completed++;
     if (progress['profile_completed'] == true) completed++;
+    if (progress['vendor_added'] == true) completed++;
     if (progress['delivery_recorded'] == true) completed++;
     
     return ((completed / total) * 100).round();
@@ -125,6 +128,12 @@ class OnboardingService {
     await prefs.setBool(_profileCompleted, true);
   }
 
+  /// Mark vendor as added (optional - for consignment users)
+  Future<void> markVendorAdded() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_vendorAdded, true);
+  }
+
   /// Mark delivery as recorded (optional - for consignment users)
   Future<void> markDeliveryRecorded() async {
     final prefs = await SharedPreferences.getInstance();
@@ -141,6 +150,7 @@ class OnboardingService {
            progress['production_recorded'] == true &&
            progress['sale_recorded'] == true &&
            progress['profile_completed'] == true &&
+           progress['vendor_added'] == true &&
            progress['delivery_recorded'] == true;
   }
 
@@ -194,6 +204,7 @@ class OnboardingService {
     await prefs.remove(_productionRecorded);
     await prefs.remove(_saleRecorded);
     await prefs.remove(_profileCompleted);
+    await prefs.remove(_vendorAdded);
     await prefs.remove(_deliveryRecorded);
     await prefs.remove(_setupDismissed);
     await prefs.remove(_setupDismissedAt);
