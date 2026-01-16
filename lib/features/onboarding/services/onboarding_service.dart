@@ -1,68 +1,78 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/repositories/onboarding_repository_supabase.dart';
 
 /// Service untuk manage onboarding state dan setup progress
+/// Uses Supabase database for persistence across devices
 class OnboardingService {
-  // SharedPreferences keys
-  static const String _hasSeenOnboarding = 'has_seen_onboarding';
-  static const String _onboardingCompletedAt = 'onboarding_completed_at';
-  static const String _setupDismissed = 'setup_widget_dismissed';
-  static const String _setupDismissedAt = 'setup_widget_dismissed_at';
-  
-  // Setup progress keys
-  static const String _stockAdded = 'setup_stock_added';
-  static const String _stockCount = 'setup_stock_count';
-  static const String _productCreated = 'setup_product_created';
-  static const String _productionRecorded = 'setup_production_recorded';
-  static const String _saleRecorded = 'setup_sale_recorded';
-  static const String _profileCompleted = 'setup_profile_completed';
-  static const String _vendorAdded = 'setup_vendor_added';
-  static const String _deliveryRecorded = 'setup_delivery_recorded';
+  final OnboardingRepositorySupabase _repo = OnboardingRepositorySupabase();
+
+  // Cache progress to avoid multiple DB calls
+  Map<String, dynamic>? _cachedProgress;
+  DateTime? _cacheTime;
+  static const _cacheDuration = Duration(seconds: 30);
+
+  /// Get progress with caching
+  Future<Map<String, dynamic>> _getProgress({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh && 
+        _cachedProgress != null && 
+        _cacheTime != null &&
+        now.difference(_cacheTime!) < _cacheDuration) {
+      return _cachedProgress!;
+    }
+
+    _cachedProgress = await _repo.getProgress();
+    _cacheTime = now;
+    return _cachedProgress!;
+  }
+
+  /// Invalidate cache after updates
+  void _invalidateCache() {
+    _cachedProgress = null;
+    _cacheTime = null;
+  }
 
   /// Check if should show onboarding (first time user)
   Future<bool> shouldShowOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool(_hasSeenOnboarding) ?? false);
+    final progress = await _getProgress();
+    return !(progress['has_seen_onboarding'] ?? false);
   }
 
   /// Mark onboarding as complete
   Future<void> markOnboardingComplete() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_hasSeenOnboarding, true);
-    await prefs.setString(_onboardingCompletedAt, DateTime.now().toIso8601String());
+    await _repo.markOnboardingComplete();
+    _invalidateCache();
   }
 
   /// Skip onboarding (user chose to explore first)
   Future<void> skipOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_hasSeenOnboarding, true);
-    await prefs.setString(_onboardingCompletedAt, DateTime.now().toIso8601String());
+    await _repo.skipOnboarding();
+    _invalidateCache();
   }
 
   /// Reset onboarding (for re-show from settings)
   Future<void> resetOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_hasSeenOnboarding, false);
-    await prefs.remove(_onboardingCompletedAt);
+    await _repo.resetOnboarding();
+    _invalidateCache();
   }
 
   // ==================== Setup Progress ====================
 
   /// Get setup progress as map
   Future<Map<String, dynamic>> getSetupProgress() async {
-    final prefs = await SharedPreferences.getInstance();
+    final progress = await _getProgress();
     
-    final stockCount = prefs.getInt(_stockCount) ?? 0;
+    final stockCount = progress['stock_count'] ?? 0;
     final stockAdded = stockCount >= 3; // Need minimum 3 items
     
     return {
       'stock_added': stockAdded,
       'stock_count': stockCount,
-      'product_created': prefs.getBool(_productCreated) ?? false,
-      'production_recorded': prefs.getBool(_productionRecorded) ?? false,
-      'sale_recorded': prefs.getBool(_saleRecorded) ?? false,
-      'profile_completed': prefs.getBool(_profileCompleted) ?? false,
-      'vendor_added': prefs.getBool(_vendorAdded) ?? false,
-      'delivery_recorded': prefs.getBool(_deliveryRecorded) ?? false,
+      'product_created': progress['product_created'] ?? false,
+      'production_recorded': progress['production_recorded'] ?? false,
+      'sale_recorded': progress['sale_recorded'] ?? false,
+      'profile_completed': progress['profile_completed'] ?? false,
+      'vendor_added': progress['vendor_added'] ?? false,
+      'delivery_recorded': progress['delivery_recorded'] ?? false,
     };
   }
 
@@ -73,6 +83,18 @@ class OnboardingService {
            progress['product_created'] == true &&
            progress['production_recorded'] == true &&
            progress['sale_recorded'] == true;
+  }
+
+  /// Check if ALL tasks (required + optional) are complete
+  Future<bool> isAllTasksComplete() async {
+    final progress = await getSetupProgress();
+    return progress['stock_added'] == true &&
+           progress['product_created'] == true &&
+           progress['production_recorded'] == true &&
+           progress['sale_recorded'] == true &&
+           progress['profile_completed'] == true &&
+           progress['vendor_added'] == true &&
+           progress['delivery_recorded'] == true;
   }
 
   /// Calculate setup progress percentage
@@ -94,72 +116,54 @@ class OnboardingService {
 
   /// Update stock progress (increment count)
   Future<void> incrementStockCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final currentCount = prefs.getInt(_stockCount) ?? 0;
-    await prefs.setInt(_stockCount, currentCount + 1);
-    
-    // Mark as added if reached 3
-    if (currentCount + 1 >= 3) {
-      await prefs.setBool(_stockAdded, true);
-    }
+    await _repo.incrementStockCount();
+    _invalidateCache();
   }
 
   /// Mark product as created
   Future<void> markProductCreated() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_productCreated, true);
+    await _repo.markProductCreated();
+    _invalidateCache();
   }
 
   /// Mark production as recorded
   Future<void> markProductionRecorded() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_productionRecorded, true);
+    await _repo.markProductionRecorded();
+    _invalidateCache();
   }
 
   /// Mark sale as recorded
   Future<void> markSaleRecorded() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_saleRecorded, true);
+    await _repo.markSaleRecorded();
+    _invalidateCache();
   }
 
   /// Mark profile as completed
   Future<void> markProfileCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_profileCompleted, true);
+    await _repo.markProfileCompleted();
+    _invalidateCache();
   }
 
   /// Mark vendor as added (optional - for consignment users)
   Future<void> markVendorAdded() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_vendorAdded, true);
+    await _repo.markVendorAdded();
+    _invalidateCache();
   }
 
   /// Mark delivery as recorded (optional - for consignment users)
   Future<void> markDeliveryRecorded() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_deliveryRecorded, true);
+    await _repo.markDeliveryRecorded();
+    _invalidateCache();
   }
 
   // ==================== Setup Widget ====================
 
-  /// Check if ALL tasks (required + optional) are complete
-  Future<bool> isAllTasksComplete() async {
-    final progress = await getSetupProgress();
-    return progress['stock_added'] == true &&
-           progress['product_created'] == true &&
-           progress['production_recorded'] == true &&
-           progress['sale_recorded'] == true &&
-           progress['profile_completed'] == true &&
-           progress['vendor_added'] == true &&
-           progress['delivery_recorded'] == true;
-  }
-
   /// Check if setup widget should be shown
   Future<bool> shouldShowSetupWidget() async {
-    final prefs = await SharedPreferences.getInstance();
+    final progress = await _getProgress();
     
     // Don't show if dismissed
-    final isDismissed = prefs.getBool(_setupDismissed) ?? false;
+    final isDismissed = progress['setup_dismissed'] ?? false;
     if (isDismissed) {
       return false;
     }
@@ -169,7 +173,7 @@ class OnboardingService {
     if (allComplete) return false;
     
     // Check if 14 days passed since onboarding - auto hide
-    final completedAtStr = prefs.getString(_onboardingCompletedAt);
+    final completedAtStr = progress['onboarding_completed_at'];
     if (completedAtStr != null) {
       final completedAt = DateTime.parse(completedAtStr);
       final daysSinceOnboarding = DateTime.now().difference(completedAt).inDays;
@@ -183,30 +187,19 @@ class OnboardingService {
 
   /// Dismiss setup widget
   Future<void> dismissSetupWidget() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_setupDismissed, true);
-    await prefs.setString(_setupDismissedAt, DateTime.now().toIso8601String());
+    await _repo.dismissSetupWidget();
+    _invalidateCache();
   }
 
   /// Reset setup widget (to re-show)
   Future<void> resetSetupWidget() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_setupDismissed, false);
-    await prefs.remove(_setupDismissedAt);
+    await _repo.resetSetupWidget();
+    _invalidateCache();
   }
 
   /// Reset all setup progress (for testing)
   Future<void> resetAllProgress() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_stockAdded);
-    await prefs.remove(_stockCount);
-    await prefs.remove(_productCreated);
-    await prefs.remove(_productionRecorded);
-    await prefs.remove(_saleRecorded);
-    await prefs.remove(_profileCompleted);
-    await prefs.remove(_vendorAdded);
-    await prefs.remove(_deliveryRecorded);
-    await prefs.remove(_setupDismissed);
-    await prefs.remove(_setupDismissedAt);
+    await _repo.resetAllProgress();
+    _invalidateCache();
   }
 }
