@@ -188,7 +188,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             title: 'Rekod pengeluaran pertama',
             subtitle: _progress['production_recorded'] == true ? 'Siap!' : null,
             isCompleted: _progress['production_recorded'] == true,
-            route: '/production',
+            route: '/production/record',
           ),
 
           _buildChecklistItem(

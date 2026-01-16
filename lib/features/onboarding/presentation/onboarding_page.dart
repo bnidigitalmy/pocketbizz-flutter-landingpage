@@ -115,7 +115,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   // Screen 4: Step 3 - Rekod Pengeluaran
                   StepScreen(
                     content: OnboardingContent.stepProduction,
-                    onPrimary: () => _navigateToPage('/production'),
+                    onPrimary: () => _navigateToPage('/production/record'),
                     onSecondary: _goToNextPage,
                     onBack: _goToPreviousPage,
                   ),
