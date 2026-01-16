@@ -9,6 +9,7 @@ import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../../data/models/production_batch.dart';
 import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
 import '../../../subscription/widgets/subscription_guard.dart';
+import '../../../onboarding/services/onboarding_service.dart';
 
 /// 3-Step Production Planning Dialog
 class ProductionPlanningDialog extends StatefulWidget {
@@ -397,6 +398,9 @@ class _ProductionPlanningDialogState extends State<ProductionPlanningDialog> {
         );
 
         await widget.productionBatchRepo.recordProductionBatch(input);
+
+        // Update onboarding progress
+        OnboardingService().markProductionRecorded();
 
         if (mounted) {
           Navigator.pop(context);

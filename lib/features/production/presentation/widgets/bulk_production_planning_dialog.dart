@@ -9,6 +9,7 @@ import '../../../../data/repositories/production_repository_supabase.dart';
 import '../../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
 import '../../../subscription/widgets/subscription_guard.dart';
+import '../../../onboarding/services/onboarding_service.dart';
 
 class BulkProductionPlanningDialog extends StatefulWidget {
   final List<Product> products;
@@ -224,6 +225,11 @@ class _BulkProductionPlanningDialogState extends State<BulkProductionPlanningDia
 
       setState(() => _isLoading = false);
       if (!mounted) return;
+
+      // Update onboarding progress if at least one production succeeded
+      if (produced.isNotEmpty) {
+        OnboardingService().markProductionRecorded();
+      }
 
       widget.onSuccess();
 

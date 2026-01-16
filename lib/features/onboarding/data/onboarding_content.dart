@@ -78,7 +78,7 @@ Telur -4 biji''',
     tipContent: 'Bila rekod pengeluaran, bahan mentah AUTO TOLAK. Tak perlu update manual!',
     primaryButtonText: 'Rekod Pengeluaran',
     secondaryButtonText: 'Nanti Dulu',
-    navigateTo: '/production/record',
+    navigateTo: '/production',
   );
 
   // Screen 5: Step 4 - Rekod Jualan
