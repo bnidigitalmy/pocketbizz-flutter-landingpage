@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/pocketbizz_logo.dart';
 import '../data/onboarding_content.dart';
 import '../services/onboarding_service.dart';
 import 'screens/welcome_screen.dart';
