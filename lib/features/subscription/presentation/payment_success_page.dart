@@ -269,22 +269,35 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
     _gatewayRef = params['refno'] ?? params['billcode'];
     _statusId = params['status_id'] ?? params['status'];
 
-    // Map status from gateway (fallback to pending if not provided)
-    switch (_statusId) {
-      case '1': // success
+    // Map status from gateway (fallback to processing if not provided)
+    // Handle both numeric status_id AND text status values
+    final statusLower = _statusId?.toLowerCase();
+    switch (statusLower) {
+      case '1': // BCL.my success code
+      case 'success':
+      case 'completed':
+      case 'paid':
         _status = _PaymentStatus.success;
         break;
-      case '3': // failed
+      case '3': // BCL.my failed code
+      case 'failed':
+      case 'error':
+      case 'cancelled':
+      case 'canceled':
         _status = _PaymentStatus.failed;
         break;
-      case '2': // pending
+      case '2': // BCL.my pending code
+      case 'pending':
+      case 'processing':
         _status = _PaymentStatus.pending;
         break;
       default:
+        // No status provided - assume processing and let confirmation check
         _status = _PaymentStatus.processing;
     }
 
     // Always try confirm if we have order number (handles BCL callbacks without status_id)
+    // BUT skip if explicitly marked as failed
     if (_orderNumber != null && _status != _PaymentStatus.failed) {
       _confirmPaymentIfNeeded();
     }

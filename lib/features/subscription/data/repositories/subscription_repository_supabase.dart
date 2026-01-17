@@ -790,10 +790,15 @@ class SubscriptionRepositorySupabase {
           // This was already calculated in createPendingPaymentSession by adding to current expiry
           expiresAt = pendingExpiresAt;
           graceUntil = expiresAt.add(const Duration(days: 7));
-          // Update existing subscription expiry date
+          
+          // Update existing subscription - ALSO update plan_id to the new package!
+          // This fixes bug where upgrading from 1 month to 3 months kept showing old plan
           final updated = await _supabase
               .from('subscriptions')
               .update({
+                'plan_id': planId, // Update to new plan!
+                'price_per_month': pricePerMonth, // Update price per month
+                'total_amount': totalAmount, // Update total amount
                 'expires_at': expiresAt.toIso8601String(),
                 'grace_until': graceUntil.toIso8601String(),
                 'payment_status': 'completed',
