@@ -1,8 +1,10 @@
 import '../data/repositories/subscription_repository_supabase.dart';
+import '../data/repositories/subscription_repository_extension.dart';
 import '../data/models/subscription.dart';
 import '../data/models/subscription_plan.dart';
 import '../data/models/subscription_payment.dart';
 import '../data/models/plan_limits.dart';
+import '../data/models/pricing_tier.dart';
 import '../data/repositories/subscription_repository_supabase.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:url_launcher/url_launcher.dart';
@@ -14,17 +16,14 @@ import '../../../core/supabase/supabase_client.dart';
 /// Business logic for subscription management
 class SubscriptionService {
   final SubscriptionRepositorySupabase _repo = SubscriptionRepositorySupabase();
+  final SubscriptionPricingRepository _pricingRepo = SubscriptionPricingRepository();
   static const Duration _defaultTimeout = Duration(seconds: 12);
-  // BCL.my payment forms (must match the exact charged totals)
-  // Normal price (RM39/bulan): np-*
-  static const _bclFormUrlsNormal = {
-    1: 'https://bnidigital.bcl.my/form/np-1-bulan',
-    3: 'https://bnidigital.bcl.my/form/np-3-bulan',
-    6: 'https://bnidigital.bcl.my/form/np-6-bulan',
-    12: 'https://bnidigital.bcl.my/form/np-12-bulan',
-  };
-
-  // Early adopter (RM29/bulan): ea-*
+  
+  // =====================================================
+  // BCL.my payment forms - 3-TIER PRICING SYSTEM
+  // =====================================================
+  
+  // Early adopter (RM29/bulan): ea-* - First 100 subscribers
   static const _bclFormUrlsEarlyAdopter = {
     1: 'https://bnidigital.bcl.my/form/ea-1-bulan',
     3: 'https://bnidigital.bcl.my/form/ea-3-bulan',
@@ -32,8 +31,44 @@ class SubscriptionService {
     12: 'https://bnidigital.bcl.my/form/ea-12-bulan',
   };
 
+  // Growth price (RM39/bulan): np-* - Next 2000 subscribers
+  static const _bclFormUrlsGrowth = {
+    1: 'https://bnidigital.bcl.my/form/np-1-bulan',
+    3: 'https://bnidigital.bcl.my/form/np-3-bulan',
+    6: 'https://bnidigital.bcl.my/form/np-6-bulan',
+    12: 'https://bnidigital.bcl.my/form/np-12-bulan',
+  };
+
+  // Standard price (RM49/bulan): st-* - After early adopter + growth quota
+  // TODO: Create these forms in BCL.my when needed
+  static const _bclFormUrlsStandard = {
+    1: 'https://bnidigital.bcl.my/form/st-1-bulan',
+    3: 'https://bnidigital.bcl.my/form/st-3-bulan',
+    6: 'https://bnidigital.bcl.my/form/st-6-bulan',
+    12: 'https://bnidigital.bcl.my/form/st-12-bulan',
+  };
+
+  // Legacy alias for backward compatibility
+  static const _bclFormUrlsNormal = _bclFormUrlsGrowth;
+
+  /// Get BCL.my form URL based on pricing tier
+  static String? _bclUrlForTier(int durationMonths, String tierName) {
+    switch (tierName) {
+      case 'early_adopter':
+        return _bclFormUrlsEarlyAdopter[durationMonths];
+      case 'growth':
+        return _bclFormUrlsGrowth[durationMonths];
+      case 'standard':
+        return _bclFormUrlsStandard[durationMonths];
+      default:
+        // Fallback to growth tier (RM39)
+        return _bclFormUrlsGrowth[durationMonths];
+    }
+  }
+
+  /// Legacy method for backward compatibility
   static String? _bclUrlForDuration(int durationMonths, {required bool isEarlyAdopter}) {
-    return (isEarlyAdopter ? _bclFormUrlsEarlyAdopter : _bclFormUrlsNormal)[durationMonths];
+    return (isEarlyAdopter ? _bclFormUrlsEarlyAdopter : _bclFormUrlsGrowth)[durationMonths];
   }
 
   Future<void> _launchExternal(Uri uri) async {
@@ -64,13 +99,30 @@ class SubscriptionService {
 
   /// Open BCL.my payment form with an existing order id (no DB writes).
   /// Used for pending_payment flows ("Teruskan Pembayaran") so users don't create multiple pending sessions.
+  /// Now supports 3-tier pricing system.
   Future<void> openBclPaymentForm({
     required int durationMonths,
     required String orderId,
     bool? isEarlyAdopter,
+    String? tierName,
   }) async {
-    final early = isEarlyAdopter ?? await _repo.isEarlyAdopter();
-    final url = _bclUrlForDuration(durationMonths, isEarlyAdopter: early);
+    String? url;
+    
+    // Use tier-based pricing if tierName provided
+    if (tierName != null) {
+      url = _bclUrlForTier(durationMonths, tierName);
+    } else {
+      // Fallback: Try to get current tier from database
+      final currentTier = await _pricingRepo.getCurrentPricingTier();
+      if (currentTier != null) {
+        url = _bclUrlForTier(durationMonths, currentTier.tierName);
+      } else {
+        // Legacy fallback: binary early adopter check
+        final early = isEarlyAdopter ?? await _repo.isEarlyAdopter();
+        url = _bclUrlForDuration(durationMonths, isEarlyAdopter: early);
+      }
+    }
+    
     if (url == null) {
       throw Exception('Invalid duration: $durationMonths');
     }
@@ -220,17 +272,46 @@ class SubscriptionService {
   /// Redirect to payment form with order_id and pending session
   /// paymentGateway: 'bcl_my' | 'paypal'
   /// isExtend: if true, extends existing subscription by adding duration to expiry date
+  /// Now supports 3-tier pricing system!
   Future<void> redirectToPayment({
     required int durationMonths,
     required String planId,
     String paymentGateway = 'bcl_my',
     bool isExtend = false,
   }) async {
-    // Fetch plan & pricing
+    // Fetch plan
     final plan = await _repo.getPlanById(planId);
-    final isEarlyAdopter = await _repo.isEarlyAdopter();
-    final pricePerMonth = isEarlyAdopter ? 29.0 : plan.pricePerMonth;
-    final totalAmount = isEarlyAdopter ? plan.getPriceForEarlyAdopter() : plan.totalPrice;
+    
+    // Get current pricing tier from database (3-tier system)
+    final currentTier = await _pricingRepo.getCurrentPricingTier();
+    final tierName = currentTier?.tierName ?? 'growth'; // Fallback to growth (RM39)
+    
+    // Calculate price based on tier
+    double pricePerMonth;
+    double totalAmount;
+    bool isEarlyAdopter;
+    
+    switch (tierName) {
+      case 'early_adopter':
+        pricePerMonth = 29.0;
+        totalAmount = plan.getPriceForEarlyAdopter(); // Uses RM29 calculation
+        isEarlyAdopter = true;
+        break;
+      case 'growth':
+        pricePerMonth = 39.0;
+        totalAmount = plan.totalPrice; // Uses RM39 calculation
+        isEarlyAdopter = false;
+        break;
+      case 'standard':
+        pricePerMonth = 49.0;
+        totalAmount = pricePerMonth * durationMonths; // RM49 x months
+        isEarlyAdopter = false;
+        break;
+      default:
+        pricePerMonth = 39.0;
+        totalAmount = plan.totalPrice;
+        isEarlyAdopter = false;
+    }
 
     // Generate order id
     final orderId = 'PBZ-${const Uuid().v4()}';
@@ -251,8 +332,8 @@ class SubscriptionService {
       throw Exception('PayPal integration pending Edge Function implementation');
     }
 
-    // Default: BCL.my
-    final url = _bclUrlForDuration(durationMonths, isEarlyAdopter: isEarlyAdopter);
+    // Default: BCL.my - Use tier-based URL
+    final url = _bclUrlForTier(durationMonths, tierName);
     if (url == null) {
       throw Exception('Invalid duration: $durationMonths');
     }
@@ -335,6 +416,7 @@ class SubscriptionService {
   }
 
   /// Retry a failed/pending payment and redirect to payment page with new order id
+  /// Now supports 3-tier pricing system
   Future<void> retryPayment({
     required SubscriptionPayment payment,
     String? paymentGateway,
@@ -343,8 +425,11 @@ class SubscriptionService {
       payment: payment,
       paymentGateway: paymentGateway,
     );
-    final early = await _repo.isEarlyAdopter();
-    final baseUrl = _bclUrlForDuration(result.durationMonths, isEarlyAdopter: early);
+    
+    // Get current pricing tier for URL
+    final currentTier = await _pricingRepo.getCurrentPricingTier();
+    final tierName = currentTier?.tierName ?? 'growth';
+    final baseUrl = _bclUrlForTier(result.durationMonths, tierName);
     if (baseUrl == null) throw Exception('Invalid duration: ${result.durationMonths}');
     final uri = Uri.parse(baseUrl).replace(queryParameters: {
       ...Uri.parse(baseUrl).queryParameters,
@@ -591,6 +676,42 @@ class SubscriptionService {
       paymentMethod: paymentMethod,
       notes: notes,
     );
+  }
+
+  // ============================================================================
+  // 3-TIER PRICING SYSTEM METHODS
+  // ============================================================================
+
+  /// Get current pricing tier for new subscribers
+  /// Returns the tier that new subscribers should be assigned to
+  Future<PricingTier?> getCurrentPricingTier() async {
+    return _pricingRepo.getCurrentPricingTier();
+  }
+
+  /// Get all pricing tiers with status
+  /// Returns all tiers sorted by tier order
+  Future<List<PricingTier>> getAllPricingTiers() async {
+    return _pricingRepo.getAllPricingTiers();
+  }
+
+  /// Get full pricing information including current tier and all tiers
+  Future<PricingInfo?> getPricingInfo() async {
+    return _pricingRepo.getPricingInfo();
+  }
+
+  /// Check if early adopter slots are still available
+  Future<bool> hasEarlyAdopterSlots() async {
+    return _pricingRepo.hasEarlyAdopterSlots();
+  }
+
+  /// Get early adopter slots remaining
+  Future<int> getEarlyAdopterSlotsRemaining() async {
+    return _pricingRepo.getEarlyAdopterSlotsRemaining();
+  }
+
+  /// Get current price per month based on current tier
+  Future<double> getCurrentPricePerMonth() async {
+    return _pricingRepo.getCurrentPricePerMonth();
   }
 }
 
