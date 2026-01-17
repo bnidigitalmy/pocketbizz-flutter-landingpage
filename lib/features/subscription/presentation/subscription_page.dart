@@ -335,6 +335,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
   }
 
+  /// Navigate back safely - if no previous route, go to home/dashboard
+  void _navigateBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      // No previous route (direct URL access), navigate to home
+      Navigator.of(context).pushReplacementNamed('/home');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -342,7 +352,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => _navigateBack(),
           ),
           title: const Text('Langganan'),
           backgroundColor: AppColors.primary,
@@ -355,7 +365,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => _navigateBack(),
         ),
         title: const Text('Langganan'),
         backgroundColor: AppColors.primary,
