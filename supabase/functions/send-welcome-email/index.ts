@@ -146,7 +146,7 @@ serve(async (req: Request) => {
       
       <!-- CTA Button -->
       <div style="text-align: center; margin: 0 0 30px 0;">
-        <a href="https://app.pocketbizz.my" style="display: inline-block; background: linear-gradient(135deg, #2E7D32 0%, #43A047 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: bold;">
+        <a href="https://app.pocketbizz.my/#/dashboard" style="display: inline-block; background: linear-gradient(135deg, #2E7D32 0%, #43A047 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: bold;">
           Mula Gunakan PocketBizz →
         </a>
       </div>
