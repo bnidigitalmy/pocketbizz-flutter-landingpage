@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/product.dart';
@@ -92,9 +93,20 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+        // Handle duplicate key error (profile not setup)
+        final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+          context: context,
+          error: e,
+          actionName: 'Tambah Tempahan',
         );
+        if (!duplicateKeyHandled) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ralat mencipta tempahan: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {

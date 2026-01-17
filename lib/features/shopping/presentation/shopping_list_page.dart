@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../data/models/shopping_cart_item.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../data/models/vendor.dart';
@@ -920,15 +921,25 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       }
     } catch (e) {
       if (mounted) {
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+        // Handle subscription enforcement errors
+        final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
           context,
           action: 'Buat Purchase Order',
           error: e,
         );
-        if (handled) return;
+        if (subscriptionHandled) return;
+        
+        // Handle duplicate key error (profile not setup)
+        final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+          context: context,
+          error: e,
+          actionName: 'Buat Purchase Order',
+        );
+        if (duplicateKeyHandled) return;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating PO: $e'),
+            content: Text('Ralat mencipta Purchase Order: $e'),
             backgroundColor: Colors.red,
           ),
         );

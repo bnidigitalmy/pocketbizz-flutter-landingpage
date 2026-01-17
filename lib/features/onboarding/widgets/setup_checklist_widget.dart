@@ -123,14 +123,21 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
 
           const SizedBox(height: 8),
 
-          // Subtitle
+          // Subtitle - Check if profile is completed first
           Text(
             _requiredComplete 
                 ? 'Setup wajib selesai! Lengkapkan task optional di bawah.'
-                : 'Complete setup untuk guna semua features!',
-            style: const TextStyle(
+                : _progress['profile_completed'] != true
+                    ? '⚠️ Lengkapkan Profil Perniagaan dulu untuk elak masalah nombor dokumen.'
+                    : 'Lengkapkan setup untuk guna semua features!',
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: _progress['profile_completed'] != true 
+                  ? Colors.orange[700] 
+                  : AppColors.textSecondary,
+              fontWeight: _progress['profile_completed'] != true 
+                  ? FontWeight.w500 
+                  : FontWeight.normal,
             ),
           ),
 
@@ -214,7 +221,20 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
               ),
             ),
 
-          // Checklist items
+          // Checklist items - Profile bisnes WAJIB dan PERTAMA
+          _buildChecklistItem(
+            icon: Icons.business,
+            color: Colors.orange,
+            title: 'Isi profil perniagaan',
+            subtitle: _progress['profile_completed'] == true 
+                ? 'Siap!' 
+                : '⚠️ WAJIB - untuk nombor dokumen unik',
+            isCompleted: _progress['profile_completed'] == true,
+            route: '/settings',
+            isOptional: false,  // WAJIB sekarang
+            isHighlighted: _progress['profile_completed'] != true,  // Highlight jika belum siap
+          ),
+
           _buildChecklistItem(
             icon: Icons.inventory_2,
             color: Colors.blue,
@@ -251,16 +271,6 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             subtitle: _progress['sale_recorded'] == true ? 'Siap!' : null,
             isCompleted: _progress['sale_recorded'] == true,
             route: '/sales/create',
-          ),
-
-          _buildChecklistItem(
-            icon: Icons.business,
-            color: Colors.orange,
-            title: 'Isi profile bisnes',
-            subtitle: _progress['profile_completed'] == true ? 'Siap!' : '(optional)',
-            isCompleted: _progress['profile_completed'] == true,
-            route: '/settings',
-            isOptional: true,
           ),
 
           _buildChecklistItem(
@@ -321,6 +331,7 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
     required String route,
     bool isOptional = false,
     bool isDisabled = false,
+    bool isHighlighted = false,  // NEW: untuk highlight task wajib yang belum siap
   }) {
     final canTap = !isCompleted && !isDisabled;
     return InkWell(
@@ -334,6 +345,14 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: isHighlighted ? BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.orange.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ) : null,
         child: Row(
           children: [
             // Checkbox
@@ -344,7 +363,11 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
                 color: isCompleted ? Colors.green : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: isCompleted ? Colors.green : Colors.grey[300]!,
+                  color: isCompleted 
+                      ? Colors.green 
+                      : isHighlighted 
+                          ? Colors.orange 
+                          : Colors.grey[300]!,
                   width: 2,
                 ),
               ),
@@ -359,7 +382,11 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isDisabled ? Colors.grey.withOpacity(0.1) : color.withOpacity(0.1),
+                color: isDisabled 
+                    ? Colors.grey.withValues(alpha: 0.1) 
+                    : isHighlighted 
+                        ? Colors.orange.withValues(alpha: 0.15) 
+                        : color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(icon, color: isDisabled ? Colors.grey : color, size: 18),
@@ -376,10 +403,12 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
                     title,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
                       color: isCompleted || isDisabled
                           ? AppColors.textSecondary
-                          : AppColors.textPrimary,
+                          : isHighlighted 
+                              ? Colors.orange[800]
+                              : AppColors.textPrimary,
                       decoration:
                           isCompleted ? TextDecoration.lineThrough : null,
                     ),
@@ -389,11 +418,14 @@ class _SetupChecklistWidgetState extends State<SetupChecklistWidget> {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
+                        fontWeight: isHighlighted ? FontWeight.w500 : FontWeight.normal,
                         color: isCompleted 
                             ? Colors.green 
-                            : isDisabled 
-                                ? Colors.orange 
-                                : AppColors.textSecondary,
+                            : isHighlighted
+                                ? Colors.orange[700]
+                                : isDisabled 
+                                    ? Colors.orange 
+                                    : AppColors.textSecondary,
                       ),
                     ),
                 ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/product.dart';
@@ -173,15 +174,26 @@ class _CreateBookingPageEnhancedState extends State<CreateBookingPageEnhanced> {
       } catch (e) {
         if (mounted) {
           setState(() => _loading = false);
-          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          
+          // Handle subscription enforcement errors
+          final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
             context,
             action: 'Tambah Tempahan',
             error: e,
           );
-          if (handled) return;
+          if (subscriptionHandled) return;
+          
+          // Handle duplicate key error (profile not setup)
+          final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+            context: context,
+            error: e,
+            actionName: 'Tambah Tempahan',
+          );
+          if (duplicateKeyHandled) return;
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: $e'),
+              content: Text('Ralat mencipta tempahan: $e'),
               backgroundColor: Colors.red,
             ),
           );

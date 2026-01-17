@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../data/repositories/consignment_payments_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
@@ -273,14 +274,24 @@ class _CreatePaymentSimplifiedPageState extends State<CreatePaymentSimplifiedPag
     } catch (e) {
       if (mounted) {
         setState(() => _isCreating = false);
-        // PHASE: Handle subscription enforcement errors
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+        
+        // Handle subscription enforcement errors
+        final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
           context,
           action: 'Rekod Bayaran',
           error: e,
         );
-        if (handled) return;
-        _showError('Ralat: Sila cuba lagi');
+        if (subscriptionHandled) return;
+        
+        // Handle duplicate key error (profile not setup)
+        final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+          context: context,
+          error: e,
+          actionName: 'Rekod Bayaran',
+        );
+        if (duplicateKeyHandled) return;
+        
+        _showError('Ralat mencipta bayaran. Sila cuba lagi.');
       }
     }
   }

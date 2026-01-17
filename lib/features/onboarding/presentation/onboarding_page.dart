@@ -18,7 +18,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   final OnboardingService _onboardingService = OnboardingService();
   int _currentPage = 0;
-  final int _totalPages = 6;
+  final int _totalPages = 7;  // Updated: +1 for profile step
 
   @override
   void dispose() {
@@ -128,7 +128,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     onBack: _goToPreviousPage,
                   ),
                   
-                  // Screen 6: Completion
+                  // Screen 6: Step 5 - Profil Perniagaan (WAJIB!)
+                  StepScreen(
+                    content: OnboardingContent.stepProfile,
+                    onPrimary: () => _navigateToPage('/settings'),
+                    onSecondary: _goToNextPage,
+                    onBack: _goToPreviousPage,
+                  ),
+                  
+                  // Screen 7: Completion
                   CompleteScreen(
                     content: OnboardingContent.completion,
                     onComplete: _completeOnboarding,

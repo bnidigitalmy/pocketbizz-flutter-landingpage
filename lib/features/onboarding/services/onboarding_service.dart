@@ -77,9 +77,11 @@ class OnboardingService {
   }
 
   /// Check if all required setup tasks are complete
+  /// NOTE: profile_completed is now REQUIRED to prevent duplicate invoice key errors
   Future<bool> isSetupComplete() async {
     final progress = await getSetupProgress();
-    return progress['stock_added'] == true &&
+    return progress['profile_completed'] == true &&  // WAJIB - untuk unique invoice prefix
+           progress['stock_added'] == true &&
            progress['product_created'] == true &&
            progress['production_recorded'] == true &&
            progress['sale_recorded'] == true;
@@ -98,16 +100,17 @@ class OnboardingService {
   }
 
   /// Calculate setup progress percentage
+  /// NOTE: profile_completed is now REQUIRED (5 required + 2 optional)
   Future<int> getSetupProgressPercentage() async {
     final progress = await getSetupProgress();
     int completed = 0;
-    int total = 7; // 4 required + 3 optional (profile, vendor, delivery)
+    int total = 7; // 5 required (profile, stock, product, production, sale) + 2 optional (vendor, delivery)
     
+    if (progress['profile_completed'] == true) completed++;  // WAJIB - dulu optional
     if (progress['stock_added'] == true) completed++;
     if (progress['product_created'] == true) completed++;
     if (progress['production_recorded'] == true) completed++;
     if (progress['sale_recorded'] == true) completed++;
-    if (progress['profile_completed'] == true) completed++;
     if (progress['vendor_added'] == true) completed++;
     if (progress['delivery_recorded'] == true) completed++;
     

@@ -19,6 +19,7 @@ import '../../../data/models/delivery.dart';
 import '../../../data/models/vendor.dart';
 import '../../../data/models/product.dart';
 import '../../../core/utils/vendor_price_calculator.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../onboarding/services/onboarding_service.dart';
@@ -896,16 +897,44 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
       } catch (e) {
         if (mounted) {
           setState(() => _isSubmitting = false);
-          final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+          
+          // Handle subscription enforcement errors
+          final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
             context,
             action: 'Tambah Penghantaran',
             error: e,
           );
-          if (handled) return;
+          if (subscriptionHandled) return;
+          
+          // Handle duplicate invoice key error (profile not setup)
+          final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+            context: context,
+            error: e,
+            actionName: 'Tambah Penghantaran',
+          );
+          if (duplicateKeyHandled) return;
+          
+          // Generic error message
+          String errorMessage = 'Ralat mencipta penghantaran';
+          final errorStr = e.toString();
+          if (errorStr.contains('stock') || errorStr.contains('insufficient')) {
+            errorMessage = 'Stok tidak mencukupi untuk penghantaran ini.';
+          } else if (errorStr.contains('vendor')) {
+            errorMessage = 'Vendor tidak dijumpai atau tidak sah.';
+          } else if (errorStr.contains('product')) {
+            errorMessage = 'Produk tidak dijumpai atau tidak sah.';
+          } else {
+            final parts = errorStr.split(':');
+            if (parts.length > 1) {
+              errorMessage = parts.last.trim();
+            }
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${e.toString()}'),
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
             ),
           );
         }

@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 // Note: Using original repo for now, can switch to refactored version later
@@ -661,12 +662,22 @@ class _CreateClaimSimplifiedPageState extends State<CreateClaimSimplifiedPage> {
           if (e is ClaimValidationException) {
             _showValidationErrors(e.validation);
           } else {
-            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+            // Handle subscription enforcement errors
+            final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
               context,
               action: 'Tambah Tuntutan',
               error: e,
             );
-            if (handled) return;
+            if (subscriptionHandled) return;
+            
+            // Handle duplicate key error (profile not setup)
+            final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+              context: context,
+              error: e,
+              actionName: 'Cipta Tuntutan',
+            );
+            if (duplicateKeyHandled) return;
+            
             _showError('Ralat mencipta tuntutan: $e');
           }
         }

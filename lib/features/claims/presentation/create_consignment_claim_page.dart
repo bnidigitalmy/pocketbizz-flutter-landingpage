@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
@@ -145,22 +146,26 @@ class _CreateConsignmentClaimPageState extends State<CreateConsignmentClaimPage>
       if (mounted) {
         setState(() => _isCreating = false);
         
-        // PHASE: Handle subscription enforcement errors
-        final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+        // Handle subscription enforcement errors
+        final subscriptionHandled = await SubscriptionEnforcement.maybePromptUpgrade(
           context,
           action: 'Cipta Tuntutan Konsainan',
           error: e,
         );
-        if (handled) return;
+        if (subscriptionHandled) return;
         
-        // Better error messages
+        // Handle duplicate key error (profile not setup)
+        final duplicateKeyHandled = await BusinessProfileErrorHandler.handleDuplicateKeyError(
+          context: context,
+          error: e,
+          actionName: 'Cipta Tuntutan',
+        );
+        if (duplicateKeyHandled) return;
+        
+        // Better error messages for other errors
         String errorMessage = 'Ralat mencipta tuntutan';
         final errorStr = e.toString();
-        if (errorStr.contains('duplicate key') || 
-            errorStr.contains('23505') ||
-            errorStr.contains('claim_number_key')) {
-          errorMessage = 'Nombor tuntutan sudah wujud. Sila cuba lagi.';
-        } else if (errorStr.contains('No items')) {
+        if (errorStr.contains('No items')) {
           errorMessage = 'Tiada item yang terjual untuk dituntut.';
         } else if (errorStr.contains('deliveries') || errorStr.contains('delivery')) {
           errorMessage = 'Penghantaran tidak dijumpai atau tidak sah.';

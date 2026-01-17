@@ -13,7 +13,7 @@ class OnboardingContent {
       'Produk & resepi',
       'Pengeluaran & jualan',
     ],
-    footerText: 'Ikut 4 langkah mudah untuk setup bisnes anda.',
+    footerText: 'Ikut 5 langkah mudah untuk setup bisnes anda.',
     timeEstimate: '5-10 minit',
     primaryButtonText: 'Mula Sekarang',
     secondaryButtonText: 'Setup Nanti',
@@ -24,7 +24,7 @@ class OnboardingContent {
     icon: Icons.inventory_2,
     iconColor: Colors.blue,
     stepNumber: 1,
-    stepTotal: 4,
+    stepTotal: 5,  // Updated from 4 to 5
     title: 'Tambah Bahan',
     subtitle: 'Masukkan bahan-bahan yang anda guna untuk buat produk:',
     bulletPoints: [
@@ -44,7 +44,7 @@ class OnboardingContent {
     icon: Icons.cake,
     iconColor: Colors.brown,
     stepNumber: 2,
-    stepTotal: 4,
+    stepTotal: 5,  // Updated from 4 to 5
     title: 'Cipta Produk',
     subtitle: 'Produk = barang yang anda jual\nResepi = senarai bahan + kuantiti',
     exampleTitle: 'Contoh:',
@@ -65,7 +65,7 @@ class OnboardingContent {
     icon: Icons.factory,
     iconColor: Colors.purple,
     stepNumber: 3,
-    stepTotal: 4,
+    stepTotal: 5,  // Updated from 4 to 5
     title: 'Rekod Pengeluaran',
     subtitle: 'Bila anda BUAT produk, rekod di sini.',
     exampleTitle: 'Contoh:',
@@ -86,7 +86,7 @@ Telur -4 biji''',
     icon: Icons.point_of_sale,
     iconColor: Colors.green,
     stepNumber: 4,
-    stepTotal: 4,
+    stepTotal: 5,  // Updated from 4 to 5
     title: 'Rekod Jualan',
     subtitle: 'Setiap kali anda JUAL, rekod di sini.',
     exampleTitle: 'Contoh:',
@@ -103,13 +103,37 @@ JUMLAH             RM 140''',
     navigateTo: '/sales/create',
   );
 
-  // Screen 6: Completion
+  // Screen 6: Step 5 - Isi Profil Perniagaan (WAJIB!)
+  static const stepProfile = OnboardingScreenData(
+    icon: Icons.business,
+    iconColor: Colors.orange,
+    stepNumber: 5,
+    stepTotal: 5,
+    title: 'Profil Perniagaan',
+    subtitle: 'Isi maklumat perniagaan anda untuk:\n• Nombor dokumen yang unik\n• Invoice & resit professional',
+    exampleTitle: 'Info Penting:',
+    exampleContent: '''🏢 Nama Perniagaan
+   Cth: Kek Sedap Enterprise
+
+📋 Prefix Nombor (Auto)
+   Cth: KEK-2601-0001
+
+Sistem akan guna 3 huruf pertama
+nama bisnes untuk nombor dokumen.''',
+    tipTitle: '⚠️ Kenapa penting?',
+    tipContent: 'Tanpa profil, nombor dokumen anda mungkin sama dengan user lain dan menyebabkan ralat.',
+    primaryButtonText: 'Isi Profil Sekarang',
+    secondaryButtonText: 'Nanti Dulu',
+    navigateTo: '/settings',
+  );
+
+  // Screen 7: Completion
   static const completion = OnboardingScreenData(
     icon: Icons.celebration,
     iconColor: Colors.amber,
     title: 'Tahniah!',
     subtitle: 'Anda Dah Bersedia!',
-    flowSummary: '📦 → 🍰 → 🏭 → 🛒 → 📊\nStok   Produk   Buat   Jual   Laporan',
+    flowSummary: '🏢 → 📦 → 🍰 → 🏭 → 🛒 → 📊\nProfil   Stok   Produk   Buat   Jual   Laporan',
     completionMessage: 'Flow bisnes anda dah setup',
     tipTitle: 'Tips Harian:',
     tipBullets: [
