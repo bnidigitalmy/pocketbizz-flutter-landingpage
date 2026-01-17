@@ -278,10 +278,6 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       case 'completed':
       case 'paid':
         _status = _PaymentStatus.success;
-        // Only auto-confirm if we have explicit success status
-        if (_orderNumber != null) {
-          _confirmPaymentIfNeeded();
-        }
         break;
       case '3': // BCL.my failed code
       case 'failed':
@@ -289,7 +285,6 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       case 'cancelled':
       case 'canceled':
         _status = _PaymentStatus.failed;
-        // Don't auto-confirm failed payments
         break;
       case '2': // BCL.my pending code
       case 'pending':
@@ -297,11 +292,17 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
         _status = _PaymentStatus.pending;
         break;
       default:
-        // No status provided - DON'T auto-confirm
-        // Just poll to check current status from database
-        // This prevents confirming payments that actually failed
+        // No status provided - assume user completed payment flow
+        // BCL.my redirects here after payment, so we should try to confirm
         _status = _PaymentStatus.processing;
-        // Don't call _confirmPaymentIfNeeded() here - just poll instead
+    }
+
+    // Try to confirm payment if:
+    // 1. We have an order number
+    // 2. Status is NOT explicitly failed
+    // This handles BCL.my redirects that don't include status parameter
+    if (_orderNumber != null && _status != _PaymentStatus.failed) {
+      _confirmPaymentIfNeeded();
     }
   }
 
@@ -384,14 +385,52 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       setState(() {
         _confirming = true;
       });
-      await _subscriptionService.confirmPendingPayment(
+      
+      final result = await _subscriptionService.confirmPendingPayment(
         orderId: _orderNumber!,
         gatewayTransactionId: _gatewayRef,
       );
-      // After confirmation, force refresh immediately
-      await _pollSubscription();
+      
+      // Payment confirmed successfully
+      if (mounted) {
+        setState(() {
+          _active = result;
+          _status = _PaymentStatus.success;
+          _isLoading = false;
+        });
+        
+        // Show success message
+        SubscriptionSuccessMessage.show(context);
+        _startCountdown();
+      }
     } catch (e) {
-      // Ignore errors here; polling will continue or unauthorized will be handled
+      print('⚠️ Payment confirmation failed: $e');
+      // Check if there's already an active subscription (might have been confirmed elsewhere)
+      try {
+        final sub = await _subscriptionService.getCurrentSubscription();
+        if (sub != null && sub.isActive) {
+          if (mounted) {
+            setState(() {
+              _active = sub;
+              _status = _PaymentStatus.success;
+              _isLoading = false;
+            });
+            SubscriptionSuccessMessage.show(context);
+            _startCountdown();
+          }
+        } else {
+          // No active subscription - payment might have failed
+          // Don't immediately show failure, let polling continue to check
+          if (mounted) {
+            setState(() {
+              _status = _PaymentStatus.processing;
+              _isLoading = false;
+            });
+          }
+        }
+      } catch (_) {
+        // Just continue with polling
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -846,18 +885,18 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
           // Show manual "Check Status" button if polling timed out
           if (pollingTimedOut) ...[
             ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: _isLoading ? null : () async {
                 try {
                   setState(() {
                     _isLoading = true;
+                    _confirmationTriggered = false; // Allow re-confirmation
                   });
                   await _confirmPaymentIfNeeded();
-                  await _pollSubscription();
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Gagal semak status: $e'),
+                        content: Text('Gagal confirm pembayaran: $e'),
                         backgroundColor: Colors.orange,
                       ),
                     );
@@ -870,13 +909,19 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
                   }
                 }
               },
-              icon: const Icon(Icons.refresh),
+              icon: _isLoading 
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              label: const Text('Semak Status Pembayaran'),
+              label: Text(_isLoading ? 'Mengesahkan...' : 'Sahkan Pembayaran'),
             ),
             const SizedBox(height: 12),
           ],
