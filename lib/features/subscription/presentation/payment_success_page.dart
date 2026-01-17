@@ -278,6 +278,10 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       case 'completed':
       case 'paid':
         _status = _PaymentStatus.success;
+        // Only auto-confirm if we have explicit success status
+        if (_orderNumber != null) {
+          _confirmPaymentIfNeeded();
+        }
         break;
       case '3': // BCL.my failed code
       case 'failed':
@@ -285,6 +289,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       case 'cancelled':
       case 'canceled':
         _status = _PaymentStatus.failed;
+        // Don't auto-confirm failed payments
         break;
       case '2': // BCL.my pending code
       case 'pending':
@@ -292,14 +297,11 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
         _status = _PaymentStatus.pending;
         break;
       default:
-        // No status provided - assume processing and let confirmation check
+        // No status provided - DON'T auto-confirm
+        // Just poll to check current status from database
+        // This prevents confirming payments that actually failed
         _status = _PaymentStatus.processing;
-    }
-
-    // Always try confirm if we have order number (handles BCL callbacks without status_id)
-    // BUT skip if explicitly marked as failed
-    if (_orderNumber != null && _status != _PaymentStatus.failed) {
-      _confirmPaymentIfNeeded();
+        // Don't call _confirmPaymentIfNeeded() here - just poll instead
     }
   }
 
@@ -711,6 +713,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
 
   Widget _buildWaitingState() {
     final elapsedSeconds = (_elapsedMs / 1000).floor();
+    final noStatusFromGateway = _statusId == null || _statusId!.isEmpty;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,18 +729,24 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              'Menunggu pengesahan pembayaran...',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.blue[600],
+            Expanded(
+              child: Text(
+                noStatusFromGateway 
+                    ? 'Memeriksa status pembayaran...'
+                    : 'Menunggu pengesahan pembayaran...',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.blue[600],
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Text(
-          'Sistem sedang memproses pembayaran anda. Ini mungkin mengambil masa 1-2 minit.\nAkaun anda akan diaktifkan secara automatik. ($elapsedSeconds/30 saat)',
+          noStatusFromGateway
+              ? 'Sistem sedang memeriksa status pembayaran anda dari gateway.\n\nJika pembayaran berjaya, akaun akan diaktifkan. Jika gagal, sila cuba semula. ($elapsedSeconds/30 saat)'
+              : 'Sistem sedang memproses pembayaran anda. Ini mungkin mengambil masa 1-2 minit.\nAkaun anda akan diaktifkan secara automatik. ($elapsedSeconds/30 saat)',
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[500],
