@@ -154,7 +154,7 @@ class SubscriptionPricingRepository {
 
       // Check if user already has subscription with locked price
       final existingSub = await _supabase
-          .from('user_subscriptions')
+          .from('subscriptions')
           .select('pricing_tier_name, locked_price_monthly')
           .eq('user_id', userId)
           .eq('status', 'active')
@@ -178,7 +178,7 @@ class SubscriptionPricingRepository {
   Future<String?> getUserLockedTier(String userId) async {
     try {
       final response = await _supabase
-          .from('user_subscriptions')
+          .from('subscriptions')
           .select('pricing_tier_name, locked_price_monthly')
           .eq('user_id', userId)
           .eq('status', 'active')

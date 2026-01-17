@@ -177,27 +177,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 8. ADD TIER REFERENCE TO USER_SUBSCRIPTIONS TABLE
+-- 8. ADD TIER REFERENCE TO SUBSCRIPTIONS TABLE
 -- =====================================================
 -- Add pricing_tier_name column to track which tier each user subscribed at
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'user_subscriptions' 
+        WHERE table_name = 'subscriptions' 
         AND column_name = 'pricing_tier_name'
     ) THEN
-        ALTER TABLE user_subscriptions 
+        ALTER TABLE subscriptions 
         ADD COLUMN pricing_tier_name TEXT DEFAULT NULL;
     END IF;
     
     -- Add locked_price_monthly to preserve grandfather clause
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'user_subscriptions' 
+        WHERE table_name = 'subscriptions' 
         AND column_name = 'locked_price_monthly'
     ) THEN
-        ALTER TABLE user_subscriptions 
+        ALTER TABLE subscriptions 
         ADD COLUMN locked_price_monthly DECIMAL(10,2) DEFAULT NULL;
     END IF;
 END $$;
@@ -205,13 +205,14 @@ END $$;
 -- 9. FUNCTION: ASSIGN TIER TO NEW SUBSCRIPTION
 -- =====================================================
 -- Automatically assigns current tier and locks in price (grandfather clause)
+-- Note: PocketBizz uses 'status' field (trial, active, expired, etc.)
 CREATE OR REPLACE FUNCTION assign_tier_to_subscription()
 RETURNS TRIGGER AS $$
 DECLARE
     v_tier RECORD;
 BEGIN
-    -- Only assign tier for paid subscriptions (not free trial)
-    IF NEW.plan_type = 'pro' AND NEW.status = 'active' THEN
+    -- Only assign tier for paid subscriptions (status = 'active', not 'trial')
+    IF NEW.status = 'active' AND (NEW.pricing_tier_name IS NULL) THEN
         -- Get current active tier
         SELECT * INTO v_tier FROM get_current_pricing_tier();
         
@@ -230,9 +231,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 10. CREATE TRIGGER FOR AUTO TIER ASSIGNMENT
 -- =====================================================
-DROP TRIGGER IF EXISTS trigger_assign_tier_to_subscription ON user_subscriptions;
+DROP TRIGGER IF EXISTS trigger_assign_tier_to_subscription ON subscriptions;
 CREATE TRIGGER trigger_assign_tier_to_subscription
-    BEFORE INSERT ON user_subscriptions
+    BEFORE INSERT ON subscriptions
     FOR EACH ROW
     EXECUTE FUNCTION assign_tier_to_subscription();
 
@@ -243,8 +244,8 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_tier RECORD;
 BEGIN
-    -- When subscription upgrades from trial to pro
-    IF OLD.plan_type = 'trial' AND NEW.plan_type = 'pro' AND NEW.status = 'active' THEN
+    -- When subscription upgrades from trial to active (paid)
+    IF OLD.status = 'trial' AND NEW.status = 'active' THEN
         -- Only assign tier if not already assigned
         IF NEW.pricing_tier_name IS NULL THEN
             SELECT * INTO v_tier FROM get_current_pricing_tier();
@@ -263,9 +264,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS trigger_subscription_tier_on_update ON user_subscriptions;
+DROP TRIGGER IF EXISTS trigger_subscription_tier_on_update ON subscriptions;
 CREATE TRIGGER trigger_subscription_tier_on_update
-    BEFORE UPDATE ON user_subscriptions
+    BEFORE UPDATE ON subscriptions
     FOR EACH ROW
     EXECUTE FUNCTION handle_subscription_tier_on_update();
 
@@ -319,19 +320,19 @@ GRANT EXECUTE ON FUNCTION get_subscription_pricing_info() TO authenticated;
 -- =====================================================
 -- Update existing paid subscribers to early_adopter tier
 -- This preserves their grandfather clause pricing
-UPDATE user_subscriptions
+-- Note: PocketBizz uses 'subscriptions' table with 'status' field
+UPDATE subscriptions
 SET 
     pricing_tier_name = 'early_adopter',
     locked_price_monthly = 29.00
-WHERE plan_type = 'pro' 
-AND status = 'active'
+WHERE status = 'active'
 AND pricing_tier_name IS NULL;
 
 -- Update the early_adopter tier count based on existing subscribers
 UPDATE pricing_tiers
 SET current_subscribers = (
     SELECT COUNT(*) 
-    FROM user_subscriptions 
+    FROM subscriptions 
     WHERE pricing_tier_name = 'early_adopter'
     AND status = 'active'
 )
