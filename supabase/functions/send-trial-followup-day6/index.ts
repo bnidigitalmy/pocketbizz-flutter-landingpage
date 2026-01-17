@@ -6,11 +6,16 @@
  * Solution: Snap gambar, AI extract details automatik
  * Benefit: Scan & save dalam 5 saat
  * URGENCY: Trial tamat esok - langgan sekarang!
+ * 
+ * NOW WITH DYNAMIC PRICING from pricing_tiers table!
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const DEFAULT_FROM = "PocketBizz <noreply@notifications.pocketbizz.my>";
 
 const corsHeaders = {
@@ -22,6 +27,77 @@ interface EmailRequest {
   email: string;
   name?: string;
   trialEndsAt?: string;
+}
+
+interface PricingTier {
+  tier_name: string;
+  tier_name_display: string;
+  price_monthly: number;
+  slots_remaining: number | null;
+  is_current_tier: boolean;
+  max_subscribers: number | null;
+}
+
+/**
+ * Fetch current pricing tier from database
+ * Returns dynamic pricing info for email content
+ */
+async function getCurrentPricingInfo(): Promise<{
+  currentPrice: number;
+  originalPrice: number;
+  tierName: string;
+  tierDisplay: string;
+  slotsRemaining: number | null;
+  isEarlyAdopter: boolean;
+  isGrowth: boolean;
+}> {
+  // Default values if database fetch fails
+  const defaults = {
+    currentPrice: 49,
+    originalPrice: 49,
+    tierName: 'standard',
+    tierDisplay: 'Standard',
+    slotsRemaining: null,
+    isEarlyAdopter: false,
+    isGrowth: false,
+  };
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.log("Supabase credentials not available, using defaults");
+    return defaults;
+  }
+
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Call the RPC function to get current pricing tier
+    const { data, error } = await supabase.rpc('get_current_pricing_tier');
+    
+    if (error) {
+      console.error("Error fetching pricing tier:", error);
+      return defaults;
+    }
+
+    if (!data || data.length === 0) {
+      console.log("No pricing tier data, using defaults");
+      return defaults;
+    }
+
+    const tier = data[0] as PricingTier;
+    
+    return {
+      currentPrice: tier.price_monthly,
+      originalPrice: 49, // Standard price for comparison
+      tierName: tier.tier_name,
+      tierDisplay: tier.tier_name_display,
+      slotsRemaining: tier.slots_remaining,
+      isEarlyAdopter: tier.tier_name === 'early_adopter',
+      isGrowth: tier.tier_name === 'growth',
+    };
+  } catch (e) {
+    console.error("Failed to fetch pricing info:", e);
+    return defaults;
+  }
 }
 
 serve(async (req: Request) => {
@@ -50,6 +126,10 @@ serve(async (req: Request) => {
     const trialEndDate = trialEndsAt 
       ? new Date(trialEndsAt).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })
       : 'esok';
+    
+    // Fetch dynamic pricing info from database
+    const pricingInfo = await getCurrentPricingInfo();
+    console.log("Pricing info for email:", pricingInfo);
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -149,17 +229,24 @@ serve(async (req: Request) => {
         </div>
       </div>
       
-      <!-- Pricing Section -->
-      <div style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); padding: 25px; border-radius: 12px; margin: 0 0 25px 0; text-align: center; border: 2px solid #4CAF50;">
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #2E7D32;">💰 HARGA ISTIMEWA EARLY ADOPTER</p>
-        <p style="margin: 0 0 10px 0; font-size: 32px; color: #1B5E20; font-weight: bold;">
-          RM 29<span style="font-size: 16px; font-weight: normal;">/bulan</span>
+      <!-- Pricing Section - DYNAMIC FROM DATABASE -->
+      <div style="background: linear-gradient(135deg, ${pricingInfo.isEarlyAdopter ? '#E8F5E9 0%, #C8E6C9' : (pricingInfo.isGrowth ? '#E3F2FD 0%, #BBDEFB' : '#F5F5F5 0%, #EEEEEE')} 100%); padding: 25px; border-radius: 12px; margin: 0 0 25px 0; text-align: center; border: 2px solid ${pricingInfo.isEarlyAdopter ? '#4CAF50' : (pricingInfo.isGrowth ? '#2196F3' : '#9E9E9E')};">
+        <p style="margin: 0 0 5px 0; font-size: 14px; color: ${pricingInfo.isEarlyAdopter ? '#2E7D32' : (pricingInfo.isGrowth ? '#1565C0' : '#424242')};">
+          💰 ${pricingInfo.isEarlyAdopter ? 'HARGA ISTIMEWA EARLY ADOPTER' : (pricingInfo.isGrowth ? 'HARGA GROWTH RATE' : 'HARGA STANDARD')}
         </p>
+        <p style="margin: 0 0 10px 0; font-size: 32px; color: ${pricingInfo.isEarlyAdopter ? '#1B5E20' : (pricingInfo.isGrowth ? '#0D47A1' : '#212121')}; font-weight: bold;">
+          RM ${pricingInfo.currentPrice}<span style="font-size: 16px; font-weight: normal;">/bulan</span>
+        </p>
+        ${pricingInfo.currentPrice < pricingInfo.originalPrice ? `
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #555;">
-          <s style="color: #999;">Harga biasa: RM 49/bulan</s>
+          <s style="color: #999;">Harga standard: RM ${pricingInfo.originalPrice}/bulan</s>
         </p>
+        ` : ''}
         <p style="margin: 0; font-size: 12px; color: #666;">
-          🎁 Untuk 100 pelanggan terawal sahaja!
+          ${pricingInfo.slotsRemaining !== null 
+            ? `🎁 Hanya tinggal <strong>${pricingInfo.slotsRemaining}</strong> slot lagi untuk harga ini!`
+            : '🎁 Akses penuh ke semua features!'
+          }
         </p>
       </div>
       
@@ -202,13 +289,13 @@ serve(async (req: Request) => {
         </table>
       </div>
       
-      <!-- CTA Buttons -->
+      <!-- CTA Buttons - DYNAMIC PRICING -->
       <div style="text-align: center; margin: 0 0 30px 0;">
         <a href="https://app.pocketbizz.my/#/subscription" style="display: inline-block; background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%); color: #ffffff; text-decoration: none; padding: 18px 50px; border-radius: 8px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(46,125,50,0.3);">
-          🎉 Langgan Sekarang RM29/bulan →
+          🎉 Langgan Sekarang RM${pricingInfo.currentPrice}/bulan →
         </a>
         <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">
-          Boleh cancel bila-bila. Tiada hidden charges.
+          Boleh cancel bila-bila. Tiada hidden charges.${pricingInfo.slotsRemaining !== null && pricingInfo.slotsRemaining < 20 ? ' ⚠️ Slot hampir habis!' : ''}
         </p>
       </div>
       
