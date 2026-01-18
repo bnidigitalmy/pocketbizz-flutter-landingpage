@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../subscription/widgets/subscription_guard.dart';
@@ -17,6 +18,7 @@ import '../../../data/repositories/categories_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../onboarding/services/onboarding_service.dart';
+import '../../stock/presentation/add_edit_stock_item_page.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -80,6 +82,10 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   // Edit mode data
   String? _existingRecipeId; // Store recipe ID if editing
 
+  // Real-time subscriptions
+  StreamSubscription? _stockItemsSubscription;
+  StreamSubscription? _stockMovementsSubscription;
+
   // Cost calculations
   double _materialsCost = 0.0;
   double _totalPackagingCost = 0.0;
@@ -112,6 +118,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   void initState() {
     super.initState();
     _loadData();
+    _setupRealtimeSubscriptions();
     
     // Listen to changes for live cost calculation
     _unitsPerBatchController.addListener(_calculateCosts);
@@ -122,6 +129,10 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
 
   @override
   void dispose() {
+    // Cancel real-time subscriptions
+    _stockItemsSubscription?.cancel();
+    _stockMovementsSubscription?.cancel();
+    
     _nameController.dispose();
     _categoryController.dispose();
     _imageUrlController.dispose();
@@ -131,6 +142,64 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     _packagingCostController.dispose();
     _sellingPriceController.dispose();
     super.dispose();
+  }
+
+  /// Setup real-time subscriptions for stock items updates
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to stock_items table changes
+      _stockItemsSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted && !_isLoading) {
+              // Reload stock items when they change (e.g., new item added, updated)
+              _reloadStockItems();
+            }
+          });
+
+      // Subscribe to stock_movements changes (affects stock quantities)
+      _stockMovementsSubscription = supabase
+          .from('stock_movements')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            if (mounted && !_isLoading) {
+              // Reload stock items when movements change (affects currentQuantity)
+              _reloadStockItems();
+            }
+          });
+
+      if (kDebugMode) {
+        print('✅ Add Product page real-time subscriptions setup complete');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Error setting up real-time subscriptions: $e');
+      }
+    }
+  }
+
+  /// Reload only stock items (faster than full _loadData)
+  Future<void> _reloadStockItems() async {
+    try {
+      final stockItems = await _stockRepo.getAllStockItems(limit: 100);
+      if (mounted) {
+        setState(() {
+          _stockItems = stockItems;
+        });
+        // Recalculate costs in case stock prices changed
+        _calculateCosts();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error reloading stock items: $e');
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -1538,7 +1607,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                             itemCount: filteredStock.length,
                             itemBuilder: (context, index) {
                               final stock = filteredStock[index];
-                              final isAvailable = stock.currentQuantity > 0;
+                              final hasStock = stock.currentQuantity > 0;
                               final costPerUnit = stock.purchasePrice / stock.packageSize;
                               final packageInfo = '${stock.packageSize}${stock.unit} @ RM${stock.purchasePrice.toStringAsFixed(2)}';
 
@@ -1548,19 +1617,15 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   side: BorderSide(
-                                    color: isAvailable
-                                        ? Colors.grey[200]!
-                                        : Colors.red[200]!,
+                                    color: Colors.grey[200]!,
                                     width: 1,
                                   ),
                                 ),
                                 child: InkWell(
-                                  onTap: isAvailable
-                                      ? () {
-                                          Navigator.pop(context);
-                                          _showQuantityDialogForItem(itemIndex, item, stock);
-                                        }
-                                      : null,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _showQuantityDialogForItem(itemIndex, item, stock);
+                                  },
                                   borderRadius: BorderRadius.circular(16),
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
@@ -1571,22 +1636,22 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                                           width: 60,
                                           height: 60,
                                           decoration: BoxDecoration(
-                                            color: isAvailable
+                                            color: hasStock
                                                 ? Colors.green[50]
-                                                : Colors.red[50],
+                                                : Colors.orange[50],
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: isAvailable
+                                              color: hasStock
                                                   ? Colors.green[200]!
-                                                  : Colors.red[200]!,
+                                                  : Colors.orange[200]!,
                                               width: 1,
                                             ),
                                           ),
                                           child: Icon(
-                                            isAvailable
+                                            hasStock
                                                 ? Icons.inventory_2
-                                                : Icons.warning_amber_rounded,
-                                            color: isAvailable
+                                                : Icons.inventory_2_outlined,
+                                            color: hasStock
                                                 ? Colors.green[600]
                                                 : Colors.orange[600],
                                             size: 28,
@@ -1638,21 +1703,34 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                                                       vertical: 6,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: isAvailable
+                                                      color: hasStock
                                                           ? Colors.green[50]
-                                                          : Colors.red[50],
+                                                          : Colors.orange[50],
                                                       borderRadius:
                                                           BorderRadius.circular(8),
                                                     ),
-                                                    child: Text(
-                                                      'Stok: ${stock.currentQuantity.toStringAsFixed(1)}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w500,
-                                                        color: isAvailable
-                                                            ? Colors.green[700]
-                                                            : Colors.red[700],
-                                                      ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          'Stok: ${stock.currentQuantity.toStringAsFixed(1)}',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w500,
+                                                            color: hasStock
+                                                                ? Colors.green[700]
+                                                                : Colors.orange[700],
+                                                          ),
+                                                        ),
+                                                        if (!hasStock) ...[
+                                                          const SizedBox(width: 4),
+                                                          Icon(
+                                                            Icons.info_outline,
+                                                            size: 14,
+                                                            color: Colors.orange[700],
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -1665,31 +1743,35 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                                                   color: Colors.grey[600],
                                                 ),
                                               ),
+                                              if (!hasStock) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '💡 Stok akan diperiksa semasa production',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.orange[700],
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
-                                        // Add Icon
-                                        if (isAvailable)
-                                          Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary
-                                                  .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              Icons.add_circle,
-                                              color: AppColors.primary,
-                                              size: 28,
-                                            ),
-                                          )
-                                        else
-                                          const Icon(
-                                            Icons.block,
-                                            color: Colors.grey,
+                                        // Add Icon - Always show
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            Icons.add_circle,
+                                            color: AppColors.primary,
                                             size: 28,
                                           ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1697,6 +1779,60 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                               );
                             },
                           ),
+                  ),
+                  // Add New Ingredient Button
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: Colors.grey[200]!, width: 1),
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          // Close the current modal
+                          Navigator.pop(context);
+                          // Open add stock item page
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddEditStockItemPage(),
+                            ),
+                          );
+                          // If stock item was created successfully, reload stock items
+                          if (result == true && mounted) {
+                            // Reload only stock items (faster than full _loadData)
+                            // Real-time subscription will also update, but manual reload ensures immediate update
+                            await _reloadStockItems();
+                            
+                            // Show success message and reopen selector
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('✅ Bahan baru berjaya ditambah! Sila pilih dari senarai.'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              // Reopen the ingredient selector so user can select the new item
+                              _showIngredientSelector(itemIndex, item);
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Tambah Bahan Baru'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: AppColors.primary, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
