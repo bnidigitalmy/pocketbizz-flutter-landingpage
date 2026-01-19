@@ -9,6 +9,7 @@ import '../../../data/models/recipe.dart';
 import '../../../data/models/recipe_item.dart';
 import '../../../data/models/stock_item.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../stock/presentation/add_edit_stock_item_page.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -17,6 +18,8 @@ import '../../subscription/widgets/subscription_guard.dart';
  * ❌ DO NOT OPTIMIZE
  * This logic is production-tested.
  * New features must EXTEND, not change.
+ * 
+ * Updated: Allow all stock items selection, add Tambah Bahan Baru button, cooking units support
  * 
  * Recipe Builder Page - Cost Display
  * - Recipe totalCost = materials + labour + other (WITHOUT packaging)
@@ -281,7 +284,8 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                             itemCount: filteredStock.length,
                             itemBuilder: (context, index) {
                               final stock = filteredStock[index];
-                              final isAvailable = stock.currentQuantity > 0;
+                              // Allow all stock items to be selected regardless of quantity (stock check only during production)
+                              final hasStock = stock.currentQuantity > 0;
                               final costPerUnit = stock.costPerUnit;
                               final packageInfo = '${stock.packageSize}${stock.unit} @ RM${stock.purchasePrice.toStringAsFixed(2)}';
 
@@ -291,19 +295,15 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   side: BorderSide(
-                                    color: isAvailable
-                                        ? Colors.grey[200]!
-                                        : Colors.red[200]!,
+                                    color: Colors.grey[200]!,
                                     width: 1,
                                   ),
                                 ),
                                 child: InkWell(
-                                  onTap: isAvailable
-                                      ? () {
-                                          Navigator.pop(context);
-                                          _showQuantityDialog(stock);
-                                        }
-                                      : null,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    _showQuantityDialog(stock);
+                                  },
                                   borderRadius: BorderRadius.circular(16),
                                   child: Padding(
                                     padding: const EdgeInsets.all(16),
@@ -314,22 +314,22 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                           width: 60,
                                           height: 60,
                                           decoration: BoxDecoration(
-                                            color: isAvailable
+                                            color: hasStock
                                                 ? Colors.green[50]
-                                                : Colors.red[50],
+                                                : Colors.orange[50],
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: isAvailable
+                                              color: hasStock
                                                   ? Colors.green[200]!
-                                                  : Colors.red[200]!,
+                                                  : Colors.orange[200]!,
                                               width: 1,
                                             ),
                                           ),
                                           child: Icon(
-                                            isAvailable
+                                            hasStock
                                                 ? Icons.inventory_2
-                                                : Icons.warning_amber_rounded,
-                                            color: isAvailable
+                                                : Icons.inventory_2_outlined,
+                                            color: hasStock
                                                 ? Colors.green[600]
                                                 : Colors.orange[600],
                                             size: 28,
@@ -350,7 +350,9 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                                 ),
                                               ),
                                               const SizedBox(height: 8),
-                                              Row(
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 4,
                                                 children: [
                                                   Container(
                                                     padding:
@@ -372,7 +374,6 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 8),
                                                   Container(
                                                     padding:
                                                         const EdgeInsets.symmetric(
@@ -380,21 +381,34 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                                       vertical: 6,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: isAvailable
+                                                      color: hasStock
                                                           ? Colors.green[50]
-                                                          : Colors.red[50],
+                                                          : Colors.orange[50],
                                                       borderRadius:
                                                           BorderRadius.circular(8),
                                                     ),
-                                                    child: Text(
-                                                      'Stok: ${stock.currentQuantity.toStringAsFixed(1)}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w500,
-                                                        color: isAvailable
-                                                            ? Colors.green[700]
-                                                            : Colors.red[700],
-                                                      ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          'Stok: ${stock.currentQuantity.toStringAsFixed(1)}',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w500,
+                                                            color: hasStock
+                                                                ? Colors.green[700]
+                                                                : Colors.orange[700],
+                                                          ),
+                                                        ),
+                                                        if (!hasStock) ...[
+                                                          const SizedBox(width: 4),
+                                                          Icon(
+                                                            Icons.info_outline,
+                                                            size: 14,
+                                                            color: Colors.orange[700],
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -407,31 +421,35 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                                                   color: Colors.grey[600],
                                                 ),
                                               ),
+                                              if (!hasStock) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '💡 Stok akan diperiksa semasa production',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: Colors.orange[700],
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
-                                        // Add Icon
-                                        if (isAvailable)
-                                          Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary
-                                                  .withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Icon(
-                                              Icons.add_circle,
-                                              color: AppColors.primary,
-                                              size: 28,
-                                            ),
-                                          )
-                                        else
-                                          const Icon(
-                                            Icons.block,
-                                            color: Colors.grey,
+                                        // Add Icon - Always show
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            Icons.add_circle,
+                                            color: AppColors.primary,
                                             size: 28,
                                           ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -439,6 +457,59 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                               );
                             },
                           ),
+                  ),
+                  // Add New Ingredient Button
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(color: Colors.grey[200]!, width: 1),
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          // Close the current modal
+                          Navigator.pop(context);
+                          // Open add stock item page
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddEditStockItemPage(),
+                            ),
+                          );
+                          // If stock item was created successfully, reload stock items
+                          if (result == true && mounted) {
+                            // Reload stock items
+                            await _loadData();
+                            
+                            // Show success message and reopen selector
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('✅ Bahan baru berjaya ditambah! Sila pilih dari senarai.'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              // Reopen the ingredient selector so user can select the new item
+                              _showIngredientSelector();
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Tambah Bahan Baru'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: AppColors.primary, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -452,11 +523,33 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
   void _showQuantityDialog(StockItem stock) {
     final quantityController = TextEditingController(text: '1');
     final unitController = TextEditingController(text: stock.unit);
-    List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit)
-      ..sort();
-    if (!compatibleUnits.map((u) => u.toLowerCase()).contains(stock.unit.toLowerCase())) {
+    List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit);
+    
+    // Ensure stock.unit is included (case-insensitive check)
+    final stockUnitLower = stock.unit.toLowerCase();
+    if (!compatibleUnits.any((u) => u.toLowerCase() == stockUnitLower)) {
       compatibleUnits.insert(0, stock.unit);
     }
+    
+    // Add cooking units (cup, tbsp, tsp) for recipe convenience
+    // These are commonly used in recipes regardless of stock unit type
+    const cookingUnits = ['cup', 'tbsp', 'tsp'];
+    for (final cookingUnit in cookingUnits) {
+      if (!compatibleUnits.any((u) => u.toLowerCase() == cookingUnit.toLowerCase())) {
+        compatibleUnits.add(cookingUnit);
+      }
+    }
+    
+    // Remove duplicates (case-insensitive) and sort
+    final seen = <String>{};
+    compatibleUnits = compatibleUnits.where((unit) {
+      final lower = unit.toLowerCase();
+      if (seen.contains(lower)) {
+        return false; // Skip duplicate
+      }
+      seen.add(lower);
+      return true;
+    }).toList()..sort();
 
     showDialog(
       context: context,
@@ -494,10 +587,12 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: unitController.text.trim(),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Unit Resepi',
-                      border: OutlineInputBorder(),
-                      helperText: 'Unit mesti serasi dengan unit stok bahan.',
+                      border: const OutlineInputBorder(),
+                      helperText: UnitConversion.canConvert(unitController.text.trim(), stock.unit)
+                          ? 'Unit serasi dengan unit stok bahan. Sudu/cup juga tersedia untuk kemudahan resepi.'
+                          : '⚠️ Unit tidak serasi. Kos mungkin tidak tepat (conversion tidak supported).',
                     ),
                     items: compatibleUnits
                         .map(
@@ -537,6 +632,33 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                       ],
                     ),
                   ),
+                  // Warning if units are incompatible
+                  if (!UnitConversion.canConvert(unitController.text.trim(), stock.unit)) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '⚠️ Unit resepi "${unitController.text.trim()}" mungkin tidak serasi dengan unit stok bahan "${stock.unit}". '
+                              'Ini boleh menyebabkan pengiraan kos yang tidak tepat. Sila pastikan unit boleh ditukar.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
