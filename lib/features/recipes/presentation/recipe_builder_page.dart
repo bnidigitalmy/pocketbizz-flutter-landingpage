@@ -523,6 +523,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
   void _showQuantityDialog(StockItem stock) {
     final quantityController = TextEditingController(text: '1');
     final unitController = TextEditingController(text: stock.unit);
+    final notesController = TextEditingController();
     List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit);
     
     // Ensure stock.unit is included (case-insensitive check)
@@ -610,6 +611,17 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                     },
                   ),
                   const SizedBox(height: 16),
+                  TextFormField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nota (opsyenal)',
+                      hintText: 'Contoh: Step 2 / Bahagian A',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                    textInputAction: TextInputAction.newline,
+                  ),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -680,7 +692,12 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                     return;
                   }
                   Navigator.pop(context);
-                  _addIngredientToRecipe(stock, quantity, unitController.text.trim());
+                  _addIngredientToRecipe(
+                    stock,
+                    quantity,
+                    unitController.text.trim(),
+                    notesController.text.trim(),
+                  );
                 },
                 child: const Text('Tambah'),
               ),
@@ -691,7 +708,12 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     );
   }
 
-  Future<void> _addIngredientToRecipe(StockItem stock, double quantity, String unit) async {
+  Future<void> _addIngredientToRecipe(
+    StockItem stock,
+    double quantity,
+    String unit,
+    String notes,
+  ) async {
     if (_activeRecipe == null) return;
 
     await requirePro(context, 'Tambah Bahan Resepi', () async {
@@ -701,6 +723,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
           stockItemId: stock.id,
           quantityNeeded: quantity,
           usageUnit: unit,
+          notes: notes.isEmpty ? null : notes,
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -741,6 +764,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
         initialStock: stock,
         initialQuantity: item.quantityNeeded,
         initialUnit: item.usageUnit,
+        initialNotes: item.notes,
         isEdit: true,
       ),
     );
@@ -748,6 +772,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
     if (result != null && mounted) {
       final quantity = result['quantity'] as double;
       final unit = result['unit'] as String;
+      final notes = (result['notes'] as String?)?.trim() ?? '';
 
       await requirePro(context, 'Kemaskini Bahan Resepi', () async {
         try {
@@ -774,6 +799,7 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
             'usage_unit': unit,
             'cost_per_unit': costPerUnit,
             'total_cost': totalCost,
+            'notes': notes.isEmpty ? null : notes,
           });
           
           if (mounted) {
@@ -1242,6 +1268,25 @@ class _RecipeBuilderPageState extends State<RecipeBuilderPage> {
                       ),
                     ],
                   ),
+                  if ((item.notes ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.notes, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item.notes!.trim(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1357,6 +1402,7 @@ class _AddIngredientDialog extends StatefulWidget {
   final StockItem? initialStock;
   final double initialQuantity;
   final String initialUnit;
+  final String? initialNotes;
   final bool isEdit;
 
   const _AddIngredientDialog({
@@ -1364,6 +1410,7 @@ class _AddIngredientDialog extends StatefulWidget {
     this.initialStock,
     this.initialQuantity = 1.0,
     this.initialUnit = 'gram',
+    this.initialNotes,
     this.isEdit = false,
   });
 
@@ -1375,6 +1422,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
   StockItem? _selectedStock;
   final _quantityController = TextEditingController();
   final _unitController = TextEditingController();
+  final _notesController = TextEditingController();
   List<String> _compatibleUnits = const [];
 
   @override
@@ -1383,6 +1431,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
     _selectedStock = widget.initialStock;
     _quantityController.text = widget.initialQuantity.toString();
     _unitController.text = widget.initialUnit;
+    _notesController.text = widget.initialNotes ?? '';
     _updateCompatibleUnits();
   }
 
@@ -1390,6 +1439,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
   void dispose() {
     _quantityController.dispose();
     _unitController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -1470,6 +1520,17 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
               validator: (value) =>
                   (value == null || value.isEmpty) ? 'Sila pilih unit' : null,
             ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Nota (opsyenal)',
+                hintText: 'Contoh: Step 2 / Bahagian A',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+              textInputAction: TextInputAction.newline,
+            ),
             if (_selectedStock != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -1521,6 +1582,7 @@ class _AddIngredientDialogState extends State<_AddIngredientDialog> {
                     'stock': _selectedStock,
                     'quantity': quantity,
                     'unit': _unitController.text.trim(),
+                    'notes': _notesController.text.trim(),
                   });
                 },
           child: Text(widget.isEdit ? 'Kemaskini' : 'Tambah'),

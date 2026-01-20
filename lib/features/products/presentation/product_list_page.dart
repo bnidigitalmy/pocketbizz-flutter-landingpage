@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
+import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
@@ -24,6 +25,9 @@ import '../../../core/services/cache_service.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'add_product_with_recipe_page.dart';
 import '../../../core/widgets/cached_image.dart';
+import '../../subscription/widgets/subscription_guard.dart';
+import '../../subscription/exceptions/subscription_limit_exception.dart';
+import '../../subscription/presentation/subscription_page.dart';
 
 /// Helper class for virtual scrolling list items
 class _ProductListItem {
@@ -70,6 +74,8 @@ class _ProductListPageState extends State<ProductListPage> {
   
   // Search debouncing
   Timer? _searchDebounce;
+  Timer? _productsReloadDebounce;
+  Timer? _stockReloadDebounce;
   
   // Summary stats
   int _totalProducts = 0;
@@ -91,11 +97,31 @@ class _ProductListPageState extends State<ProductListPage> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _productsReloadDebounce?.cancel();
+    _stockReloadDebounce?.cancel();
     _productsSubscription?.cancel();
     _productionBatchesSubscription?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _scheduleProductsReload() {
+    _productsReloadDebounce?.cancel();
+    _productsReloadDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _loadProducts();
+      }
+    });
+  }
+
+  void _scheduleStockReload(List<Product> products) {
+    _stockReloadDebounce?.cancel();
+    _stockReloadDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _loadStockAsync(products);
+      }
+    });
   }
 
   /// Setup real-time subscriptions to invalidate cache when data changes
@@ -117,7 +143,7 @@ class _ProductListPageState extends State<ProductListPage> {
                 'products_list_inactive',
                 'products_stock_map',
               ]);
-              _loadProducts(); // Reload with fresh data
+              _scheduleProductsReload(); // Reload with fresh data
             }
           });
 
@@ -130,7 +156,7 @@ class _ProductListPageState extends State<ProductListPage> {
             if (mounted) {
               // Invalidate stock cache when batches change
               CacheService.invalidate('products_stock_map');
-              _loadStockAsync(_allProducts); // Reload stock
+              _scheduleStockReload(_allProducts); // Reload stock
             }
           });
 
@@ -240,18 +266,27 @@ class _ProductListPageState extends State<ProductListPage> {
 
   /// Fetch stock map for all products (helper method)
   Future<Map<String, double>> _fetchStockMap(List<Product> products) async {
-    // Load stock for all products IN PARALLEL
-    final stockFutures = products.map((product) async {
-      try {
-        final stock = await _productionRepo.getTotalRemainingForProduct(product.id);
-        return MapEntry(product.id, stock);
-      } catch (e) {
-        return MapEntry(product.id, 0.0);
-      }
-    });
-    
-    final stockResults = await Future.wait(stockFutures);
-    return Map<String, double>.fromEntries(stockResults);
+    if (products.isEmpty) return {};
+
+    final productIds = products.map((p) => p.id).toList();
+    final response = await supabase
+        .from('production_batches')
+        .select('product_id, remaining_qty')
+        .inFilter('product_id', productIds);
+
+    final totals = <String, double>{};
+    for (final entry in response as List) {
+      final id = entry['product_id'] as String;
+      final remaining = (entry['remaining_qty'] as num?)?.toDouble() ?? 0.0;
+      totals[id] = (totals[id] ?? 0.0) + remaining;
+    }
+
+    // Ensure every product has a key
+    for (final product in products) {
+      totals.putIfAbsent(product.id, () => 0.0);
+    }
+
+    return totals;
   }
 
   void _calculateSummary() {
@@ -1043,6 +1078,11 @@ class _ProductListPageState extends State<ProductListPage> {
                     },
                     tooltip: 'Edit',
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: Colors.purple),
+                    onPressed: () => _duplicateProduct(product),
+                    tooltip: 'Duplicate',
+                  ),
                   // Enable/Disable button
                   if (!product.isActive)
                   IconButton(
@@ -1259,7 +1299,62 @@ class _ProductListPageState extends State<ProductListPage> {
     );
 
     if (confirmed == true && mounted) {
+        final hasHardDeleteBlockers = await _hasHardDeleteBlockers(product.id);
+        if (hasHardDeleteBlockers && mounted) {
+          final disableInstead = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Produk Tidak Boleh Dipadam'),
+              content: const Text(
+                'Produk ini masih digunakan dalam jualan/rekod stok.\n\n'
+                'Anda hanya boleh nonaktifkan produk ini.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Nonaktifkan'),
+                ),
+              ],
+            ),
+          );
+          if (disableInstead == true && mounted) {
+            await _repo.disableProduct(product.id);
+            await _loadProducts();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Produk berjaya dinyahaktifkan'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
+          return;
+        }
+
+        await _deleteProductRecipes(product.id);
         await _repo.deleteProduct(product.id);
+        CacheService.invalidateMultiple([
+          'products_list',
+          'products_list_inactive',
+          'products_stock_map',
+        ]);
+        if (mounted) {
+          setState(() {
+            _allProducts.removeWhere((p) => p.id == product.id);
+            _filteredProducts.removeWhere((p) => p.id == product.id);
+            _stockCache.remove(product.id);
+            _calculateSummary();
+          });
+        }
         await _loadProducts();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1273,6 +1368,18 @@ class _ProductListPageState extends State<ProductListPage> {
         }
       } catch (e) {
         if (mounted) {
+          if (_isForeignKeyError(e)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Produk masih digunakan dalam rekod lain. Sila nonaktifkan dahulu.',
+                ),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 5),
+              ),
+            );
+            return;
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
             content: Text('Ralat: $e'),
@@ -1282,6 +1389,231 @@ class _ProductListPageState extends State<ProductListPage> {
           );
       }
     }
+  }
+
+  Future<void> _duplicateProduct(Product product) async {
+    await requirePro(context, 'Duplicate Produk', () async {
+      if (!mounted) return;
+
+      var progressShown = false;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Expanded(child: Text('Sedang gandakan produk...')),
+            ],
+          ),
+        ),
+      );
+      progressShown = true;
+
+      try {
+        final now = DateTime.now();
+        final newSku = _generateDuplicateSku(product.sku);
+        final newName = _generateDuplicateName(product.name);
+
+        final duplicated = Product(
+          id: '',
+          businessOwnerId: '',
+          sku: newSku,
+          name: newName,
+          categoryId: product.categoryId,
+          category: product.category,
+          unit: product.unit,
+          salePrice: product.salePrice,
+          costPrice: product.costPrice,
+          description: product.description,
+          imageUrl: product.imageUrl,
+          unitsPerBatch: product.unitsPerBatch,
+          labourCost: product.labourCost,
+          otherCosts: product.otherCosts,
+          packagingCost: product.packagingCost,
+          materialsCost: product.materialsCost,
+          totalCostPerBatch: product.totalCostPerBatch,
+          costPerUnit: product.costPerUnit,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        final created = await _repo.createProduct(duplicated);
+
+        final recipesRepo = RecipesRepositorySupabase();
+        final activeRecipe = await recipesRepo.getActiveRecipe(product.id);
+        if (activeRecipe != null) {
+          final newRecipe = await recipesRepo.createRecipe(
+            productId: created.id,
+            name: '${activeRecipe.name} (Salinan)',
+            description: activeRecipe.description,
+            yieldQuantity: activeRecipe.yieldQuantity,
+            yieldUnit: activeRecipe.yieldUnit,
+            version: 1,
+            isActive: true,
+          );
+
+          final items = await recipesRepo.getRecipeItems(activeRecipe.id);
+          for (final item in items) {
+            await recipesRepo.addRecipeItem(
+              recipeId: newRecipe.id,
+              stockItemId: item.stockItemId,
+              quantityNeeded: item.quantityNeeded,
+              usageUnit: item.usageUnit,
+              position: item.position,
+              notes: item.notes,
+            );
+          }
+        }
+
+        CacheService.invalidateMultiple([
+          'products_list',
+          'products_list_inactive',
+          'products_stock_map',
+        ]);
+        await _loadProducts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Produk berjaya diduplikasi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          if (progressShown) {
+            Navigator.of(context, rootNavigator: true).pop();
+            progressShown = false;
+          }
+          if (e is SubscriptionLimitException) {
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Had Langganan Dicapai'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.userMessage),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Upgrade langganan anda untuk menambah lebih banyak produk.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Tutup'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubscriptionPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Lihat Pakej'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Duplicate Produk',
+              error: e,
+            );
+            if (!handled && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Ralat: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      } finally {
+        if (mounted && progressShown) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    });
+  }
+
+  String _generateDuplicateSku(String sku) {
+    final trimmed = sku.trim();
+    final base = trimmed.isEmpty ? 'SKU' : trimmed;
+    final existingSkus = _allProducts.map((p) => p.sku.toLowerCase()).toSet();
+
+    var candidate = '$base-COPY';
+    var counter = 2;
+    while (existingSkus.contains(candidate.toLowerCase())) {
+      candidate = '$base-COPY-$counter';
+      counter++;
+    }
+    return candidate;
+  }
+
+  String _generateDuplicateName(String name) {
+    final base = name.trim().isEmpty ? 'Produk' : name.trim();
+    const suffix = ' (Salinan)';
+    final existingNames = _allProducts.map((p) => p.name.toLowerCase()).toSet();
+
+    var candidate = '$base$suffix';
+    var counter = 2;
+    while (existingNames.contains(candidate.toLowerCase())) {
+      candidate = '$base$suffix $counter';
+      counter++;
+    }
+    return candidate;
+  }
+
+  Future<bool> _hasHardDeleteBlockers(String productId) async {
+    final checks = await Future.wait([
+      _hasAnyRow('inventory_batches', 'product_id', productId),
+      _hasAnyRow('finished_product_batches', 'product_id', productId),
+      _hasAnyRow('sales_items', 'product_id', productId),
+    ]);
+    return checks.any((hasAny) => hasAny);
+  }
+
+  Future<bool> _hasAnyRow(String table, String column, String id) async {
+    final response = await supabase.from(table).select('id').eq(column, id).limit(1);
+    return (response as List).isNotEmpty;
+  }
+
+  Future<void> _deleteProductRecipes(String productId) async {
+    final recipesRepo = RecipesRepositorySupabase();
+    final recipes = await recipesRepo.getRecipesByProduct(productId);
+    for (final recipe in recipes) {
+      await recipesRepo.deleteRecipe(recipe.id);
+    }
+  }
+
+  bool _isForeignKeyError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('foreign key') ||
+        msg.contains('violates foreign key') ||
+        msg.contains('23503');
   }
 
   void _showProductDetails(Product product) {

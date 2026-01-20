@@ -268,6 +268,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
           input.stockItemId = item.stockItemId;
           input.usageUnit = item.usageUnit;
           input.quantityController.text = item.quantityNeeded.toString();
+          input.notesController.text = item.notes ?? '';
           _recipeItems.add(input);
         }
         
@@ -600,6 +601,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
               stockItemId: item.stockItemId!,
               quantityNeeded: quantity,
               usageUnit: item.usageUnit ?? 'pcs',
+              notes: item.notesController.text.trim().isEmpty
+                  ? null
+                  : item.notesController.text.trim(),
             );
           }
         }
@@ -622,6 +626,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
             stockItemId: item.stockItemId!,
             quantityNeeded: quantity,
             usageUnit: item.usageUnit ?? 'pcs',
+            notes: item.notesController.text.trim().isEmpty
+                ? null
+                : item.notesController.text.trim(),
           );
           }
         }
@@ -1847,6 +1854,9 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     final quantityController = TextEditingController(
       text: item.quantityController.text.isEmpty ? '1' : item.quantityController.text,
     );
+    final notesController = TextEditingController(
+      text: item.notesController.text,
+    );
     String selectedUnit = item.usageUnit ?? stock.unit;
     List<String> compatibleUnits = UnitConversion.getCompatibleUnits(stock.unit);
     
@@ -1854,6 +1864,15 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
     final stockUnitLower = stock.unit.toLowerCase();
     if (!compatibleUnits.any((u) => u.toLowerCase() == stockUnitLower)) {
       compatibleUnits.insert(0, stock.unit);
+    }
+    
+    // Add cooking units (cup, tbsp, tsp) for recipe convenience
+    // These are commonly used in recipes regardless of stock unit type
+    const cookingUnits = ['cup', 'tbsp', 'tsp'];
+    for (final cookingUnit in cookingUnits) {
+      if (!compatibleUnits.any((u) => u.toLowerCase() == cookingUnit.toLowerCase())) {
+        compatibleUnits.add(cookingUnit);
+      }
     }
     
     // Remove duplicates (case-insensitive) and sort
@@ -1903,10 +1922,12 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: selectedUnit,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Unit Resepi',
-                      border: OutlineInputBorder(),
-                      helperText: 'Unit mesti serasi dengan unit stok bahan.',
+                      border: const OutlineInputBorder(),
+                      helperText: UnitConversion.canConvert(selectedUnit, stock.unit)
+                          ? 'Unit serasi dengan unit stok bahan.'
+                          : '⚠️ Unit tidak serasi. Kos mungkin tidak tepat (conversion tidak supported).',
                     ),
                     items: compatibleUnits
                         .map(
@@ -1922,6 +1943,17 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                         selectedUnit = value;
                       });
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nota (opsyenal)',
+                      hintText: 'Contoh: Step 2 / Bahagian A',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                    textInputAction: TextInputAction.newline,
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -1971,6 +2003,7 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                     item.stockItemId = stock.id;
                     item.quantityController.text = quantity.toString();
                     item.usageUnit = selectedUnit;
+                    item.notesController.text = notesController.text;
                   });
                   Navigator.pop(context);
                   _calculateCosts();
@@ -1998,6 +2031,17 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
         ? getCompatibleUnits(selectedStock.unit)
         : <String>[];
     
+    // Add cooking units (cup, tbsp, tsp) for recipe convenience
+    // These are commonly used in recipes regardless of stock unit type
+    if (selectedStock != null) {
+      const cookingUnits = ['cup', 'tbsp', 'tsp'];
+      for (final cookingUnit in cookingUnits) {
+        if (!compatibleUnits.any((u) => u.toLowerCase() == cookingUnit.toLowerCase())) {
+          compatibleUnits.add(cookingUnit);
+        }
+      }
+    }
+    
     // Remove duplicates (case-insensitive) to prevent DropdownButton errors
     final seen = <String>{};
     compatibleUnits = compatibleUnits.where((unit) {
@@ -2011,17 +2055,26 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
 
     // Calculate cost for this item
     double itemCost = 0.0;
+    bool isUnitCompatible = true;
     if (selectedStock != null && item.quantityController.text.isNotEmpty) {
       final quantity = double.tryParse(item.quantityController.text) ?? 0.0;
       if (quantity > 0) {
-        final unitPrice = selectedStock.purchasePrice / selectedStock.packageSize;
         final usageUnit = item.usageUnit ?? selectedStock.unit;
-        final convertedQty = UnitConversion.convert(
-          quantity: quantity,
-          fromUnit: usageUnit,
-          toUnit: selectedStock.unit,
-        );
-        itemCost = convertedQty * unitPrice;
+        isUnitCompatible = UnitConversion.canConvert(usageUnit, selectedStock.unit);
+        
+        if (isUnitCompatible) {
+          final unitPrice = selectedStock.purchasePrice / selectedStock.packageSize;
+          final convertedQty = UnitConversion.convert(
+            quantity: quantity,
+            fromUnit: usageUnit,
+            toUnit: selectedStock.unit,
+          );
+          itemCost = convertedQty * unitPrice;
+        } else {
+          // If units are not compatible, show warning but don't calculate cost
+          // User needs to manually convert or use compatible unit
+          itemCost = 0.0;
+        }
       }
     }
 
@@ -2125,6 +2178,54 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
               ),
             ],
           ),
+
+          if (item.notesController.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.notes, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    item.notesController.text.trim(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          
+          // Unit Compatibility Warning
+          if (selectedStock != null && item.usageUnit != null && !isUnitCompatible) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '⚠️ Unit "${item.usageUnit}" tidak serasi dengan unit stok "${selectedStock.unit}". Kos tidak dapat dikira. Sila guna unit yang serasi.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange[900],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           
           // Item Cost Display
           if (itemCost > 0) ...[
@@ -2452,9 +2553,11 @@ class RecipeItemInput {
   String? stockItemId;
   String? usageUnit;
   final TextEditingController quantityController = TextEditingController();
+  final TextEditingController notesController = TextEditingController();
 
   void dispose() {
     quantityController.dispose();
+    notesController.dispose();
   }
 }
 
