@@ -106,7 +106,11 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Padam Dokumen'),
-        content: Text('Adakah anda pasti mahu memadam "${_document!.title}"? Tindakan ini tidak boleh dibatalkan.'),
+        content: Text(
+          'Adakah anda pasti mahu memadam "${_document!.title}"? Tindakan ini tidak boleh dibatalkan.',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -256,7 +260,11 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(doc.title),
+        title: Text(
+          doc.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             icon: Icon(doc.isFavourite ? Icons.star : Icons.star_border),
@@ -346,6 +354,8 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (doc.source != null) ...[
                               const SizedBox(height: 4),
@@ -355,6 +365,8 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
                                   fontSize: 12,
                                   color: Colors.grey[600],
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ],
@@ -370,6 +382,8 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
                         fontSize: 14,
                         color: Colors.grey[700],
                       ),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                   if (doc.isFile && doc.fileName != null) ...[
@@ -385,6 +399,8 @@ class _RecipeDocumentDetailPageState extends State<RecipeDocumentDetailPage> {
                               fontSize: 12,
                               color: Colors.grey[600],
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

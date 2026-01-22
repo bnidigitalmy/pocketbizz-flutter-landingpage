@@ -1013,6 +1013,40 @@ class ConsignmentClaimsRepositorySupabase {
           )
         ''').eq('id', claimId).eq('business_owner_id', userId).single();
 
+    // Get carry forward items used in this claim to identify C/F items
+    final cfDeliveryItemIds = <String>{}; // Track which delivery_item_ids are from C/F
+    final cfDeliveryIds = <String>{}; // Track which delivery_ids are from C/F
+    final cfClaimNumbers = <String, String>{}; // Map delivery_item_id to original claim number
+    
+    try {
+      final cfItemsResponse = await supabase
+          .from('carry_forward_items')
+          .select('source_delivery_id, source_delivery_item_id, original_claim_number')
+          .eq('used_in_claim_id', claimId)
+          .eq('status', 'used');
+      
+      final cfItems = (cfItemsResponse as List).cast<Map<String, dynamic>>();
+      
+      for (var cfItem in cfItems) {
+        final deliveryId = cfItem['source_delivery_id'] as String?;
+        final deliveryItemId = cfItem['source_delivery_item_id'] as String?;
+        final claimNumber = cfItem['original_claim_number'] as String?;
+        
+        if (deliveryId != null && deliveryId.isNotEmpty) {
+          cfDeliveryIds.add(deliveryId);
+        }
+        if (deliveryItemId != null && deliveryItemId.isNotEmpty) {
+          cfDeliveryItemIds.add(deliveryItemId);
+          if (claimNumber != null && claimNumber.isNotEmpty) {
+            cfClaimNumbers[deliveryItemId] = claimNumber;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading carry forward items: $e');
+      // Continue without C/F info if there's an error
+    }
+
     final claimJson = response as Map<String, dynamic>;
     final vendor = claimJson['vendors'] as Map<String, dynamic>?;
 
@@ -1022,24 +1056,31 @@ class ConsignmentClaimsRepositorySupabase {
       final itemMap = item as Map<String, dynamic>;
       final delivery = itemMap['delivery'] as Map<String, dynamic>?;
       final deliveryItem = itemMap['delivery_item'] as Map<String, dynamic>?;
+      final deliveryItemId = itemMap['delivery_item_id'] as String?;
+      final deliveryId = itemMap['delivery_id'] as String?;
 
       // Extract product_name from delivery_item (priority) or from item itself
       final productName = deliveryItem?['product_name'] as String? ??
           itemMap['product_name'] as String? ??
           'Unknown Product';
 
+      // Check if this item is from carry forward
+      final isFromCarryForward = (deliveryItemId != null && cfDeliveryItemIds.contains(deliveryItemId)) ||
+          (deliveryId != null && cfDeliveryIds.contains(deliveryId));
+
       return {
         ...itemMap,
-        'delivery_number': delivery?['invoice_number'],
+        'delivery_number': delivery?['invoice_number'] as String?,
         'product_name': productName, // Ensure product_name is set
         'product_id': deliveryItem?['product_id'] ?? itemMap['product_id'],
         'unit_price': deliveryItem?['unit_price'] ?? itemMap['unit_price'],
+        'is_carry_forward': isFromCarryForward, // Add flag for C/F items
       };
     }).toList();
 
     return ConsignmentClaim.fromJson({
       ...claimJson,
-      'vendor_name': vendor?['name'],
+      'vendor_name': vendor?['name'] as String? ?? '',
       'items': processedItems,
     });
   }

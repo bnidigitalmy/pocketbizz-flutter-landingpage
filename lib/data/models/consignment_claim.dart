@@ -188,6 +188,7 @@ class ConsignmentClaimItem {
   final String? productId;
   final String? productName;
   final String? deliveryNumber;
+  final bool isCarryForward; // Whether this item came from carry forward
 
   ConsignmentClaimItem({
     required this.id,
@@ -212,6 +213,7 @@ class ConsignmentClaimItem {
     this.productId,
     this.productName,
     this.deliveryNumber,
+    this.isCarryForward = false,
   });
 
   factory ConsignmentClaimItem.fromJson(Map<String, dynamic> json) {
@@ -270,6 +272,9 @@ class ConsignmentClaimItem {
           json['productName'] as String? ?? json['product_name'] as String?,
       deliveryNumber: json['deliveryNumber'] as String? ??
           json['delivery_number'] as String?,
+      isCarryForward: (json['isCarryForward'] as bool?) ??
+          (json['is_carry_forward'] as bool?) ??
+          false,
     );
   }
 
@@ -297,6 +302,7 @@ class ConsignmentClaimItem {
       'productId': productId,
       'productName': productName,
       'deliveryNumber': deliveryNumber,
+      'isCarryForward': isCarryForward,
     };
   }
 }

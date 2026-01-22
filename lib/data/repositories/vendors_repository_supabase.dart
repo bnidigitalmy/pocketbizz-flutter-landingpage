@@ -527,11 +527,35 @@ class VendorsRepositorySupabase {
 
     final payments = paymentsResponse as List<dynamic>;
 
+    // Get carry forward items (available and used)
+    final cfItemsResponse = await supabase
+        .from('carry_forward_items')
+        .select('''
+          id,
+          product_name,
+          quantity_available,
+          unit_price,
+          status,
+          original_claim_number,
+          source_delivery_id,
+          source_delivery_item_id,
+          used_in_claim_id,
+          created_at,
+          used_at
+        ''')
+        .eq('vendor_id', vendorId)
+        .eq('business_owner_id', userId)
+        .inFilter('status', ['available', 'used'])
+        .order('created_at', ascending: false);
+
+    final cfItems = cfItemsResponse as List<dynamic>;
+
     return {
       'vendor': vendorResponse,
       'deliveries': processedDeliveries,
       'claims': claims,
       'payments': payments,
+      'carry_forward_items': cfItems,
     };
   }
 }

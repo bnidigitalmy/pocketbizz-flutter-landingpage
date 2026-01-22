@@ -96,6 +96,8 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
         grossAmount: item.grossAmount,
         commissionAmount: item.commissionAmount,
         netAmount: item.netAmount,
+        deliveryNumber: item.deliveryNumber,
+        isCarryForward: item.isCarryForward,
       )).toList() ?? [];
 
       // Determine commission type: if rate is 0 and amount > 0, it's price_range
@@ -200,6 +202,8 @@ class _ClaimDetailPageState extends State<ClaimDetailPage> {
         grossAmount: item.grossAmount,
         commissionAmount: item.commissionAmount,
         netAmount: item.netAmount,
+        deliveryNumber: item.deliveryNumber,
+        isCarryForward: item.isCarryForward,
       )).toList() ?? [];
 
       // Determine commission type: if rate is 0 and amount > 0, it's price_range

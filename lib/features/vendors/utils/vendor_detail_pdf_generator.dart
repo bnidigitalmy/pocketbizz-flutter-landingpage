@@ -132,10 +132,30 @@ class VendorDetailPDFGenerator {
     double totalDeliveryAmount = 0.0;
     double totalSold = 0.0;
     double totalExpired = 0.0;
-    double totalCarryForward = 0.0;
+    double totalCarryForward = 0.0; // From delivery items (unsold)
     double totalNetClaims = 0.0;
     double totalPaid = 0.0;
     double totalBalance = 0.0;
+    
+    // Calculate C/F items info
+    final cfItems = vendorData['carry_forward_items'] as List<dynamic>? ?? [];
+    double totalAvailableCF = 0.0; // Available C/F items
+    double totalUsedCF = 0.0; // Used C/F items
+    int availableCFCount = 0;
+    int usedCFCount = 0;
+    
+    for (var cfItem in cfItems) {
+      final status = cfItem['status'] as String? ?? '';
+      final quantity = (cfItem['quantity_available'] as num?)?.toDouble() ?? 0.0;
+      
+      if (status == 'available') {
+        totalAvailableCF += quantity;
+        availableCFCount++;
+      } else if (status == 'used') {
+        totalUsedCF += quantity;
+        usedCFCount++;
+      }
+    }
 
     for (var delivery in deliveries) {
       totalDeliveryAmount += (delivery['total_amount'] as num?)?.toDouble() ?? 0.0;
@@ -178,16 +198,16 @@ class VendorDetailPDFGenerator {
               _buildSummaryCell('Jumlah Nilai Dihantar', currencyFormat.format(totalDeliveryAmount)),
               _buildSummaryCell('Jumlah Terjual', totalSold.toStringAsFixed(0)),
               _buildSummaryCell('Jumlah Luput', totalExpired.toStringAsFixed(0)),
-              _buildSummaryCell('Carry Forward', totalCarryForward.toStringAsFixed(0)),
+              _buildSummaryCell('Belum Terjual', totalCarryForward.toStringAsFixed(0)),
             ],
           ),
           pw.TableRow(
             children: [
+              _buildSummaryCell('C/F Available', '${totalAvailableCF.toStringAsFixed(0)} ($availableCFCount)'),
+              _buildSummaryCell('C/F Used', '${totalUsedCF.toStringAsFixed(0)} ($usedCFCount)'),
               _buildSummaryCell('Jumlah Tuntutan', currencyFormat.format(totalNetClaims)),
               _buildSummaryCell('Jumlah Dibayar', currencyFormat.format(totalPaid)),
               _buildSummaryCell('Baki Tertunggak', currencyFormat.format(totalBalance), isBalance: true),
-              _buildSummaryCell('Jumlah Tuntutan', claims.length.toString()),
-              _buildSummaryCell('Jumlah Bayaran', payments.length.toString()),
             ],
           ),
         ],

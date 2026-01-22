@@ -17,6 +17,8 @@ class ClaimItem {
   final double grossAmount;
   final double commissionAmount;
   final double netAmount;
+  final String? deliveryNumber; // Invoice number from delivery
+  final bool isCarryForward; // Whether this is a carry forward item
 
   ClaimItem({
     required this.productName,
@@ -25,6 +27,8 @@ class ClaimItem {
     required this.grossAmount,
     required this.commissionAmount,
     required this.netAmount,
+    this.deliveryNumber,
+    this.isCarryForward = false,
   });
 }
 
@@ -677,30 +681,53 @@ class PDFGenerator {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
       columnWidths: const {
-        0: pw.FlexColumnWidth(3.5),
-        1: pw.FlexColumnWidth(1.2),
-        2: pw.FlexColumnWidth(2),
-        3: pw.FlexColumnWidth(2),
+        0: pw.FlexColumnWidth(0.5),  // No. column
+        1: pw.FlexColumnWidth(3.5),  // Produk column
+        2: pw.FlexColumnWidth(1.2),  // Kuantiti column
+        3: pw.FlexColumnWidth(2),    // Harga Unit column
+        4: pw.FlexColumnWidth(2),    // Jumlah column
       },
       children: [
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
           children: [
+            _tableCell('No.', isHeader: true),
             _tableCell('Produk', isHeader: true),
             _tableCell('Kuantiti', isHeader: true),
             _tableCell('Harga Unit', isHeader: true),
             _tableCell('Jumlah', isHeader: true),
           ],
         ),
-        ...items.map(
-          (item) => pw.TableRow(
-            children: [
-              _tableCell(item.productName),
-              _tableCell(item.quantitySold.toStringAsFixed(1)),
-              _tableCell('RM ${item.unitPrice.toStringAsFixed(2)}'),
-              _tableCell('RM ${item.grossAmount.toStringAsFixed(2)}'),
-            ],
-          ),
+        ...items.asMap().entries.map(
+          (entry) {
+            final index = entry.key;
+            final item = entry.value;
+            
+            // Build product name with delivery number and C/F remark
+            // productName is required String, so it should never be null
+            String productDisplayName = item.productName;
+            
+            // Add delivery number if available
+            final deliveryNum = item.deliveryNumber;
+            if (deliveryNum != null && deliveryNum.toString().isNotEmpty) {
+              productDisplayName += '\n[Invois: $deliveryNum]';
+            }
+            
+            // Add C/F remark if it's a carry forward item
+            if (item.isCarryForward == true) {
+              productDisplayName += '\n[Carry Forward C/F]';
+            }
+            
+            return pw.TableRow(
+              children: [
+                _tableCell('${index + 1}'),
+                _tableCell(productDisplayName),
+                _tableCell(item.quantitySold.toStringAsFixed(1)),
+                _tableCell('RM ${item.unitPrice.toStringAsFixed(2)}'),
+                _tableCell('RM ${item.grossAmount.toStringAsFixed(2)}'),
+              ],
+            );
+          },
         ),
       ],
     );

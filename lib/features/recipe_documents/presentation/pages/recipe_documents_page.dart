@@ -510,7 +510,7 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
-                        height: 160,
+                        height: 175,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           physics: const BouncingScrollPhysics(), // Smooth scrolling on mobile
@@ -522,19 +522,26 @@ class _RecipeDocumentsPageState extends State<RecipeDocumentsPage> {
                               width: 200,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 4.0), // Consistent padding
-                                child: DocumentCard(
-                                  document: doc,
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => RecipeDocumentDetailPage(documentId: doc.id),
-                                      ),
-                                    );
-                                    _loadData(refresh: true);
-                                  },
-                                  onFavourite: () => _toggleFavourite(doc),
-                                  onDelete: () => _deleteDocument(doc),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 175,
+                                    minHeight: 120,
+                                  ),
+                                  child: DocumentCard(
+                                    document: doc,
+                                    margin: EdgeInsets.zero, // No margin for horizontal list
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => RecipeDocumentDetailPage(documentId: doc.id),
+                                        ),
+                                      );
+                                      _loadData(refresh: true);
+                                    },
+                                    onFavourite: () => _toggleFavourite(doc),
+                                    onDelete: () => _deleteDocument(doc),
+                                  ),
                                 ),
                               ),
                             );

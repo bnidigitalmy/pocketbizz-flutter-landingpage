@@ -7,6 +7,7 @@ class DocumentCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onFavourite;
   final VoidCallback onDelete;
+  final EdgeInsetsGeometry? margin;
 
   const DocumentCard({
     super.key,
@@ -14,6 +15,7 @@ class DocumentCard extends StatelessWidget {
     required this.onTap,
     required this.onFavourite,
     required this.onDelete,
+    this.margin,
   });
 
   String _formatDate(DateTime date) {
@@ -37,7 +39,7 @@ class DocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: margin ?? const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -46,6 +48,7 @@ class DocumentCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,6 +76,7 @@ class DocumentCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Text(
                           document.title,
@@ -86,7 +90,8 @@ class DocumentCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Wrap(
                           spacing: 4,
-                          runSpacing: 4,
+                          runSpacing: 2,
+                          alignment: WrapAlignment.start,
                           children: [
                             if (document.categoryId != null)
                               Container(
@@ -104,6 +109,8 @@ class DocumentCard extends StatelessWidget {
                                     fontSize: 10,
                                     color: Colors.grey[700],
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             Text(
@@ -112,6 +119,8 @@ class DocumentCard extends StatelessWidget {
                                 fontSize: 10,
                                 color: Colors.grey[600],
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (document.isFavourite)
                               const Icon(
@@ -196,16 +205,19 @@ class DocumentCard extends StatelessWidget {
               if (document.isText && document.textContent != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    document.textContent!.length > 80
-                        ? '${document.textContent!.substring(0, 80)}...'
-                        : document.textContent!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[700],
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 40),
+                    child: Text(
+                      document.textContent!.length > 60
+                          ? '${document.textContent!.substring(0, 60)}...'
+                          : document.textContent!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[700],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ],

@@ -229,10 +229,30 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
     double totalDeliveryAmount = 0.0;
     double totalSold = 0.0;
     double totalExpired = 0.0;
-    double totalCarryForward = 0.0;
+    double totalCarryForward = 0.0; // From delivery items (unsold)
     double totalNetClaims = 0.0;
     double totalPaid = 0.0;
     double totalBalance = 0.0;
+    
+    // Calculate C/F items info
+    final cfItems = _vendorData?['carry_forward_items'] as List<dynamic>? ?? [];
+    double totalAvailableCF = 0.0; // Available C/F items
+    double totalUsedCF = 0.0; // Used C/F items
+    int availableCFCount = 0;
+    int usedCFCount = 0;
+    
+    for (var cfItem in cfItems) {
+      final status = cfItem['status'] as String? ?? '';
+      final quantity = (cfItem['quantity_available'] as num?)?.toDouble() ?? 0.0;
+      
+      if (status == 'available') {
+        totalAvailableCF += quantity;
+        availableCFCount++;
+      } else if (status == 'used') {
+        totalUsedCF += quantity;
+        usedCFCount++;
+      }
+    }
 
     for (var delivery in deliveries) {
       totalDeliveryAmount += (delivery['total_amount'] as num?)?.toDouble() ?? 0.0;
@@ -281,7 +301,9 @@ class _VendorDetailTablePageState extends State<VendorDetailTablePage> {
                 _buildSummaryCard('Jumlah Nilai Dihantar', _currencyFormat.format(totalDeliveryAmount), Icons.attach_money, Colors.blue, cardWidth),
                 _buildSummaryCard('Jumlah Terjual', totalSold.toStringAsFixed(0), Icons.shopping_cart, Colors.green, cardWidth),
                 _buildSummaryCard('Jumlah Luput', totalExpired.toStringAsFixed(0), Icons.event_busy, Colors.purple, cardWidth),
-                _buildSummaryCard('Carry Forward', totalCarryForward.toStringAsFixed(0), Icons.forward, Colors.orange, cardWidth),
+                _buildSummaryCard('Belum Terjual', totalCarryForward.toStringAsFixed(0), Icons.inventory, Colors.grey, cardWidth),
+                _buildSummaryCard('C/F Available', '${totalAvailableCF.toStringAsFixed(0)}\n($availableCFCount item)', Icons.forward, Colors.orange, cardWidth),
+                _buildSummaryCard('C/F Used', '${totalUsedCF.toStringAsFixed(0)}\n($usedCFCount item)', Icons.check_circle, Colors.teal, cardWidth),
                 _buildSummaryCard('Jumlah Tuntutan', _currencyFormat.format(totalNetClaims), Icons.receipt_long, Colors.teal, cardWidth),
                 _buildSummaryCard('Jumlah Dibayar', _currencyFormat.format(totalPaid), Icons.payment, Colors.green, cardWidth),
                 _buildSummaryCard('Baki Tertunggak', _currencyFormat.format(totalBalance), Icons.pending, totalBalance > 0 ? Colors.red : Colors.green, cardWidth),
