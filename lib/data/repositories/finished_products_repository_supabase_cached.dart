@@ -167,7 +167,7 @@ class FinishedProductsRepositoryCached {
     // Cache miss or force refresh
     debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
     final fresh = await _fetchBatches(
-      productId: productId,
+      productId,
       includeCompleted: includeCompleted,
     );
     
@@ -206,7 +206,7 @@ class FinishedProductsRepositoryCached {
   }) async {
     try {
       final fresh = await _fetchBatches(
-        productId: productId,
+        productId,
         includeCompleted: includeCompleted,
       );
       
