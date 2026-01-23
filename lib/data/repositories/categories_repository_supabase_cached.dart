@@ -124,5 +124,43 @@ class CategoriesRepositorySupabaseCached {
   Future<void> invalidateCache() async {
     await PersistentCacheService.invalidate('categories');
   }
+  
+  // Delegate methods untuk write operations (invalidate cache after)
+  
+  /// Create category (write operation - invalidate cache after)
+  Future<models.Category> create(
+    String name, {
+    String? description,
+    String? icon,
+    String? color,
+  }) async {
+    final created = await _baseRepo.create(
+      name,
+      description: description,
+      icon: icon,
+      color: color,
+    );
+    // Invalidate cache after create
+    await invalidateCache();
+    return created;
+  }
+  
+  /// Update category (write operation - invalidate cache after)
+  Future<models.Category> update(String id, Map<String, dynamic> updates) async {
+    final updated = await _baseRepo.update(id, updates);
+    // Invalidate cache after update
+    await invalidateCache();
+    return updated;
+  }
+  
+  /// Delete category (write operation - invalidate cache after)
+  Future<void> delete(String id) async {
+    await _baseRepo.delete(id);
+    // Invalidate cache after delete
+    await invalidateCache();
+  }
+  
+  /// Expose base repository for widgets that need full CategoriesRepositorySupabase interface
+  CategoriesRepositorySupabase get baseRepository => _baseRepo;
 }
 

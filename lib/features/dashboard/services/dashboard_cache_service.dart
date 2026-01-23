@@ -62,7 +62,7 @@ class DashboardCacheService {
     
     // Cache miss or force refresh
     debugPrint('🔄 Cache miss: dashboard_stats - fetching fresh data...');
-    final fresh = await _bookingsRepo.getStatistics();
+    final fresh = await _bookingsRepo.baseRepository.getStatistics();
     
     // Cache it
     try {
@@ -84,7 +84,7 @@ class DashboardCacheService {
     void Function(Map<String, dynamic>)? onDataUpdated,
   }) async {
     try {
-      final fresh = await _bookingsRepo.getStatistics();
+      final fresh = await _bookingsRepo.baseRepository.getStatistics();
       
       try {
         if (!Hive.isBoxOpen('dashboard_stats')) {

@@ -34,7 +34,7 @@ class SuppliersRepositorySupabaseCached {
     final cacheKey = 'suppliers_${offset}_${limit}';
     
     return await PersistentCacheService.getOrSync<List<Supplier>>(
-      cacheKey,
+      key: cacheKey,
       fetcher: () async {
         // Build query dengan delta fetch support
         final lastSync = await PersistentCacheService.getLastSync('suppliers');

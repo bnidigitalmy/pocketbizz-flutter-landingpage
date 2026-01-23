@@ -117,6 +117,55 @@ class BookingsRepositorySupabaseCached {
     return await _baseRepo.getBooking(bookingId);
   }
   
+  // Delegate methods untuk write operations (no cache needed)
+  
+  /// Get booking by ID (delegate to base repo - no cache for single item)
+  Future<Booking> getBooking(String bookingId) async {
+    return await _baseRepo.getBooking(bookingId);
+  }
+  
+  /// Update booking status (write operation - no cache)
+  Future<Booking> updateBookingStatus({
+    required String bookingId,
+    required String status,
+  }) async {
+    final updated = await _baseRepo.updateBookingStatus(
+      bookingId: bookingId,
+      status: status,
+    );
+    // Invalidate cache after update
+    await invalidateCache();
+    return updated;
+  }
+  
+  /// Record payment (write operation - no cache)
+  Future<Map<String, dynamic>> recordPayment({
+    required String bookingId,
+    required double amount,
+    required String paymentMethod,
+    String? notes,
+  }) async {
+    final result = await _baseRepo.recordPayment(
+      bookingId: bookingId,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      notes: notes,
+    );
+    // Invalidate cache after payment
+    await invalidateCache();
+    return result;
+  }
+  
+  /// Get payment history (real-time data - no cache)
+  Future<List<Map<String, dynamic>>> getPaymentHistory(String bookingId) async {
+    return await _baseRepo.getPaymentHistory(bookingId);
+  }
+  
+  /// Get booking statistics (real-time aggregation - no cache)
+  Future<Map<String, dynamic>> getStatistics() async {
+    return await _baseRepo.getStatistics();
+  }
+  
   /// Force refresh semua bookings dari Supabase
   Future<List<Booking>> refreshAll({
     String? status,
@@ -152,5 +201,8 @@ class BookingsRepositorySupabaseCached {
   Future<void> invalidateCache() async {
     await PersistentCacheService.invalidate('bookings');
   }
+  
+  /// Expose base repository for widgets that need full BookingsRepositorySupabase interface
+  BookingsRepositorySupabase get baseRepository => _baseRepo;
 }
 
