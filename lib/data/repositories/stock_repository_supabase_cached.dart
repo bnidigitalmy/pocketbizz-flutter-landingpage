@@ -32,21 +32,22 @@ class StockRepositorySupabaseCached {
     final cacheKey = 'stock_items_${includeArchived ? 'all' : 'active'}_${offset}_${limit}';
     
     return await PersistentCacheService.getOrSync<List<StockItem>>(
-      cacheKey,
+      key: cacheKey,
       fetcher: () async {
         final supabase = Supabase.instance.client;
         
         // Build query dengan delta fetch support
         final lastSync = await PersistentCacheService.getLastSync('stock_items');
-        var query = supabase
+        
+        // Build base query
+        dynamic query = supabase
             .from('stock_items')
             .select();
         
+        // Apply filters first
         if (!includeArchived) {
           query = query.eq('is_archived', false);
         }
-        
-        query = query.order('name', ascending: true);
         
         // Delta fetch: hanya ambil updated records
         if (!forceRefresh && lastSync != null) {
@@ -57,25 +58,32 @@ class StockRepositorySupabaseCached {
           query = query.range(offset, offset + limit - 1);
         }
         
+        // Order (apply after filters and range)
+        query = query.order('name', ascending: true);
+        
+        // Execute query
+        final queryResult = await query;
+        
         // If delta fetch returns empty, do full fetch
-        final deltaData = await query;
+        final deltaData = List<Map<String, dynamic>>.from(queryResult);
         if (deltaData.isEmpty && lastSync != null && !forceRefresh) {
           debugPrint('🔄 Delta empty, fetching full stock items list');
           // Full fetch
-          var fullQuery = supabase
+          dynamic fullQuery = supabase
               .from('stock_items')
-              .select()
-              .order('name', ascending: true)
-              .range(offset, offset + limit - 1);
+              .select();
           
           if (!includeArchived) {
             fullQuery = fullQuery.eq('is_archived', false);
           }
           
-          return List<Map<String, dynamic>>.from(await fullQuery);
+          final fullData = await fullQuery
+              .order('name', ascending: true)
+              .range(offset, offset + limit - 1);
+          return List<Map<String, dynamic>>.from(fullData);
         }
         
-        return List<Map<String, dynamic>>.from(deltaData);
+        return deltaData;
       },
       fromJson: (json) => StockItem.fromJson(json),
       toJson: (item) => item.toJson(),
