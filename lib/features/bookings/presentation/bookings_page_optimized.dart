@@ -8,6 +8,7 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/utils/booking_pdf_generator.dart';
@@ -38,7 +39,7 @@ class BookingsPageOptimized extends StatefulWidget {
 }
 
 class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
-  final _repo = BookingsRepositorySupabase();
+  final _repo = BookingsRepositorySupabaseCached();
   final _businessProfileRepo = BusinessProfileRepository();
   List<Booking> _bookings = [];
   List<Booking> _filteredBookings = [];
@@ -71,7 +72,17 @@ class _BookingsPageOptimizedState extends State<BookingsPageOptimized> {
     setState(() => _loading = true);
 
     try {
-      final bookings = await _repo.listBookings();
+      final bookings = await _repo.listBookingsCached(
+        onDataUpdated: (freshBookings) {
+          if (mounted) {
+            freshBookings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            setState(() {
+              _bookings = freshBookings;
+              _filterBookings();
+            });
+          }
+        },
+      );
       // Sort by createdAt descending (newest first) - repository already sorts, but ensure it here too
       bookings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {

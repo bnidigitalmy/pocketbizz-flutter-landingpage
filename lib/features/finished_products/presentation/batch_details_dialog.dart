@@ -5,7 +5,9 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/models/finished_product.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
+import '../../../data/repositories/finished_products_repository_supabase_cached.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
+import '../../../data/repositories/production_repository_supabase_cached.dart';
 
 /// Batch Details Dialog
 /// Shows all batches for a specific product with FIFO ordering
@@ -24,8 +26,8 @@ class BatchDetailsDialog extends StatefulWidget {
 }
 
 class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
-  final _repository = FinishedProductsRepository();
-  final _productionRepo = ProductionRepository(supabase);
+  final _repository = FinishedProductsRepositoryCached();
+  final _productionRepo = ProductionRepositoryCached(supabase);
   List<ProductionBatch> _batches = [];
   Map<String, List<Map<String, dynamic>>> _movementHistory = {};
   Map<String, bool> _expandedBatches = {};
@@ -43,9 +45,16 @@ class _BatchDetailsDialogState extends State<BatchDetailsDialog> {
     setState(() => _isLoading = true);
     try {
       // Load batches including completed ones if _showCompleted is true
-      final batches = await _repository.getProductBatches(
+      final batches = await _repository.getProductBatchesCached(
         widget.productId,
         includeCompleted: _showCompleted,
+        onDataUpdated: (freshBatches) {
+          if (mounted) {
+            setState(() {
+              _batches = freshBatches;
+            });
+          }
+        },
       );
       
       // Load movement history for all batches

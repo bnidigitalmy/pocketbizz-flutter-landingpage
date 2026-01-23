@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../core/theme/app_colors.dart';
-import '../../../../data/repositories/bookings_repository_supabase.dart' show Booking, BookingsRepositorySupabase;
+import '../../../../data/repositories/bookings_repository_supabase.dart' show Booking;
+import '../../../../data/repositories/bookings_repository_supabase_cached.dart';
 
 /// Booking Alerts Widget for Dashboard
 /// Shows bookings that need attention: overdue, upcoming, and pending
@@ -17,7 +18,7 @@ class BookingAlertsWidget extends StatefulWidget {
 }
 
 class _BookingAlertsWidgetState extends State<BookingAlertsWidget> {
-  final _bookingsRepo = BookingsRepositorySupabase();
+  final _bookingsRepo = BookingsRepositorySupabaseCached();
   List<Booking> _overdueBookings = [];
   List<Booking> _upcomingBookings = [];
   List<Booking> _pendingBookings = [];
@@ -85,85 +86,100 @@ class _BookingAlertsWidgetState extends State<BookingAlertsWidget> {
       final threeDaysFromNow = today.add(const Duration(days: 3));
 
       // Get all active bookings (pending, confirmed)
-      final allBookings = await _bookingsRepo.listBookings(limit: 200);
+      final allBookings = await _bookingsRepo.listBookingsCached(
+        limit: 200,
+        onDataUpdated: (freshBookings) {
+          if (mounted) {
+            _processBookings(freshBookings);
+          }
+        },
+      );
       
-      final overdue = <Booking>[];
-      final upcoming = <Booking>[];
-      final pending = <Booking>[];
-
-      for (final booking in allBookings) {
-        // Skip completed/cancelled bookings
-        if (booking.status.toLowerCase() == 'completed' ||
-            booking.status.toLowerCase() == 'cancelled') {
-          continue;
-        }
-
-        // Check if pending
-        if (booking.status.toLowerCase() == 'pending') {
-          pending.add(booking);
-        }
-
-        // Check delivery date
-        try {
-          final deliveryDate = DateTime.parse(booking.deliveryDate);
-          final deliveryDateOnly = DateTime(
-            deliveryDate.year,
-            deliveryDate.month,
-            deliveryDate.day,
-          );
-
-          // Overdue: delivery date is before today
-          if (deliveryDateOnly.isBefore(today)) {
-            overdue.add(booking);
-          }
-          // Upcoming: delivery date is within next 3 days (including today)
-          else if (deliveryDateOnly.isBefore(threeDaysFromNow) ||
-                   deliveryDateOnly.isAtSameMomentAs(today)) {
-            // Only add if not already in overdue
-            if (!overdue.contains(booking)) {
-              upcoming.add(booking);
-            }
-          }
-        } catch (e) {
-          // Skip if date parsing fails
-          debugPrint('Error parsing delivery date for booking ${booking.id}: $e');
-        }
-      }
-
-      // Sort: overdue first, then by delivery date
-      overdue.sort((a, b) {
-        try {
-          final dateA = DateTime.parse(a.deliveryDate);
-          final dateB = DateTime.parse(b.deliveryDate);
-          return dateA.compareTo(dateB);
-        } catch (_) {
-          return 0;
-        }
-      });
-
-      upcoming.sort((a, b) {
-        try {
-          final dateA = DateTime.parse(a.deliveryDate);
-          final dateB = DateTime.parse(b.deliveryDate);
-          return dateA.compareTo(dateB);
-        } catch (_) {
-          return 0;
-        }
-      });
-
-      if (mounted) {
-        setState(() {
-          _overdueBookings = overdue.take(5).toList();
-          _upcomingBookings = upcoming.take(5).toList();
-          _pendingBookings = pending.take(5).toList();
-          _isLoading = false;
-        });
-      }
+      _processBookings(allBookings);
     } catch (e) {
       debugPrint('Error loading booking alerts: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _processBookings(List<Booking> allBookings) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final threeDaysFromNow = today.add(const Duration(days: 3));
+
+    final overdue = <Booking>[];
+    final upcoming = <Booking>[];
+    final pending = <Booking>[];
+
+    for (final booking in allBookings) {
+      // Skip completed/cancelled bookings
+      if (booking.status.toLowerCase() == 'completed' ||
+          booking.status.toLowerCase() == 'cancelled') {
+        continue;
+      }
+
+      // Check if pending
+      if (booking.status.toLowerCase() == 'pending') {
+        pending.add(booking);
+      }
+
+      // Check delivery date
+      try {
+        final deliveryDate = DateTime.parse(booking.deliveryDate);
+        final deliveryDateOnly = DateTime(
+          deliveryDate.year,
+          deliveryDate.month,
+          deliveryDate.day,
+        );
+
+        // Overdue: delivery date is before today
+        if (deliveryDateOnly.isBefore(today)) {
+          overdue.add(booking);
+        }
+        // Upcoming: delivery date is within next 3 days (including today)
+        else if (deliveryDateOnly.isBefore(threeDaysFromNow) ||
+                 deliveryDateOnly.isAtSameMomentAs(today)) {
+          // Only add if not already in overdue
+          if (!overdue.contains(booking)) {
+            upcoming.add(booking);
+          }
+        }
+      } catch (e) {
+        // Skip if date parsing fails
+        debugPrint('Error parsing delivery date for booking ${booking.id}: $e');
+      }
+    }
+
+    // Sort: overdue first, then by delivery date
+    overdue.sort((a, b) {
+      try {
+        final dateA = DateTime.parse(a.deliveryDate);
+        final dateB = DateTime.parse(b.deliveryDate);
+        return dateA.compareTo(dateB);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    upcoming.sort((a, b) {
+      try {
+        final dateA = DateTime.parse(a.deliveryDate);
+        final dateB = DateTime.parse(b.deliveryDate);
+        return dateA.compareTo(dateB);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    if (mounted) {
+      setState(() {
+        _overdueBookings = overdue.take(5).toList();
+        _upcomingBookings = upcoming.take(5).toList();
+        _pendingBookings = pending.take(5).toList();
+        _isLoading = false;
+      });
     }
   }
 

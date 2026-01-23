@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../core/utils/admin_helper.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
+import '../../../data/repositories/production_repository_supabase_cached.dart';
 import '../../../data/repositories/production_batch_rpc_repository.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/shopping_cart_repository_supabase.dart';
@@ -25,7 +26,7 @@ class ProductionPlanningPage extends StatefulWidget {
 }
 
 class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
-  late final ProductionRepository _productionRepo;
+  late final ProductionRepositoryCached _productionRepo;
   late final ProductionBatchRpcRepository _productionBatchRepo;
   late final ProductsRepositorySupabase _productsRepo;
   late final ShoppingCartRepository _cartRepo;
@@ -40,7 +41,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
   @override
   void initState() {
     super.initState();
-    _productionRepo = ProductionRepository(supabase);
+    _productionRepo = ProductionRepositoryCached(supabase);
     _productionBatchRepo = ProductionBatchRpcRepository(client: supabase);
     _productsRepo = ProductsRepositorySupabase();
     _cartRepo = ShoppingCartRepository();
@@ -56,7 +57,18 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
     try {
       final [productsResult, batchesResult, scheduledResult] = await Future.wait([
         _productsRepo.listProducts(limit: 100),
-        _productionRepo.getAllBatches(limit: 100),
+        _productionRepo.getAllBatchesCached(
+          limit: 100,
+          onDataUpdated: (freshBatches) {
+            if (mounted) {
+              final sortedBatches = List<ProductionBatch>.from(freshBatches)
+                ..sort((a, b) => b.batchDate.compareTo(a.batchDate));
+              setState(() {
+                _batches = sortedBatches;
+              });
+            }
+          },
+        ),
         _plannerRepo.listTasks(scope: 'upcoming', tags: const ['production'], limit: 20),
       ]);
 
@@ -98,7 +110,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       context: context,
       builder: (context) => ProductionPlanningDialog(
         products: _products,
-        productionRepo: _productionRepo,
+            productionRepo: _productionRepo.baseRepository,
         productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,
@@ -111,7 +123,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       context: context,
       builder: (context) => BulkProductionPlanningDialog(
         products: _products,
-        productionRepo: _productionRepo,
+            productionRepo: _productionRepo.baseRepository,
         productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,

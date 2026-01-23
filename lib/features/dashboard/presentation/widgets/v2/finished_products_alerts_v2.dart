@@ -6,6 +6,7 @@ import 'package:pocketbizz/core/supabase/supabase_client.dart';
 import 'package:pocketbizz/core/theme/app_colors.dart';
 import 'package:pocketbizz/data/models/finished_product.dart';
 import 'package:pocketbizz/data/repositories/finished_products_repository_supabase.dart';
+import 'package:pocketbizz/data/repositories/finished_products_repository_supabase_cached.dart';
 
 class FinishedProductsAlertsV2 extends StatefulWidget {
   final VoidCallback onViewAll;
@@ -20,7 +21,7 @@ class FinishedProductsAlertsV2 extends StatefulWidget {
 }
 
 class _FinishedProductsAlertsV2State extends State<FinishedProductsAlertsV2> {
-  final _repo = FinishedProductsRepository();
+  final _repo = FinishedProductsRepositoryCached();
 
   bool _loading = true;
   List<FinishedProductSummary> _items = [];
@@ -81,7 +82,16 @@ class _FinishedProductsAlertsV2State extends State<FinishedProductsAlertsV2> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final items = await _repo.getFinishedProductsSummary();
+      final items = await _repo.getFinishedProductsSummaryCached(
+        onDataUpdated: (freshItems) {
+          if (mounted) {
+            setState(() {
+              _items = freshItems;
+              _loading = false;
+            });
+          }
+        },
+      );
       if (!mounted) return;
       setState(() {
         _items = items;

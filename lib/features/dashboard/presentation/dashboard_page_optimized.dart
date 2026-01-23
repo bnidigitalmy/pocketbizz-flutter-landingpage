@@ -35,6 +35,7 @@ import '../services/sme_dashboard_v2_service.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../../../core/services/cache_service.dart';
+import '../services/dashboard_cache_service.dart';
 import 'widgets/v2/production_suggestion_card_v2.dart';
 import 'widgets/v2/primary_quick_actions_v2.dart';
 import 'widgets/v2/finished_products_alerts_v2.dart';
@@ -67,6 +68,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   final _businessProfileRepo = BusinessProfileRepository();
   final _announcementsRepo = AnnouncementsRepositorySupabase();
   final _v2Service = SmeDashboardV2Service();
+  final _dashboardCache = DashboardCacheService();
 
   Map<String, dynamic>? _stats;
   Map<String, dynamic>? _pendingTasks;
@@ -264,12 +266,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       if (mounted && !_isScrolling) {
         // Only refresh if user is not actively scrolling
         // Invalidate dashboard cache when real-time detects changes
+        // Use DashboardCacheService for persistent cache invalidation
+        _dashboardCache.invalidateAll();
+        // Also invalidate in-memory cache for urgent issues and notifications
         CacheService.invalidateMultiple([
-          'dashboard_stats',
-          'dashboard_v2',
-          'dashboard_pending_tasks',
-          'dashboard_sales_by_channel',
           'dashboard_urgent_issues',
+          'dashboard_unread_notifications',
+          'dashboard_business_profile',
         ]);
         _loadAllData();
       }
@@ -310,22 +313,34 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       // });
 
       // Load critical data first (what user needs to see immediately)
-      // Use cache for faster loading - invalidated by real-time subscriptions
+      // Use persistent cache for instant loading - invalidated by real-time subscriptions
       final criticalResults = await Future.wait([
-        CacheService.getOrFetch(
-          'dashboard_stats',
-          () => _bookingsRepo.getStatistics(),
-          ttl: const Duration(minutes: 5),
+        _dashboardCache.getStatisticsCached(
+          onDataUpdated: (freshStats) {
+            if (mounted) {
+              setState(() {
+                _stats = freshStats;
+              });
+            }
+          },
         ),
-        CacheService.getOrFetch(
-          'dashboard_v2',
-          () => _v2Service.load(),
-          ttl: const Duration(minutes: 5),
+        _dashboardCache.getDashboardV2Cached(
+          onDataUpdated: (freshV2) {
+            if (mounted) {
+              setState(() {
+                _v2 = freshV2;
+              });
+            }
+          },
         ),
-        CacheService.getOrFetch(
-          'dashboard_subscription',
-          () => SubscriptionService().getCurrentSubscription(),
-          ttl: const Duration(minutes: 10), // Subscription changes less frequently
+        _dashboardCache.getSubscriptionCached(
+          onDataUpdated: (freshSubscription) {
+            if (mounted) {
+              setState(() {
+                _subscription = freshSubscription;
+              });
+            }
+          },
         ),
       ]);
 
@@ -392,31 +407,51 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
   }
 
   /// Load secondary/non-critical data in background
-  /// Uses cache for faster loading
+  /// Uses persistent cache for faster loading
   Future<void> _loadSecondaryData(Subscription? subscription) async {
     try {
-      // Load all secondary data in parallel with cache
+      // Get today date range for sales by channel
+      final today = DateTime.now();
+      final todayStartLocal = DateTime(today.year, today.month, today.day);
+      final todayEndLocal = todayStartLocal.add(const Duration(days: 1));
+      final todayStartUtc = todayStartLocal.toUtc();
+      final todayEndUtc = todayEndLocal.toUtc();
+      
+      // Load all secondary data in parallel with persistent cache
       final results = await Future.wait([
-        CacheService.getOrFetch(
-          'dashboard_pending_tasks',
-          () => _loadPendingTasks(),
-          ttl: const Duration(minutes: 3),
+        _dashboardCache.getPendingTasksCached(
+          onDataUpdated: (freshTasks) {
+            if (mounted) {
+              setState(() {
+                _pendingTasks = freshTasks;
+              });
+            }
+          },
         ),
-        CacheService.getOrFetch(
-          'dashboard_sales_by_channel',
-          () => _loadSalesByChannel(),
-          ttl: const Duration(minutes: 5),
+        _dashboardCache.getSalesByChannelCached(
+          startDate: todayStartUtc,
+          endDate: todayEndUtc,
+          onDataUpdated: (freshChannels) {
+            if (mounted) {
+              setState(() {
+                _salesByChannel = freshChannels;
+              });
+            }
+          },
         ),
+        // Business profile - keep using CacheService (rarely changes, simple caching)
         CacheService.getOrFetch(
           'dashboard_business_profile',
           () => _businessProfileRepo.getBusinessProfile(),
           ttl: const Duration(minutes: 30), // Business profile rarely changes
         ),
+        // Urgent issues - keep using CacheService (complex logic, frequent checks)
         CacheService.getOrFetch(
           'dashboard_urgent_issues',
           () => _checkUrgentIssues(),
           ttl: const Duration(minutes: 2), // Urgent issues need frequent checks
         ),
+        // Unread notifications - keep using CacheService (needs subscription context)
         CacheService.getOrFetch(
           'dashboard_unread_notifications',
           () => _loadUnreadNotifications(subscription),
@@ -426,13 +461,52 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
       if (!mounted) return;
 
-      setState(() {
-        _pendingTasks = results[0] as Map<String, dynamic>;
-        _salesByChannel = results[1] as List<SalesByChannel>;
-        _businessProfile = results[2] as BusinessProfile?;
-        _hasUrgentIssuesFlag = results[3] as bool;
-        _unreadNotifications = results[4] as int;
-      });
+      // Safe type casting dengan error handling
+      try {
+        final pendingTasks = results[0];
+        final salesByChannel = results[1];
+        final businessProfile = results[2];
+        final urgentIssues = results[3];
+        final unreadNotifications = results[4];
+        
+        setState(() {
+          if (pendingTasks is Map<String, dynamic>) {
+            _pendingTasks = pendingTasks;
+          }
+          
+          // Ensure salesByChannel is a List
+          if (salesByChannel is List<SalesByChannel>) {
+            _salesByChannel = salesByChannel;
+          } else if (salesByChannel is List) {
+            // Try to convert if it's a List of something else
+            _salesByChannel = salesByChannel
+                .whereType<SalesByChannel>()
+                .toList();
+          } else {
+            debugPrint('⚠️ Warning: salesByChannel is not a List: ${salesByChannel.runtimeType}');
+            _salesByChannel = [];
+          }
+          
+          if (businessProfile is BusinessProfile?) {
+            _businessProfile = businessProfile;
+          }
+          
+          if (urgentIssues is bool) {
+            _hasUrgentIssuesFlag = urgentIssues;
+          }
+          
+          if (unreadNotifications is int) {
+            _unreadNotifications = unreadNotifications;
+          }
+        });
+      } catch (castError) {
+        debugPrint('⚠️ Error casting secondary dashboard data: $castError');
+        debugPrint('   Results types: ${results.map((r) => r.runtimeType).toList()}');
+        // Set defaults to prevent UI errors
+        setState(() {
+          _salesByChannel = [];
+        });
+      }
     } catch (e) {
       debugPrint('Error loading secondary dashboard data: $e');
       // Don't show error to user - secondary data is optional
@@ -441,48 +515,7 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
     }
   }
 
-  Future<Map<String, dynamic>> _loadPendingTasks() async {
-    try {
-      // Optimize: Use parallel queries instead of loading all POs
-      final results = await Future.wait([
-        // Query only pending POs (more efficient than loading all and filtering)
-        _poRepo.getAllPurchaseOrders(limit: 100).then((pos) => 
-          pos.where((po) => po.status == 'pending').length
-        ),
-        _stockRepo.getLowStockItems().then((items) => items.length),
-      ]);
-
-      return {
-        'pendingPOs': results[0] as int,
-        'lowStockCount': results[1] as int,
-      };
-    } catch (e) {
-      return {
-        'pendingPOs': 0,
-        'lowStockCount': 0,
-      };
-    }
-  }
-
-  Future<List<SalesByChannel>> _loadSalesByChannel() async {
-    try {
-      final today = DateTime.now();
-      final todayStartLocal = DateTime(today.year, today.month, today.day);
-      final todayEndLocal = todayStartLocal.add(const Duration(days: 1));
-      final todayStartUtc = todayStartLocal.toUtc();
-      final todayEndUtc = todayEndLocal.toUtc();
-
-      // Get sales by channel from reports (already includes bookings and consignment)
-      final channels = await _reportsRepo.getSalesByChannel(
-        startDate: todayStartUtc,
-        endDate: todayEndUtc,
-      );
-
-      return channels;
-    } catch (e) {
-      return [];
-    }
-  }
+  // Removed _loadPendingTasks() and _loadSalesByChannel() - now using DashboardCacheService
 
   Future<int> _loadUnreadNotifications(Subscription? subscription) async {
     try {

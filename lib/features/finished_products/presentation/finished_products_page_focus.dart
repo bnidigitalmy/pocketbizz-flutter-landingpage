@@ -4,6 +4,7 @@ import 'package:pocketbizz/core/widgets/cached_image.dart';
 import 'package:pocketbizz/data/models/finished_product.dart';
 import 'package:pocketbizz/data/models/product.dart';
 import 'package:pocketbizz/data/repositories/finished_products_repository_supabase.dart';
+import 'package:pocketbizz/data/repositories/finished_products_repository_supabase_cached.dart';
 import 'package:pocketbizz/data/repositories/products_repository_supabase.dart';
 import 'package:pocketbizz/features/finished_products/presentation/batch_details_dialog.dart';
 
@@ -30,7 +31,7 @@ class FinishedProductsFocusPage extends StatefulWidget {
 
 class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage>
     with SingleTickerProviderStateMixin {
-  final _repository = FinishedProductsRepository();
+  final _repository = FinishedProductsRepositoryCached();
   final _productsRepo = ProductsRepositorySupabase();
 
   final _scrollController = ScrollController();
@@ -83,7 +84,19 @@ class _FinishedProductsFocusPageState extends State<FinishedProductsFocusPage>
 
     try {
       final [finishedProducts, allProducts] = await Future.wait([
-        _repository.getFinishedProductsSummary(),
+        _repository.getFinishedProductsSummaryCached(
+          onDataUpdated: (freshProducts) {
+            if (mounted) {
+              final productsList = freshProducts;
+              final focused = _findFocusedProduct(productsList);
+              setState(() {
+                _products = productsList;
+                _focusedProductId = focused?.productId;
+              });
+              _scrollToFocused();
+            }
+          },
+        ),
         _productsRepo.listProducts(),
       ]);
 

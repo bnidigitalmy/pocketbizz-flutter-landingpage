@@ -11,6 +11,7 @@ import 'core/supabase/supabase_client.dart';
 import 'core/utils/date_time_helper.dart';
 import 'core/config/env_config.dart';
 import 'core/utils/pwa_update_notifier.dart';
+import 'core/services/persistent_cache_service.dart';
 import 'features/auth/presentation/login_page.dart';
 import 'features/auth/presentation/forgot_password_page.dart';
 import 'features/auth/presentation/reset_password_page.dart';
@@ -167,6 +168,15 @@ Future<void> main() async {
   // Final check - log status
   if (!supabaseInitialized && !Supabase.instance.isInitialized) {
     debugPrint('⚠️ WARNING: Supabase not initialized - some features may not work');
+  }
+  
+  // Initialize Persistent Cache Service (Hive)
+  try {
+    await PersistentCacheService.initialize();
+    debugPrint('✅ PersistentCacheService initialized');
+  } catch (e) {
+    debugPrint('⚠️ Error initializing PersistentCacheService: $e');
+    // Continue - cache will work in-memory only
   }
 
   runApp(

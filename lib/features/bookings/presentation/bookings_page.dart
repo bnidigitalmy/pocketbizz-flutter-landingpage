@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 
@@ -22,7 +23,7 @@ class BookingsPage extends StatefulWidget {
 }
 
 class _BookingsPageState extends State<BookingsPage> {
-  final _repo = BookingsRepositorySupabase();
+  final _repo = BookingsRepositorySupabaseCached();
   List<Booking> _bookings = [];
   bool _loading = false;
   String? _selectedStatus;
@@ -83,7 +84,16 @@ class _BookingsPageState extends State<BookingsPage> {
     setState(() => _loading = true);
 
     try {
-      final bookings = await _repo.listBookings(status: _selectedStatus);
+      final bookings = await _repo.listBookingsCached(
+        status: _selectedStatus,
+        onDataUpdated: (freshBookings) {
+          if (mounted) {
+            setState(() {
+              _bookings = freshBookings;
+            });
+          }
+        },
+      );
       setState(() {
         _bookings = bookings;
         _loading = false;
