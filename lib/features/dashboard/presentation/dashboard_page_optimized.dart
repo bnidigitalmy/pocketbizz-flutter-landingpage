@@ -5,10 +5,12 @@ import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart'
     show PurchaseOrderRepository;
 import '../../../data/repositories/stock_repository_supabase.dart';
+import '../../../data/repositories/stock_repository_supabase_cached.dart';
 import 'widgets/morning_briefing_card.dart';
 import 'widgets/today_performance_card.dart';
 import 'widgets/urgent_actions_widget.dart';
@@ -58,10 +60,10 @@ class DashboardPageOptimized extends StatefulWidget {
 }
 
 class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
-  final _bookingsRepo = BookingsRepositorySupabase();
+  final _bookingsRepo = BookingsRepositorySupabaseCached();
   final _salesRepo = SalesRepositorySupabase();
   final _poRepo = PurchaseOrderRepository(supabase);
-  final _stockRepo = StockRepository(supabase);
+  final _stockRepo = StockRepositorySupabaseCached(supabase);
   final _plannerAuto = PlannerAutoService();
   final _reportsRepo = ReportsRepositorySupabase();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
@@ -849,16 +851,17 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
       final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
       // Optimize: Check urgent issues in parallel with specific queries
+      // Use cached repositories for instant load, background sync
       final results = await Future.wait([
-        // Check 1: Stock items with quantity = 0 (use count query instead of loading all)
-        _stockRepo.getAllStockItems(limit: 50).then((items) => 
+        // Check 1: Stock items with quantity = 0 (use cached repo)
+        _stockRepo.getAllStockItemsCached(limit: 50).then((items) => 
           items.any((item) => item.currentQuantity <= 0)
         ).catchError((_) => false),
         
-        // Check 2: Overdue bookings (optimize by checking date in query if possible)
+        // Check 2: Overdue bookings (use cached repo)
         Future.wait([
-          _bookingsRepo.listBookings(status: 'pending', limit: 50),
-          _bookingsRepo.listBookings(status: 'confirmed', limit: 50),
+          _bookingsRepo.listBookingsCached(status: 'pending', limit: 50),
+          _bookingsRepo.listBookingsCached(status: 'confirmed', limit: 50),
         ]).then((results) {
           final allBookings = [...results[0], ...results[1]];
           return allBookings.any((booking) {
