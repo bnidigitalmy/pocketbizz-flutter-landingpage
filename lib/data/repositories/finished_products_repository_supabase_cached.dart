@@ -133,23 +133,101 @@ class FinishedProductsRepositoryCached {
   }) async {
     final cacheKey = 'finished_products_batches_${productId}_${includeCompleted ? 'all' : 'active'}';
     
-    return await PersistentCacheService.getOrSync<List<ProductionBatch>>(
-      key: cacheKey,
-      fetcher: () async {
-        final batches = await _baseRepo.getProductBatches(
-          productId,
-          includeCompleted: includeCompleted,
-        );
-        // Convert to List<Map> for caching
-        return batches.map((b) => b.toJson()).toList();
-      },
-      fromJson: (json) => ProductionBatch.fromJson(json),
-      toJson: (batch) => batch.toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data)
-          : null,
-      forceRefresh: forceRefresh,
+    // Use direct Hive caching untuk List types (more reliable)
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonList = jsonDecode(cached) as List<dynamic>;
+          final batches = jsonList.map((json) {
+            final jsonMap = json as Map<String, dynamic>;
+            return ProductionBatch.fromJson(jsonMap);
+          }).toList();
+          debugPrint('✅ Cache hit: $cacheKey');
+          
+          // Trigger background sync
+          _syncBatchesInBackground(
+            productId: productId,
+            includeCompleted: includeCompleted,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return batches;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached product batches: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _fetchBatches(
+      productId: productId,
+      includeCompleted: includeCompleted,
     );
+    
+    // Cache it
+    try {
+      if (!Hive.isBoxOpen(cacheKey)) {
+        await Hive.openBox(cacheKey);
+      }
+      final box = Hive.box(cacheKey);
+      final jsonList = fresh.map((b) => b.toJson()).toList();
+      await box.put('data', jsonEncode(jsonList));
+    } catch (e) {
+      debugPrint('⚠️ Error caching product batches: $e');
+    }
+    
+    return fresh;
+  }
+  
+  /// Fetch batches from Supabase
+  Future<List<ProductionBatch>> _fetchBatches(
+    String productId, {
+    bool includeCompleted = false,
+  }) async {
+    return await _baseRepo.getProductBatches(
+      productId,
+      includeCompleted: includeCompleted,
+    );
+  }
+  
+  /// Background sync for product batches
+  Future<void> _syncBatchesInBackground({
+    required String productId,
+    required bool includeCompleted,
+    required String cacheKey,
+    void Function(List<ProductionBatch>)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _fetchBatches(
+        productId: productId,
+        includeCompleted: includeCompleted,
+      );
+      
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final jsonList = fresh.map((b) => b.toJson()).toList();
+        await box.put('data', jsonEncode(jsonList));
+      } catch (e) {
+        debugPrint('⚠️ Error updating product batches cache: $e');
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey');
+    } catch (e) {
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+    }
   }
 }
 
