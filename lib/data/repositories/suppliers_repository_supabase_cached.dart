@@ -133,14 +133,12 @@ class SuppliersRepositorySupabaseCached {
     String? phone,
     String? email,
     String? address,
-    String? notes,
   }) async {
     final created = await _baseRepo.createSupplier(
       name: name,
       phone: phone,
       email: email,
       address: address,
-      notes: notes,
     );
     // Invalidate cache after create
     await invalidateCache();
@@ -154,7 +152,6 @@ class SuppliersRepositorySupabaseCached {
     String? phone,
     String? email,
     String? address,
-    String? notes,
   }) async {
     final updated = await _baseRepo.updateSupplier(
       id: id,
@@ -162,7 +159,6 @@ class SuppliersRepositorySupabaseCached {
       phone: phone,
       email: email,
       address: address,
-      notes: notes,
     );
     // Invalidate cache after update
     await invalidateCache();
