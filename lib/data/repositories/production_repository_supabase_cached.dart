@@ -145,8 +145,9 @@ class ProductionRepositoryCached {
       key: cacheKey,
       fetcher: () async {
         final batch = await _baseRepo.getBatchById(id);
-        // Convert to Map or null for caching
-        return batch?.toJson();
+        // Convert to List<Map> or empty list for caching
+        if (batch == null) return <Map<String, dynamic>>[];
+        return [batch.toJson()];
       },
       fromJson: (json) => json != null ? ProductionBatch.fromJson(json) : null,
       toJson: (batch) => batch?.toJson(),
