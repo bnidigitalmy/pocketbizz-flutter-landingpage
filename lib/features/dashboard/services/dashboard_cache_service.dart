@@ -467,23 +467,89 @@ class DashboardCacheService {
     // Build cache key dengan date range
     final cacheKey = 'dashboard_sales_by_channel_${startDate.toIso8601String()}_${endDate.toIso8601String()}';
     
-    return await PersistentCacheService.getOrSync<List<SalesByChannel>>(
-      key: cacheKey,
-      fetcher: () async {
-        final channels = await _reportsRepo.getSalesByChannel(
-          startDate: startDate,
-          endDate: endDate,
-        );
-        // Convert to List<Map> for caching
-        return channels.map((c) => c.toJson() as Map<String, dynamic>).toList();
-      },
-      fromJson: (json) => SalesByChannel.fromJson(json),
-      toJson: (channel) => channel.toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data)
-          : null,
-      forceRefresh: forceRefresh,
+    // Use direct Hive caching for List types (more reliable)
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonList = jsonDecode(cached) as List<dynamic>;
+          final channels = jsonList.map((json) => SalesByChannel.fromJson(json as Map<String, dynamic>)).toList();
+          debugPrint('✅ Cache hit: $cacheKey');
+          
+          // Trigger background sync
+          _syncSalesByChannelInBackground(
+            startDate: startDate,
+            endDate: endDate,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return channels;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached sales by channel: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _reportsRepo.getSalesByChannel(
+      startDate: startDate,
+      endDate: endDate,
     );
+    
+    // Cache it
+    try {
+      if (!Hive.isBoxOpen(cacheKey)) {
+        await Hive.openBox(cacheKey);
+      }
+      final box = Hive.box(cacheKey);
+      final jsonList = fresh.map((c) => c.toJson()).toList();
+      await box.put('data', jsonEncode(jsonList));
+      await _updateLastSync('dashboard_sales_by_channel');
+    } catch (e) {
+      debugPrint('⚠️ Error caching sales by channel: $e');
+    }
+    
+    return fresh;
+  }
+  
+  /// Background sync for sales by channel
+  Future<void> _syncSalesByChannelInBackground({
+    required DateTime startDate,
+    required DateTime endDate,
+    required String cacheKey,
+    void Function(List<SalesByChannel>)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _reportsRepo.getSalesByChannel(
+        startDate: startDate,
+        endDate: endDate,
+      );
+      
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final jsonList = fresh.map((c) => c.toJson()).toList();
+        await box.put('data', jsonEncode(jsonList));
+        await _updateLastSync('dashboard_sales_by_channel');
+      } catch (e) {
+        debugPrint('⚠️ Error updating sales by channel cache: $e');
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey');
+    } catch (e) {
+      debugPrint('❌ Background sync failed: $e');
+    }
   }
   
   /// Force refresh semua dashboard data
