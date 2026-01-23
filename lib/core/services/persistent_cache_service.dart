@@ -42,6 +42,10 @@ class PersistentCacheService {
       _openBoxIfNotExists('vendors'),
       _openBoxIfNotExists('stock_items'),
       _openBoxIfNotExists('dashboard_stats'),
+      // Additional boxes for filtered queries
+      _openBoxIfNotExists('sales_all'),
+      _openBoxIfNotExists('expenses_0_50'),
+      _openBoxIfNotExists('vendors_active'),
     ]);
     
     _initialized = true;

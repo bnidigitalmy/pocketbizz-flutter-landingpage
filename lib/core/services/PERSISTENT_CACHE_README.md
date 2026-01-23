@@ -297,13 +297,40 @@ final products = await PersistentCacheService.getOrSync<List<Product>>(
 - Consider splitting large tables
 - Use delta fetch untuk reduce data transfer
 
+## Available Cached Repositories
+
+1. ✅ **Products** - `ProductsRepositorySupabaseCached`
+   - `getAllCached()` - Get all products with cache
+   - `refreshAll()` - Force refresh
+   - `syncInBackground()` - Background sync
+
+2. ✅ **Sales** - `SalesRepositorySupabaseCached`
+   - `listSalesCached()` - List sales with filters (channel, date range)
+   - `refreshAll()` - Force refresh
+   - `syncInBackground()` - Background sync
+
+3. ✅ **Expenses** - `ExpensesRepositorySupabaseCached`
+   - `getExpensesCached()` - Get expenses with pagination
+   - `refreshAll()` - Force refresh
+   - `syncInBackground()` - Background sync
+
+4. ✅ **Vendors** - `VendorsRepositorySupabaseCached`
+   - `getAllVendorsCached()` - Get all vendors (active/all)
+   - `refreshAll()` - Force refresh
+   - `syncInBackground()` - Background sync
+
+5. ✅ **Stock Items** - `StockRepositorySupabaseCached`
+   - `getAllStockItemsCached()` - Get all stock items
+   - `getLowStockItemsCached()` - Get low stock items
+   - `refreshAll()` - Force refresh
+   - `syncInBackground()` - Background sync
+
 ## Next Steps
 
-1. ✅ Products - DONE (proof of concept)
-2. ⏳ Sales - Next
-3. ⏳ Expenses - Next
-4. ⏳ Inventory - Next
-5. ⏳ Dashboard Stats - Next
+1. ⏳ Integrate cached repositories in UI pages
+2. ⏳ Add real-time cache invalidation
+3. ⏳ Monitor egress reduction
+4. ⏳ Add more modules (Inventory, Deliveries, etc.)
 
 ## Notes
 
