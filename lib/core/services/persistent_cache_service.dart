@@ -42,6 +42,12 @@ class PersistentCacheService {
       _openBoxIfNotExists('vendors'),
       _openBoxIfNotExists('stock_items'),
       _openBoxIfNotExists('dashboard_stats'),
+      // High priority modules
+      _openBoxIfNotExists('categories'),
+      _openBoxIfNotExists('suppliers'),
+      _openBoxIfNotExists('deliveries'),
+      _openBoxIfNotExists('bookings'),
+      _openBoxIfNotExists('purchase_orders'),
       // Additional boxes for filtered queries
       _openBoxIfNotExists('sales_all'),
       _openBoxIfNotExists('expenses_0_50'),
@@ -318,6 +324,11 @@ class PersistentCacheService {
       'vendors',
       'stock_items',
       'dashboard_stats',
+      'categories',
+      'suppliers',
+      'deliveries',
+      'bookings',
+      'purchase_orders',
     ];
     
     await Future.wait(boxes.map((boxName) async {
@@ -344,6 +355,11 @@ class PersistentCacheService {
       'vendors',
       'stock_items',
       'dashboard_stats',
+      'categories',
+      'suppliers',
+      'deliveries',
+      'bookings',
+      'purchase_orders',
     ];
     
     final stats = <String, dynamic>{};
