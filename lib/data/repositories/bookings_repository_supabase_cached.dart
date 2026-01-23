@@ -145,10 +145,30 @@ class BookingsRepositorySupabaseCached {
           .order('created_at', ascending: false)
           .limit(limit);
       
-      return (fullResult as List).map((json) => Booking.fromJson(json)).toList();
+      return (fullResult as List).map((json) {
+        final jsonMap = json as Map<String, dynamic>;
+        // Ensure required fields are not null
+        jsonMap['booking_number'] ??= '';
+        jsonMap['customer_name'] ??= '';
+        jsonMap['customer_phone'] ??= '';
+        jsonMap['event_type'] ??= '';
+        jsonMap['delivery_date'] ??= '';
+        jsonMap['status'] ??= 'pending';
+        return Booking.fromJson(jsonMap);
+      }).toList();
     }
     
-    return deltaData.map((json) => Booking.fromJson(json)).toList();
+    return deltaData.map((json) {
+      final jsonMap = json as Map<String, dynamic>;
+      // Ensure required fields are not null
+      jsonMap['booking_number'] ??= '';
+      jsonMap['customer_name'] ??= '';
+      jsonMap['customer_phone'] ??= '';
+      jsonMap['event_type'] ??= '';
+      jsonMap['delivery_date'] ??= '';
+      jsonMap['status'] ??= 'pending';
+      return Booking.fromJson(jsonMap);
+    }).toList();
   }
   
   /// Convert Booking to JSON for caching
