@@ -363,7 +363,6 @@ class PersistentCacheService {
     ];
     
     final stats = <String, dynamic>{};
-    final prefs = await SharedPreferences.getInstance();
     
     for (final boxName in boxes) {
       if (Hive.isBoxOpen(boxName)) {

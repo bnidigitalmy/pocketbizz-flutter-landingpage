@@ -28,11 +28,13 @@ class BookingsRepositorySupabaseCached {
     final cacheKey = 'bookings_${status ?? 'all'}_$limit';
     
     return await PersistentCacheService.getOrSync<List<Booking>>(
-      cacheKey,
+      key: cacheKey,
       fetcher: () async {
         // Build query dengan delta fetch support
         final lastSync = await PersistentCacheService.getLastSync('bookings');
-        var query = supabase
+        
+        // Build base query
+        dynamic query = supabase
             .from('bookings')
             .select('*, booking_items(*)');
         
@@ -47,6 +49,7 @@ class BookingsRepositorySupabaseCached {
           debugPrint('🔄 Delta fetch: bookings updated after ${lastSync.toIso8601String()}');
         }
         
+        // Order
         query = query.order('created_at', ascending: false);
         
         // If delta fetch, don't limit (get all updates)
@@ -54,25 +57,29 @@ class BookingsRepositorySupabaseCached {
           query = query.limit(limit);
         }
         
+        // Execute query
+        final queryResult = await query;
+        final deltaData = List<Map<String, dynamic>>.from(queryResult);
+        
         // If delta fetch returns empty, do full fetch
-        final deltaData = await query;
         if (deltaData.isEmpty && lastSync != null && !forceRefresh) {
           debugPrint('🔄 Delta empty, fetching full bookings list');
           // Full fetch
-          var fullQuery = supabase
+          dynamic fullQuery = supabase
               .from('bookings')
-              .select('*, booking_items(*)')
-              .order('created_at', ascending: false)
-              .limit(limit);
+              .select('*, booking_items(*)');
           
           if (status != null && status.isNotEmpty) {
             fullQuery = fullQuery.eq('status', status);
           }
           
-          return List<Map<String, dynamic>>.from(await fullQuery);
+          fullQuery = fullQuery.order('created_at', ascending: false).limit(limit);
+          
+          final fullResult = await fullQuery;
+          return List<Map<String, dynamic>>.from(fullResult);
         }
         
-        return List<Map<String, dynamic>>.from(deltaData);
+        return deltaData;
       },
       fromJson: (json) => Booking.fromJson(json),
       toJson: (booking) => {
@@ -98,7 +105,7 @@ class BookingsRepositorySupabaseCached {
         'booking_items': booking.items?.map((item) => item.toJson()).toList(),
       },
       onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data as List<Booking>)
+          ? (data) => onDataUpdated(data)
           : null,
       forceRefresh: forceRefresh,
     );
