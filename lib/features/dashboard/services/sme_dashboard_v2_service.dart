@@ -150,7 +150,7 @@ class SmeDashboardV2Service {
     }
 
     try {
-      final completedBookings = await _bookingsRepo.listBookings(
+      final completedBookings = await _bookingsRepo.listBookingsCached(
         status: 'completed',
         limit: 10000,
       );
