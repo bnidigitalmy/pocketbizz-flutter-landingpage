@@ -143,12 +143,14 @@ class BookingsRepositorySupabaseCached {
     required String bookingId,
     required double amount,
     required String paymentMethod,
+    String? paymentReference,
     String? notes,
   }) async {
     final result = await _baseRepo.recordPayment(
       bookingId: bookingId,
       amount: amount,
       paymentMethod: paymentMethod,
+      paymentReference: paymentReference,
       notes: notes,
     );
     // Invalidate cache after payment

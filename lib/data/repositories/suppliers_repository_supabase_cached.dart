@@ -38,18 +38,23 @@ class SuppliersRepositorySupabaseCached {
       fetcher: () async {
         // Build query dengan delta fetch support
         final lastSync = await PersistentCacheService.getLastSync('suppliers');
-        var query = supabase
+        dynamic query = supabase
             .from('suppliers')
-            .select()
-            .eq('business_owner_id', userId)
-            .order('name');
+            .select();
+        
+        // Apply filters first (keep as PostgrestFilterBuilder)
+        query = query.eq('business_owner_id', userId);
         
         // Delta fetch: hanya ambil updated records
         if (!forceRefresh && lastSync != null) {
           query = query.gt('updated_at', lastSync.toIso8601String());
           debugPrint('🔄 Delta fetch: suppliers updated after ${lastSync.toIso8601String()}');
-        } else {
-          // Full fetch with pagination
+        }
+        
+        // Order and pagination
+        query = query.order('name');
+        
+        if (forceRefresh || lastSync == null) {
           query = query.range(offset, offset + limit - 1);
         }
         
@@ -119,5 +124,59 @@ class SuppliersRepositorySupabaseCached {
   Future<void> invalidateCache() async {
     await PersistentCacheService.invalidate('suppliers');
   }
+  
+  // Delegate methods untuk write operations (invalidate cache after)
+  
+  /// Create supplier (write operation - invalidate cache after)
+  Future<Supplier> createSupplier({
+    required String name,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+  }) async {
+    final created = await _baseRepo.createSupplier(
+      name: name,
+      phone: phone,
+      email: email,
+      address: address,
+      notes: notes,
+    );
+    // Invalidate cache after create
+    await invalidateCache();
+    return created;
+  }
+  
+  /// Update supplier (write operation - invalidate cache after)
+  Future<Supplier> updateSupplier({
+    required String id,
+    required String name,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+  }) async {
+    final updated = await _baseRepo.updateSupplier(
+      id: id,
+      name: name,
+      phone: phone,
+      email: email,
+      address: address,
+      notes: notes,
+    );
+    // Invalidate cache after update
+    await invalidateCache();
+    return updated;
+  }
+  
+  /// Delete supplier (write operation - invalidate cache after)
+  Future<void> deleteSupplier(String id) async {
+    await _baseRepo.deleteSupplier(id);
+    // Invalidate cache after delete
+    await invalidateCache();
+  }
+  
+  /// Expose base repository for widgets that need full SuppliersRepository interface
+  SuppliersRepository get baseRepository => _baseRepo;
 }
 
