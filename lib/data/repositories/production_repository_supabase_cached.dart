@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/persistent_cache_service.dart';
 import '../../core/supabase/supabase_client.dart';
 import '../models/production_batch.dart';
@@ -37,100 +40,190 @@ class ProductionRepositoryCached {
     // Build cache key dengan filters
     final cacheKey = 'production_batches_${productId ?? 'all'}_${onlyWithRemaining ? 'remaining' : 'all'}_${offset}_${limit}';
     
-    return await PersistentCacheService.getOrSync<List<ProductionBatch>>(
-      key: cacheKey,
-      fetcher: () async {
-        final supabase = Supabase.instance.client;
-        
-        // Build query dengan delta fetch support
-        final lastSync = await PersistentCacheService.getLastSync('production_batches');
-        dynamic query = supabase
-            .from('production_batches')
-            .select('''
-              *,
-              products!inner(name)
-            ''');
-        
-        if (productId != null) {
-          query = query.eq('product_id', productId);
+    // Use direct Hive caching untuk List types (more reliable)
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
         }
-        
-        if (onlyWithRemaining) {
-          query = query.gt('remaining_qty', 0);
-        }
-        
-        // Delta fetch: only get updated records
-        if (lastSync != null) {
-          query = query.gt('updated_at', lastSync.toIso8601String());
-        }
-        
-        query = query
-            .order('batch_date', ascending: false)
-            .range(offset, offset + limit - 1);
-        
-        final response = await query;
-        
-        // If delta fetch returns empty, do full fetch
-        if (lastSync != null && (response as List).isEmpty) {
-          debugPrint('🔄 Delta fetch empty, doing full fetch for production_batches');
-          dynamic fullQuery = supabase
-              .from('production_batches')
-              .select('''
-                *,
-                products!inner(name)
-              ''');
-          
-          if (productId != null) {
-            fullQuery = fullQuery.eq('product_id', productId);
-          }
-          
-          if (onlyWithRemaining) {
-            fullQuery = fullQuery.gt('remaining_qty', 0);
-          }
-          
-          final fullResponse = await fullQuery
-              .order('batch_date', ascending: false)
-              .range(offset, offset + limit - 1);
-          
-          final batches = (fullResponse as List).map((json) {
-            // Extract product_name from joined products table
-            final productData = json['products'];
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonList = jsonDecode(cached) as List<dynamic>;
+          final batches = jsonList.map((json) {
+            final jsonMap = json as Map<String, dynamic>;
+            // Extract product_name from joined products table if present
+            final productData = jsonMap['products'];
             if (productData != null && productData is Map) {
-              json['product_name'] = productData['name'];
+              jsonMap['product_name'] = productData['name'];
             }
-            return ProductionBatch.fromJson(json);
+            return ProductionBatch.fromJson(jsonMap);
           }).toList();
+          debugPrint('✅ Cache hit: $cacheKey');
           
-          // Convert to List<Map> for caching
-          return batches.map((b) => b.toJson()).toList();
+          // Trigger background sync
+          _syncBatchesInBackground(
+            productId: productId,
+            onlyWithRemaining: onlyWithRemaining,
+            limit: limit,
+            offset: offset,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return batches;
         }
-        
-        final batches = (response as List).map((json) {
-          // Extract product_name from joined products table
-          final productData = json['products'];
-          if (productData != null && productData is Map) {
-            json['product_name'] = productData['name'];
-          }
-          return ProductionBatch.fromJson(json);
-        }).toList();
-        
-        // Convert to List<Map> for caching
-        return batches.map((b) => b.toJson()).toList();
-      },
-      fromJson: (json) {
-        // Extract product_name from joined products table if present
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached production batches: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _fetchBatches(
+      productId: productId,
+      onlyWithRemaining: onlyWithRemaining,
+      limit: limit,
+      offset: offset,
+    );
+    
+    // Cache it
+    try {
+      if (!Hive.isBoxOpen(cacheKey)) {
+        await Hive.openBox(cacheKey);
+      }
+      final box = Hive.box(cacheKey);
+      final jsonList = fresh.map((b) => b.toJson()).toList();
+      await box.put('data', jsonEncode(jsonList));
+      await _updateLastSync('production_batches');
+    } catch (e) {
+      debugPrint('⚠️ Error caching production batches: $e');
+    }
+    
+    return fresh;
+  }
+  
+  /// Fetch batches from Supabase
+  Future<List<ProductionBatch>> _fetchBatches({
+    String? productId,
+    bool onlyWithRemaining = false,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final supabase = Supabase.instance.client;
+    
+    // Build query dengan delta fetch support
+    final lastSync = await PersistentCacheService.getLastSync('production_batches');
+    dynamic query = supabase
+        .from('production_batches')
+        .select('''
+          *,
+          products!inner(name)
+        ''');
+    
+    if (productId != null) {
+      query = query.eq('product_id', productId);
+    }
+    
+    if (onlyWithRemaining) {
+      query = query.gt('remaining_qty', 0);
+    }
+    
+    // Delta fetch: only get updated records
+    if (lastSync != null) {
+      query = query.gt('updated_at', lastSync.toIso8601String());
+    }
+    
+    query = query
+        .order('batch_date', ascending: false)
+        .range(offset, offset + limit - 1);
+    
+    final response = await query;
+    
+    // If delta fetch returns empty, do full fetch
+    if (lastSync != null && (response as List).isEmpty) {
+      debugPrint('🔄 Delta fetch empty, doing full fetch for production_batches');
+      dynamic fullQuery = supabase
+          .from('production_batches')
+          .select('''
+            *,
+            products!inner(name)
+          ''');
+      
+      if (productId != null) {
+        fullQuery = fullQuery.eq('product_id', productId);
+      }
+      
+      if (onlyWithRemaining) {
+        fullQuery = fullQuery.gt('remaining_qty', 0);
+      }
+      
+      final fullResponse = await fullQuery
+          .order('batch_date', ascending: false)
+          .range(offset, offset + limit - 1);
+      
+      return (fullResponse as List).map((json) {
+        // Extract product_name from joined products table
         final productData = json['products'];
         if (productData != null && productData is Map) {
           json['product_name'] = productData['name'];
         }
         return ProductionBatch.fromJson(json);
-      },
-      toJson: (batch) => batch.toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data)
-          : null,
-      forceRefresh: forceRefresh,
-    );
+      }).toList();
+    }
+    
+    return (response as List).map((json) {
+      // Extract product_name from joined products table
+      final productData = json['products'];
+      if (productData != null && productData is Map) {
+        json['product_name'] = productData['name'];
+      }
+      return ProductionBatch.fromJson(json);
+    }).toList();
+  }
+  
+  /// Background sync for production batches
+  Future<void> _syncBatchesInBackground({
+    String? productId,
+    bool onlyWithRemaining = false,
+    int limit = 100,
+    int offset = 0,
+    required String cacheKey,
+    void Function(List<ProductionBatch>)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _fetchBatches(
+        productId: productId,
+        onlyWithRemaining: onlyWithRemaining,
+        limit: limit,
+        offset: offset,
+      );
+      
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final jsonList = fresh.map((b) => b.toJson()).toList();
+        await box.put('data', jsonEncode(jsonList));
+        await _updateLastSync('production_batches');
+      } catch (e) {
+        debugPrint('⚠️ Error updating production batches cache: $e');
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey');
+    } catch (e) {
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+    }
+  }
+  
+  /// Update last sync timestamp
+  Future<void> _updateLastSync(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_sync_$key', DateTime.now().toIso8601String());
   }
   
   /// Get batch by ID dengan cache
