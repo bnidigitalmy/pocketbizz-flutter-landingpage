@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/finished_product.dart';
 import '../../../data/models/product.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
+import '../../../data/repositories/finished_products_repository_supabase_cached.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../core/widgets/cached_image.dart';
 import 'batch_details_dialog.dart';
@@ -26,7 +27,7 @@ class FinishedProductsPage extends StatefulWidget {
 }
 
 class _FinishedProductsPageState extends State<FinishedProductsPage> {
-  final _repository = FinishedProductsRepository();
+  final _repository = FinishedProductsRepositoryCached();
   final _productsRepo = ProductsRepositorySupabase();
   List<FinishedProductSummary> _products = [];
   List<Product> _allProducts = [];
@@ -48,7 +49,15 @@ class _FinishedProductsPageState extends State<FinishedProductsPage> {
 
     try {
       final [finishedProducts, allProducts] = await Future.wait([
-        _repository.getFinishedProductsSummary(),
+        _repository.getFinishedProductsSummaryCached(
+          onDataUpdated: (freshProducts) {
+            if (mounted) {
+              setState(() {
+                _products = freshProducts;
+              });
+            }
+          },
+        ),
         _productsRepo.listProducts(),
       ]);
 
