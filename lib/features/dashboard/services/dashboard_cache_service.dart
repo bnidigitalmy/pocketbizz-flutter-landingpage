@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/persistent_cache_service.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
@@ -25,7 +26,7 @@ import 'sme_dashboard_v2_service.dart';
 /// - Delta fetch untuk jimat egress
 /// - Offline-first approach
 class DashboardCacheService {
-  final BookingsRepositorySupabase _bookingsRepo = BookingsRepositorySupabase();
+  final BookingsRepositorySupabaseCached _bookingsRepo = BookingsRepositorySupabaseCached();
   final PurchaseOrderRepository _poRepo = PurchaseOrderRepository(supabase);
   final StockRepository _stockRepo = StockRepository(supabase);
   final ReportsRepositorySupabase _reportsRepo = ReportsRepositorySupabase();

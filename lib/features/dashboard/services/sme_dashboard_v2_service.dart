@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
 import '../../../data/repositories/sales_repository_supabase.dart';
 import '../../../data/models/consignment_claim.dart';
@@ -18,7 +19,7 @@ import '../domain/sme_dashboard_v2_models.dart';
 /// - Avoid modifying stable core modules; this is a thin wrapper/aggregator.
 class SmeDashboardV2Service {
   final _salesRepo = SalesRepositorySupabase();
-  final _bookingsRepo = BookingsRepositorySupabase();
+  final _bookingsRepo = BookingsRepositorySupabaseCached();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
   final _reportsRepo = ReportsRepositorySupabase();
 

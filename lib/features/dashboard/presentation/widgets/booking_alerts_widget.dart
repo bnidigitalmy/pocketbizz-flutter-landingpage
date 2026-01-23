@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../core/theme/app_colors.dart';
-import '../../../../data/repositories/bookings_repository_supabase.dart' show Booking, BookingsRepositorySupabase;
+import '../../../../data/repositories/bookings_repository_supabase.dart' show Booking;
+import '../../../../data/repositories/bookings_repository_supabase_cached.dart';
 
 /// Booking Alerts Widget for Dashboard
 /// Shows bookings that need attention: overdue, upcoming, and pending
@@ -17,7 +18,7 @@ class BookingAlertsWidget extends StatefulWidget {
 }
 
 class _BookingAlertsWidgetState extends State<BookingAlertsWidget> {
-  final _bookingsRepo = BookingsRepositorySupabase();
+  final _bookingsRepo = BookingsRepositorySupabaseCached();
   List<Booking> _overdueBookings = [];
   List<Booking> _upcomingBookings = [];
   List<Booking> _pendingBookings = [];
@@ -85,7 +86,14 @@ class _BookingAlertsWidgetState extends State<BookingAlertsWidget> {
       final threeDaysFromNow = today.add(const Duration(days: 3));
 
       // Get all active bookings (pending, confirmed)
-      final allBookings = await _bookingsRepo.listBookings(limit: 200);
+      final allBookings = await _bookingsRepo.listBookingsCached(
+        limit: 200,
+        onDataUpdated: (freshBookings) {
+          if (mounted) {
+            _processBookings(freshBookings);
+          }
+        },
+      );
       
       final overdue = <Booking>[];
       final upcoming = <Booking>[];
