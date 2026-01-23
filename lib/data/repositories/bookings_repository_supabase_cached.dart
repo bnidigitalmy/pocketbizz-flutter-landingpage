@@ -39,12 +39,21 @@ class BookingsRepositorySupabaseCached {
         final box = Hive.box(cacheKey);
         final cached = box.get('data');
         if (cached != null && cached is String) {
-          final jsonList = jsonDecode(cached) as List<dynamic>;
-          final bookings = jsonList.map((json) {
-            final jsonMap = json as Map<String, dynamic>;
-            return Booking.fromJson(jsonMap);
-          }).toList();
-          debugPrint('✅ Cache hit: $cacheKey');
+          try {
+            final jsonList = jsonDecode(cached) as List<dynamic>;
+            final bookings = jsonList.map((json) {
+              final jsonMap = json as Map<String, dynamic>;
+              // Ensure required fields are not null
+              jsonMap['booking_number'] ??= '';
+              jsonMap['customer_name'] ??= '';
+              jsonMap['customer_phone'] ??= '';
+              jsonMap['event_type'] ??= '';
+              jsonMap['delivery_date'] ??= '';
+              jsonMap['status'] ??= 'pending';
+              jsonMap['created_at'] ??= DateTime.now().toIso8601String();
+              return Booking.fromJson(jsonMap);
+            }).toList();
+            debugPrint('✅ Cache hit: $cacheKey');
           
           // Trigger background sync
           _syncBookingsInBackground(
