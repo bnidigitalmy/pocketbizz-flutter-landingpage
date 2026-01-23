@@ -123,9 +123,13 @@ class DocumentStorageService {
             
             await supabase.storage
                 .from(_bucketName)
-                .upload(
+                .uploadBinary(
                   storagePath,
                   pdfBytes,
+                  fileOptions: FileOptions(
+                    contentType: 'application/pdf',
+                    upsert: false,
+                  ),
                 );
             break; // Success, exit retry loop
           } catch (e) {
