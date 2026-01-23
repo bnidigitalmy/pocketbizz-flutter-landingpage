@@ -110,7 +110,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       context: context,
       builder: (context) => ProductionPlanningDialog(
         products: _products,
-        productionRepo: _productionRepo,
+            productionRepo: _productionRepo.baseRepository,
         productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,
@@ -123,7 +123,7 @@ class _ProductionPlanningPageState extends State<ProductionPlanningPage> {
       context: context,
       builder: (context) => BulkProductionPlanningDialog(
         products: _products,
-        productionRepo: _productionRepo,
+            productionRepo: _productionRepo.baseRepository,
         productionBatchRepo: _productionBatchRepo,
         cartRepo: _cartRepo,
         onSuccess: _loadData,

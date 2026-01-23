@@ -157,5 +157,26 @@ class ProductionRepositoryCached {
       forceRefresh: forceRefresh,
     );
   }
+  
+  // Delegate methods yang tak perlu cache (write operations atau complex queries)
+  // These methods directly call base repository
+  
+  /// Get batch movement history (no cache - real-time data)
+  Future<List<Map<String, dynamic>>> getBatchMovementHistory(String batchId) {
+    return _baseRepo.getBatchMovementHistory(batchId);
+  }
+  
+  /// Update batch notes (write operation - no cache)
+  Future<ProductionBatch> updateBatchNotes(String batchId, String? notes) {
+    return _baseRepo.updateBatchNotes(batchId, notes);
+  }
+  
+  /// Delete batch with stock reversal (write operation - no cache)
+  Future<void> deleteBatchWithStockReversal(String batchId) {
+    return _baseRepo.deleteBatchWithStockReversal(batchId);
+  }
+  
+  /// Expose base repository for widgets that need full ProductionRepository interface
+  ProductionRepository get baseRepository => _baseRepo;
 }
 
