@@ -48,6 +48,9 @@ class PersistentCacheService {
       _openBoxIfNotExists('deliveries'),
       _openBoxIfNotExists('bookings'),
       _openBoxIfNotExists('purchase_orders'),
+      // Dashboard boxes
+      _openBoxIfNotExists('dashboard_v2'),
+      _openBoxIfNotExists('dashboard_subscription'),
       // Additional boxes for filtered queries
       _openBoxIfNotExists('sales_all'),
       _openBoxIfNotExists('expenses_0_50'),
@@ -360,6 +363,8 @@ class PersistentCacheService {
       'deliveries',
       'bookings',
       'purchase_orders',
+      'dashboard_v2',
+      'dashboard_subscription',
     ];
     
     final stats = <String, dynamic>{};
