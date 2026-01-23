@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../data/repositories/categories_repository_supabase.dart';
+import '../../../../data/repositories/categories_repository_supabase_cached.dart';
 import '../../../../data/models/category.dart';
 
 class CategoryDropdown extends StatefulWidget {
@@ -17,7 +17,7 @@ class CategoryDropdown extends StatefulWidget {
 }
 
 class _CategoryDropdownState extends State<CategoryDropdown> {
-  final _repo = CategoriesRepositorySupabase();
+  final _repo = CategoriesRepositorySupabaseCached();
   List<Category> _categories = [];
   bool _loading = true;
   String? _selectedCategory;
@@ -31,7 +31,25 @@ class _CategoryDropdownState extends State<CategoryDropdown> {
 
   Future<void> _loadCategories() async {
     try {
-      final categories = await _repo.getAll(limit: 100);
+      // Use cached repository - instant load from cache, syncs in background
+      final categories = await _repo.getAllCached(
+        limit: 100,
+        onDataUpdated: (updatedCategories) {
+          if (mounted) {
+            setState(() {
+              _categories = updatedCategories;
+              // Validate selected category still exists
+              if (_selectedCategory != null) {
+                final exists = _categories.any((cat) => cat.name == _selectedCategory);
+                if (!exists) {
+                  _selectedCategory = null;
+                  widget.onChanged(null);
+                }
+              }
+            });
+          }
+        },
+      );
       setState(() {
         _categories = categories;
         _loading = false;

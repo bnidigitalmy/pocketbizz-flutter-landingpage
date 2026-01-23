@@ -15,6 +15,7 @@ import '../../../data/models/category.dart';
 import '../../../data/models/product.dart';
 import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/categories_repository_supabase.dart';
+import '../../../data/repositories/categories_repository_supabase_cached.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../onboarding/services/onboarding_service.dart';
@@ -51,7 +52,8 @@ class AddProductWithRecipePage extends StatefulWidget {
 class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   final _formKey = GlobalKey<FormState>();
   final _stockRepo = StockRepository(supabase);
-  final _categoriesRepo = CategoriesRepositorySupabase();
+  final _categoriesCachedRepo = CategoriesRepositorySupabaseCached();
+  final _categoriesBaseRepo = CategoriesRepositorySupabase(); // For create operations
   final _productsRepo = ProductsRepositorySupabase();
   final _recipesRepo = RecipesRepositorySupabase();
   final _imageService = ImageUploadService();
@@ -205,8 +207,18 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
   Future<void> _loadData() async {
     try {
       // Load stock items and categories first (needed for loading recipe data)
+      // Use cached repository for instant load
       final stockItems = await _stockRepo.getAllStockItems(limit: 100);
-      final categories = await _categoriesRepo.getAll(limit: 100);
+      final categories = await _categoriesCachedRepo.getAllCached(
+        limit: 100,
+        onDataUpdated: (updatedCategories) {
+          if (mounted) {
+            setState(() {
+              _categories = updatedCategories;
+            });
+          }
+        },
+      );
       
       setState(() {
         _stockItems = stockItems;
@@ -1419,7 +1431,8 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                             }
 
                             try {
-                              final newCategory = await _categoriesRepo.create(
+                              // Use base repo for create operation
+                              final newCategory = await _categoriesBaseRepo.create(
                                 nameController.text.trim(),
                                 description: descController.text.trim().isEmpty
                                     ? null
@@ -1428,8 +1441,18 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
                                 color: selectedColor,
                               );
 
-                              // Reload categories
-                              final categories = await _categoriesRepo.getAll(limit: 100);
+                              // Force refresh cache to get latest data including new category
+                              final categories = await _categoriesCachedRepo.getAllCached(
+                                limit: 100,
+                                forceRefresh: true,
+                                onDataUpdated: (updatedCategories) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _categories = updatedCategories;
+                                    });
+                                  }
+                                },
+                              );
                               setState(() {
                                 _categories = categories;
                                 _categoryController.text = newCategory.name;

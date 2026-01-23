@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/repositories/categories_repository_supabase.dart';
+import '../../../data/repositories/categories_repository_supabase_cached.dart';
 import '../../../data/models/category.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../subscription/widgets/subscription_guard.dart';
@@ -12,7 +13,8 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  final _repo = CategoriesRepositorySupabase();
+  final _cachedRepo = CategoriesRepositorySupabaseCached();
+  final _baseRepo = CategoriesRepositorySupabase(); // For create/delete operations
   List<Category> _categories = [];
   bool _loading = false;
 
@@ -22,10 +24,21 @@ class _CategoriesPageState extends State<CategoriesPage> {
     _loadCategories();
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadCategories({bool forceRefresh = false}) async {
     setState(() => _loading = true);
     try {
-      final categories = await _repo.getAll(limit: 100);
+      // Use cached repository - instant load from cache, syncs in background
+      final categories = await _cachedRepo.getAllCached(
+        limit: 100,
+        forceRefresh: forceRefresh,
+        onDataUpdated: (updatedCategories) {
+          if (mounted) {
+            setState(() {
+              _categories = updatedCategories;
+            });
+          }
+        },
+      );
       setState(() {
         _categories = categories;
         _loading = false;
@@ -87,7 +100,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
     if (result == true && nameController.text.isNotEmpty) {
       await requirePro(context, 'Tambah Kategori', () async {
         try {
-          await _repo.create(
+          await _baseRepo.create(
             nameController.text.trim(),
             description: descController.text.trim().isEmpty 
                 ? null 
@@ -95,7 +108,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
             icon: selectedIcon,
             color: selectedColor,
           );
-          await _loadCategories();
+          // Force refresh to get latest data including new category
+          await _loadCategories(forceRefresh: true);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -144,8 +158,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
     if (confirmed == true) {
       await requirePro(context, 'Padam Kategori', () async {
         try {
-          await _repo.delete(category.id);
-          await _loadCategories();
+          await _baseRepo.delete(category.id);
+          // Force refresh to get latest data after deletion
+          await _loadCategories(forceRefresh: true);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
