@@ -51,6 +51,9 @@ class PersistentCacheService {
       // Dashboard boxes
       _openBoxIfNotExists('dashboard_v2'),
       _openBoxIfNotExists('dashboard_subscription'),
+      // Pengeluaran (Production) boxes - High Priority: User guna setiap hari
+      _openBoxIfNotExists('finished_products_summary'),
+      _openBoxIfNotExists('production_batches'),
       // Additional boxes for filtered queries
       _openBoxIfNotExists('sales_all'),
       _openBoxIfNotExists('expenses_0_50'),
@@ -365,6 +368,8 @@ class PersistentCacheService {
       'purchase_orders',
       'dashboard_v2',
       'dashboard_subscription',
+      'finished_products_summary',
+      'production_batches',
     ];
     
     final stats = <String, dynamic>{};
