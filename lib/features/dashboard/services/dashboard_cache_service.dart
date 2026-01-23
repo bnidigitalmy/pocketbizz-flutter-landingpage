@@ -526,10 +526,23 @@ class DashboardCacheService {
     void Function(List<SalesByChannel>)? onDataUpdated,
   }) async {
     try {
+      // Add timeout to prevent hanging
       final fresh = await _reportsRepo.getSalesByChannel(
         startDate: startDate,
         endDate: endDate,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⚠️ Timeout fetching sales by channel, returning empty list');
+          return <SalesByChannel>[];
+        },
       );
+      
+      // Ensure fresh is a List
+      if (fresh is! List<SalesByChannel>) {
+        debugPrint('⚠️ Warning: getSalesByChannel returned non-List: ${fresh.runtimeType}');
+        return;
+      }
       
       try {
         if (!Hive.isBoxOpen(cacheKey)) {
@@ -543,12 +556,13 @@ class DashboardCacheService {
         debugPrint('⚠️ Error updating sales by channel cache: $e');
       }
       
-      if (onDataUpdated != null) {
+      if (onDataUpdated != null && fresh is List<SalesByChannel>) {
         onDataUpdated(fresh);
       }
       debugPrint('✅ Background sync completed: $cacheKey');
     } catch (e) {
-      debugPrint('❌ Background sync failed: $e');
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+      // Don't call onDataUpdated on error to prevent type issues
     }
   }
   

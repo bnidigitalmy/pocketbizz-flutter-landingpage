@@ -461,13 +461,52 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
       if (!mounted) return;
 
-      setState(() {
-        _pendingTasks = results[0] as Map<String, dynamic>;
-        _salesByChannel = results[1] as List<SalesByChannel>;
-        _businessProfile = results[2] as BusinessProfile?;
-        _hasUrgentIssuesFlag = results[3] as bool;
-        _unreadNotifications = results[4] as int;
-      });
+      // Safe type casting dengan error handling
+      try {
+        final pendingTasks = results[0];
+        final salesByChannel = results[1];
+        final businessProfile = results[2];
+        final urgentIssues = results[3];
+        final unreadNotifications = results[4];
+        
+        setState(() {
+          if (pendingTasks is Map<String, dynamic>) {
+            _pendingTasks = pendingTasks;
+          }
+          
+          // Ensure salesByChannel is a List
+          if (salesByChannel is List<SalesByChannel>) {
+            _salesByChannel = salesByChannel;
+          } else if (salesByChannel is List) {
+            // Try to convert if it's a List of something else
+            _salesByChannel = salesByChannel
+                .whereType<SalesByChannel>()
+                .toList();
+          } else {
+            debugPrint('⚠️ Warning: salesByChannel is not a List: ${salesByChannel.runtimeType}');
+            _salesByChannel = [];
+          }
+          
+          if (businessProfile is BusinessProfile?) {
+            _businessProfile = businessProfile;
+          }
+          
+          if (urgentIssues is bool) {
+            _hasUrgentIssuesFlag = urgentIssues;
+          }
+          
+          if (unreadNotifications is int) {
+            _unreadNotifications = unreadNotifications;
+          }
+        });
+      } catch (castError) {
+        debugPrint('⚠️ Error casting secondary dashboard data: $castError');
+        debugPrint('   Results types: ${results.map((r) => r.runtimeType).toList()}');
+        // Set defaults to prevent UI errors
+        setState(() {
+          _salesByChannel = [];
+        });
+      }
     } catch (e) {
       debugPrint('Error loading secondary dashboard data: $e');
       // Don't show error to user - secondary data is optional
