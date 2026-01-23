@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/suppliers_repository_supabase.dart';
+import '../../../data/repositories/suppliers_repository_supabase_cached.dart';
 import '../../../data/models/supplier.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 
@@ -28,7 +29,7 @@ class SuppliersPage extends StatefulWidget {
 }
 
 class _SuppliersPageState extends State<SuppliersPage> {
-  final _repo = SuppliersRepository();
+  final _repo = SuppliersRepositorySupabaseCached();
   List<Supplier> _suppliers = [];
   bool _loading = false;
 
@@ -41,7 +42,7 @@ class _SuppliersPageState extends State<SuppliersPage> {
   Future<void> _loadSuppliers() async {
     setState(() => _loading = true);
     try {
-      final suppliers = await _repo.getAllSuppliers();
+      final suppliers = await _repo.getAllSuppliersCached();
       if (mounted) {
         setState(() {
           _suppliers = suppliers;
@@ -459,7 +460,7 @@ class _SupplierFormDialogState extends State<_SupplierFormDialog> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _addressController = TextEditingController();
-  final _repo = SuppliersRepository();
+  final _repo = SuppliersRepositorySupabaseCached();
   bool _saving = false;
 
   @override
