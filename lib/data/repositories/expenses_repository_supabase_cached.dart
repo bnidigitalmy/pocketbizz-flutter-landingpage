@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/cache_key_tracker.dart';
 import '../../core/services/persistent_cache_service.dart';
 import '../../core/supabase/supabase_client.dart';
 import '../models/expense.dart';
@@ -40,6 +41,8 @@ class ExpensesRepositorySupabaseCached {
         if (!Hive.isBoxOpen(cacheKey)) {
           await Hive.openBox(cacheKey);
         }
+        // Register cache key untuk tracking
+        await CacheKeyTracker.registerKey('expenses', cacheKey);
         final box = Hive.box(cacheKey);
         final cached = box.get('data');
         if (cached != null && cached is String) {
@@ -79,6 +82,8 @@ class ExpensesRepositorySupabaseCached {
       if (!Hive.isBoxOpen(cacheKey)) {
         await Hive.openBox(cacheKey);
       }
+      // Register cache key untuk tracking
+      await CacheKeyTracker.registerKey('expenses', cacheKey);
       final box = Hive.box(cacheKey);
       final jsonList = fresh.map((e) => e.toJson()).toList();
       await box.put('data', jsonEncode(jsonList));
@@ -167,6 +172,8 @@ class ExpensesRepositorySupabaseCached {
         if (!Hive.isBoxOpen(cacheKey)) {
           await Hive.openBox(cacheKey);
         }
+        // Register cache key untuk tracking
+        await CacheKeyTracker.registerKey('expenses', cacheKey);
         final box = Hive.box(cacheKey);
         final jsonList = fresh.map((e) => e.toJson()).toList();
         await box.put('data', jsonEncode(jsonList));
@@ -230,13 +237,32 @@ class ExpensesRepositorySupabaseCached {
   /// Invalidate expenses cache
   Future<void> invalidateCache() async {
     try {
-      // Clear all expense-related cache boxes
-      final boxNames = ['expenses_0_50', 'expenses_50_50', 'expenses'];
-      for (final boxName in boxNames) {
-        if (Hive.isBoxOpen(boxName)) {
-          await Hive.box(boxName).clear();
+      // Get all tracked cache keys untuk expenses
+      final trackedKeys = await CacheKeyTracker.getKeys('expenses');
+      debugPrint('🗑️ Invalidating ${trackedKeys.length} expense cache keys: $trackedKeys');
+
+      // Clear all tracked cache boxes
+      for (final boxName in trackedKeys) {
+        try {
+          if (Hive.isBoxOpen(boxName)) {
+            await Hive.box(boxName).clear();
+          } else {
+            // Open and clear if not open
+            final box = await Hive.openBox(boxName);
+            await box.clear();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error clearing box $boxName: $e');
         }
       }
+
+      // Clear the tracker juga
+      await CacheKeyTracker.clearKeys('expenses');
+
+      // Clear last sync timestamp
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_sync_expenses');
+
       debugPrint('✅ Expenses cache invalidated');
     } catch (e) {
       debugPrint('⚠️ Error invalidating expenses cache: $e');
