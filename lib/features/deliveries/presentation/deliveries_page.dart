@@ -7,6 +7,7 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:intl/intl.dart';
@@ -14,6 +15,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
+import '../../../data/repositories/deliveries_repository_supabase_cached.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
@@ -41,9 +44,14 @@ class DeliveriesPage extends StatefulWidget {
 
 class _DeliveriesPageState extends State<DeliveriesPage> {
   final _deliveriesRepo = DeliveriesRepositorySupabase();
+  final _deliveriesRepoCached = DeliveriesRepositorySupabaseCached();
   final _vendorsRepo = VendorsRepositorySupabase();
   final _productsRepo = ProductsRepositorySupabase();
   final _businessProfileRepo = BusinessProfileRepository();
+
+  // Real-time subscription for cache invalidation
+  StreamSubscription? _deliveriesSubscription;
+  Timer? _debounceTimer;
 
   List<Delivery> _deliveries = [];
   List<Vendor> _vendors = [];
@@ -80,9 +88,44 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
         _filterVendor = vendorId; // Set filter to specific vendor (before loading data)
       }
       _loadData();
+      _setupRealtimeSubscription();
     });
   }
 
+  @override
+  void dispose() {
+    _deliveriesSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for cache invalidation
+  void _setupRealtimeSubscription() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _deliveriesSubscription = supabase
+        .from('deliveries')
+        .stream(primaryKey: ['id'])
+        .eq('business_owner_id', userId)
+        .listen((data) {
+          debugPrint('🔔 Deliveries real-time update: ${data.length} records');
+          _debouncedRefresh();
+        });
+
+    debugPrint('✅ Deliveries real-time subscription setup');
+  }
+
+  /// Debounced refresh to avoid excessive API calls
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _deliveriesRepoCached.invalidateCache();
+        _loadDeliveries(reset: true);
+      }
+    });
+  }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
@@ -131,9 +174,23 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
 
     setState(() => _isLoadingMore = true);
     try {
-      final result = await _deliveriesRepo.getAllDeliveries(
+      // Use cached repository with SWR pattern
+      final result = await _deliveriesRepoCached.getAllDeliveriesCached(
         limit: 20,
         offset: _currentOffset,
+        onDataUpdated: (freshResult) {
+          // Silent UI update when background sync completes
+          if (mounted) {
+            setState(() {
+              if (reset || _currentOffset == 0) {
+                _deliveries = freshResult['data'] as List<Delivery>;
+              }
+              _hasMore = freshResult['hasMore'] as bool;
+              _currentOffset = _deliveries.length;
+            });
+            debugPrint('🔄 Deliveries UI updated from background sync: ${_deliveries.length} deliveries');
+          }
+        },
       );
 
       if (mounted) {

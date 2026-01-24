@@ -54,6 +54,10 @@ class PersistentCacheService {
       // Pengeluaran (Production) boxes - High Priority: User guna setiap hari
       _openBoxIfNotExists('finished_products_summary'),
       _openBoxIfNotExists('production_batches'),
+      // Reports cache - aggregated report data
+      _openBoxIfNotExists('reports_cache'),
+      // Claims cache - consignment claims data
+      _openBoxIfNotExists('consignment_claims'),
       // Additional boxes for filtered queries
       _openBoxIfNotExists('sales_all'),
       _openBoxIfNotExists('expenses_0_50'),
@@ -335,6 +339,8 @@ class PersistentCacheService {
       'deliveries',
       'bookings',
       'purchase_orders',
+      'reports_cache',
+      'consignment_claims',
     ];
     
     await Future.wait(boxes.map((boxName) async {
@@ -370,6 +376,8 @@ class PersistentCacheService {
       'dashboard_subscription',
       'finished_products_summary',
       'production_batches',
+      'reports_cache',
+      'consignment_claims',
     ];
     
     final stats = <String, dynamic>{};

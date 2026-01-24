@@ -7,6 +7,7 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:intl/intl.dart';
@@ -14,6 +15,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../../data/repositories/consignment_claims_repository_supabase.dart';
+import '../../../data/repositories/consignment_claims_repository_supabase_cached.dart';
+import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/consignment_payments_repository_supabase.dart';
 import '../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
@@ -46,9 +49,14 @@ class ClaimsPage extends StatefulWidget {
 
 class _ClaimsPageState extends State<ClaimsPage> {
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
+  final _claimsRepoCached = ConsignmentClaimsRepositorySupabaseCached();
   final _paymentsRepo = ConsignmentPaymentsRepositorySupabase();
   final _deliveriesRepo = DeliveriesRepositorySupabase();
   final _vendorsRepo = VendorsRepositorySupabase();
+
+  // Real-time subscription for cache invalidation
+  StreamSubscription? _claimsSubscription;
+  Timer? _debounceTimer;
 
   List<ConsignmentClaim> _claims = [];
   List<ConsignmentPayment> _payments = [];
@@ -86,13 +94,44 @@ class _ClaimsPageState extends State<ClaimsPage> {
         _filterVendor = vendorId; // Set filter to specific vendor (before loading data)
       }
       _loadData();
+      _setupRealtimeSubscription();
     });
   }
 
   @override
   void dispose() {
+    _claimsSubscription?.cancel();
+    _debounceTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Setup real-time subscription for cache invalidation
+  void _setupRealtimeSubscription() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _claimsSubscription = supabase
+        .from('consignment_claims')
+        .stream(primaryKey: ['id'])
+        .eq('business_owner_id', userId)
+        .listen((data) {
+          debugPrint('🔔 Claims real-time update: ${data.length} records');
+          _debouncedRefresh();
+        });
+
+    debugPrint('✅ Claims real-time subscription setup');
+  }
+
+  /// Debounced refresh to avoid excessive API calls
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _claimsRepoCached.invalidateCache();
+        _loadClaims(reset: true);
+      }
+    });
   }
 
   void _setHighlight(String claimId) {
@@ -154,7 +193,19 @@ class _ClaimsPageState extends State<ClaimsPage> {
 
     setState(() => _isLoadingMore = true);
     try {
-      final claims = await _claimsRepo.getAll(limit: 100);
+      // Use cached repository with SWR pattern
+      final claims = await _claimsRepoCached.getAllCached(
+        limit: 100,
+        onDataUpdated: (freshClaims) {
+          // Silent UI update when background sync completes
+          if (mounted) {
+            setState(() {
+              _claims = freshClaims;
+            });
+            debugPrint('🔄 Claims UI updated from background sync: ${freshClaims.length} claims');
+          }
+        },
+      );
       final payments = await _paymentsRepo.getAll(limit: 100);
 
       if (mounted) {
