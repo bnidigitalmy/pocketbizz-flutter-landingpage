@@ -191,7 +191,7 @@ class _ProductListPageState extends State<ProductListPage> {
           ttl: const Duration(minutes: 10),
         );
       } else {
-        // Use cached repository with SWR pattern for active products
+        // Use cached repository with SWR pattern for active products (Direct Hive)
         products = await _repoCached.getAllCached(
           forceRefresh: false,
           onDataUpdated: (freshProducts) {
@@ -207,7 +207,7 @@ class _ProductListPageState extends State<ProductListPage> {
           },
         );
       }
-
+      
       // Show products immediately (don't wait for stock)
       if (mounted) {
         setState(() {
@@ -216,7 +216,7 @@ class _ProductListPageState extends State<ProductListPage> {
           _applyFilters();
         });
       }
-
+      
       // Load stock in background (non-blocking) with cache
       _loadStockAsync(products);
     } catch (e) {

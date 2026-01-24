@@ -17,7 +17,9 @@ import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../recipes/presentation/recipe_builder_page.dart';
 import 'add_product_with_recipe_page.dart';
 import '../../../core/widgets/cached_image.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../subscription/widgets/subscription_guard.dart';
+import '../../subscription/exceptions/subscription_limit_exception.dart';
+import '../../subscription/presentation/subscription_page.dart';
 
 /// Helper class for virtual scrolling list items
 class _ProductListItem {
@@ -1394,5 +1396,200 @@ class _ProductListPageV2State extends State<ProductListPageV2> {
         ],
       ),
     );
+  }
+
+  Future<void> _duplicateProduct(Product product) async {
+    await requirePro(context, 'Duplicate Produk', () async {
+      if (!mounted) return;
+
+      var progressShown = false;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Expanded(child: Text('Sedang gandakan produk...')),
+            ],
+          ),
+        ),
+      );
+      progressShown = true;
+
+      try {
+        final now = DateTime.now();
+        final newSku = _generateDuplicateSku(product.sku);
+        final newName = _generateDuplicateName(product.name);
+
+        final duplicated = Product(
+          id: '',
+          businessOwnerId: '',
+          sku: newSku,
+          name: newName,
+          categoryId: product.categoryId,
+          category: product.category,
+          unit: product.unit,
+          salePrice: product.salePrice,
+          costPrice: product.costPrice,
+          description: product.description,
+          imageUrl: product.imageUrl,
+          unitsPerBatch: product.unitsPerBatch,
+          labourCost: product.labourCost,
+          otherCosts: product.otherCosts,
+          packagingCost: product.packagingCost,
+          materialsCost: product.materialsCost,
+          totalCostPerBatch: product.totalCostPerBatch,
+          costPerUnit: product.costPerUnit,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        final created = await _repo.createProduct(duplicated);
+
+        final activeRecipe = await _recipesRepo.getActiveRecipe(product.id);
+        if (activeRecipe != null) {
+          final newRecipe = await _recipesRepo.createRecipe(
+            productId: created.id,
+            name: '${activeRecipe.name} (Salinan)',
+            description: activeRecipe.description,
+            yieldQuantity: activeRecipe.yieldQuantity,
+            yieldUnit: activeRecipe.yieldUnit,
+            version: 1,
+            isActive: true,
+          );
+
+          final items = await _recipesRepo.getRecipeItems(activeRecipe.id);
+          for (final item in items) {
+            await _recipesRepo.addRecipeItem(
+              recipeId: newRecipe.id,
+              stockItemId: item.stockItemId,
+              quantityNeeded: item.quantityNeeded,
+              usageUnit: item.usageUnit,
+              position: item.position,
+              notes: item.notes,
+            );
+          }
+        }
+
+        CacheService.invalidateMultiple([
+          'products_list',
+          'products_list_inactive',
+          'products_stock_map',
+        ]);
+        await _loadProducts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Produk berjaya diduplikasi'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          if (progressShown) {
+            Navigator.of(context, rootNavigator: true).pop();
+            progressShown = false;
+          }
+          if (e is SubscriptionLimitException) {
+            await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Had Langganan Dicapai'),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.userMessage),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Upgrade langganan anda untuk menambah lebih banyak produk.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Tutup'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubscriptionPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Lihat Pakej'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            final handled = await SubscriptionEnforcement.maybePromptUpgrade(
+              context,
+              action: 'Duplicate Produk',
+              error: e,
+            );
+            if (!handled && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Ralat: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      } finally {
+        if (mounted && progressShown) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+    });
+  }
+
+  String _generateDuplicateSku(String sku) {
+    final trimmed = sku.trim();
+    final base = trimmed.isEmpty ? 'SKU' : trimmed;
+    final existingSkus = _allProducts.map((p) => p.sku.toLowerCase()).toSet();
+
+    var candidate = '$base-COPY';
+    var counter = 2;
+    while (existingSkus.contains(candidate.toLowerCase())) {
+      candidate = '$base-COPY-$counter';
+      counter++;
+    }
+    return candidate;
+  }
+
+  String _generateDuplicateName(String name) {
+    final base = name.trim().isEmpty ? 'Produk' : name.trim();
+    const suffix = ' (Salinan)';
+    final existingNames = _allProducts.map((p) => p.name.toLowerCase()).toSet();
+
+    var candidate = '$base$suffix';
+    var counter = 2;
+    while (existingNames.contains(candidate.toLowerCase())) {
+      candidate = '$base$suffix $counter';
+      counter++;
+    }
+    return candidate;
   }
 }

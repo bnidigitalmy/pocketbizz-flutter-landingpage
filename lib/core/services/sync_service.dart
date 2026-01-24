@@ -28,11 +28,11 @@ class SyncService {
   /// Returns: List of updated records
   Future<List<Map<String, dynamic>>> syncTable({
     required String tableName,
-    required List<Map<String, dynamic>> Function(PostgrestQueryBuilder) queryBuilder,
+    required List<Map<String, dynamic>> Function(dynamic) queryBuilder,
     bool forceFullSync = false,
   }) async {
     try {
-      var query = _supabase.from(tableName);
+      dynamic query = _supabase.from(tableName);
       
       // Delta fetch: hanya ambil records yang updated selepas last sync
       if (!forceFullSync) {
@@ -65,7 +65,7 @@ class SyncService {
   /// 
   /// Returns: Map of tableName -> List of records
   Future<Map<String, List<Map<String, dynamic>>>> syncMultiple({
-    required Map<String, List<Map<String, dynamic>> Function(PostgrestQueryBuilder)> tables,
+    required Map<String, List<Map<String, dynamic>> Function(dynamic)> tables,
     bool forceFullSync = false,
   }) async {
     final results = <String, List<Map<String, dynamic>>>{};
@@ -113,7 +113,7 @@ class SyncService {
   /// [retryDelay] - Delay between retries (default: 2 seconds)
   Future<List<Map<String, dynamic>>> syncWithRetry({
     required String tableName,
-    required List<Map<String, dynamic>> Function(PostgrestQueryBuilder) queryBuilder,
+    required List<Map<String, dynamic>> Function(dynamic) queryBuilder,
     int maxRetries = 3,
     Duration retryDelay = const Duration(seconds: 2),
     bool forceFullSync = false,

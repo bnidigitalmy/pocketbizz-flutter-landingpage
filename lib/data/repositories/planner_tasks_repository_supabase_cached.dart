@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/services/persistent_cache_service.dart';
 import '../models/planner_task.dart';
 import 'planner_tasks_repository_supabase.dart';
 
