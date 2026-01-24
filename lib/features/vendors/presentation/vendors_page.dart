@@ -10,9 +10,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/services/cache_service.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/vendors_repository_supabase.dart';
+import '../../../data/repositories/vendors_repository_supabase_cached.dart';
 import '../../../data/repositories/vendor_commission_price_ranges_repository_supabase.dart';
 import '../../../data/models/vendor.dart';
 import '../../subscription/widgets/subscription_guard.dart';
@@ -41,6 +41,7 @@ class VendorsPage extends StatefulWidget {
 
 class _VendorsPageState extends State<VendorsPage> {
   final _vendorsRepo = VendorsRepositorySupabase();
+  final _vendorsRepoCached = VendorsRepositorySupabaseCached();
   final _priceRangesRepo = VendorCommissionPriceRangesRepository();
   List<Vendor> _vendors = [];
   List<Vendor> _filteredVendors = [];
@@ -106,10 +107,7 @@ class _VendorsPageState extends State<VendorsPage> {
           .listen((data) {
             if (mounted) {
               // Invalidate vendors cache when vendors change
-              CacheService.invalidateMultiple([
-                'vendors_list',
-                'vendors_list_active_only',
-              ]);
+              _vendorsRepoCached.invalidateCache();
               _loadVendors(); // Reload with fresh data
             }
           });
@@ -123,14 +121,23 @@ class _VendorsPageState extends State<VendorsPage> {
   Future<void> _loadVendors() async {
     setState(() => _isLoading = true);
     try {
-      // Use cache for vendors list - faster loading
-      // Vendors rarely change, so longer TTL is safe
-      final vendors = await CacheService.getOrFetch<List<Vendor>>(
-        'vendors_list',
-        () => _vendorsRepo.getAllVendors(activeOnly: false),
-        ttl: const Duration(minutes: 30), // Vendors rarely change
+      // Use cached repository with SWR pattern
+      final vendors = await _vendorsRepoCached.getAllVendorsCached(
+        activeOnly: false,
+        forceRefresh: false,
+        onDataUpdated: (freshVendors) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            setState(() {
+              _vendors = freshVendors;
+              _filteredVendors = freshVendors;
+            });
+            _filterVendors();
+            debugPrint('🔄 Vendors UI updated from background sync');
+          }
+        },
       );
-      
+
       if (mounted) {
         setState(() {
           _vendors = vendors;

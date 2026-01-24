@@ -12,7 +12,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/planner_task.dart';
-import '../../../data/repositories/planner_tasks_repository_supabase.dart';
+import '../../../data/repositories/planner_tasks_repository_supabase_cached.dart';
 
 class PlannerPage extends StatefulWidget {
   const PlannerPage({super.key});
@@ -22,7 +22,7 @@ class PlannerPage extends StatefulWidget {
 }
 
 class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStateMixin {
-  late final PlannerTasksRepositorySupabase _repo;
+  late final PlannerTasksRepositorySupabaseCached _repo;
   late final TabController _tabController;
 
   final _tabs = const [
@@ -41,7 +41,7 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _repo = PlannerTasksRepositorySupabase();
+    _repo = PlannerTasksRepositorySupabaseCached();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _loadAll();
   }
@@ -49,11 +49,32 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
   Future<void> _loadAll() async {
     setState(() => _loading = true);
     try {
+      // Use cached repository with SWR pattern
       final results = await Future.wait([
-        _repo.listTasks(scope: 'today'),
-        _repo.listTasks(scope: 'upcoming'),
-        _repo.listTasks(scope: 'overdue'),
-        _repo.listTasks(scope: 'auto'),
+        _repo.listTasksCached(
+          scope: 'today',
+          onDataUpdated: (tasks) {
+            if (mounted) setState(() => _today = tasks);
+          },
+        ),
+        _repo.listTasksCached(
+          scope: 'upcoming',
+          onDataUpdated: (tasks) {
+            if (mounted) setState(() => _upcoming = tasks);
+          },
+        ),
+        _repo.listTasksCached(
+          scope: 'overdue',
+          onDataUpdated: (tasks) {
+            if (mounted) setState(() => _overdue = tasks);
+          },
+        ),
+        _repo.listTasksCached(
+          scope: 'auto',
+          onDataUpdated: (tasks) {
+            if (mounted) setState(() => _auto = tasks);
+          },
+        ),
       ]);
 
       if (!mounted) return;

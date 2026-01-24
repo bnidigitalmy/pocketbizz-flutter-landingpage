@@ -20,6 +20,7 @@ import '../../../core/utils/date_time_helper.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/models/expense.dart';
 import '../../../data/repositories/expenses_repository_supabase.dart';
+import '../../../data/repositories/expenses_repository_supabase_cached.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
 import 'receipt_scan_page.dart';
 
@@ -38,6 +39,7 @@ class ExpensesPage extends StatefulWidget {
 
 class _ExpensesPageState extends State<ExpensesPage> {
   final _repo = ExpensesRepositorySupabase();
+  final _repoCached = ExpensesRepositorySupabaseCached();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -107,13 +109,8 @@ class _ExpensesPageState extends State<ExpensesPage> {
             // Note: Real-time subscription returns all items, but we only load first page
             debugPrint('🔄 Expenses real-time update detected: ${data.length} total items in DB');
             if (mounted) {
-              // Invalidate all expense caches when expenses change
-              CacheService.invalidate('expenses_list');
-              // Also invalidate paginated caches
-              for (int i = 0; i < 10; i++) {
-                CacheService.invalidate('expenses_list_${i * _pageSize}');
-              }
               // Only reload first page (50 items) for performance
+              // _debouncedRefresh already handles cache invalidation
               _debouncedRefresh();
             }
           }, onError: (error) {
@@ -131,6 +128,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
+        _repoCached.invalidateCache();
         _loadExpenses();
       }
     });
@@ -146,16 +144,38 @@ class _ExpensesPageState extends State<ExpensesPage> {
     } else {
       setState(() => _isLoadingMore = true);
     }
-    
+
     try {
-      // Use cache for expenses - faster loading (only for initial load)
-      final cacheKey = reset ? 'expenses_list' : 'expenses_list_${_currentOffset}';
-      final data = await CacheService.getOrFetch<List<Expense>>(
-        cacheKey,
-        () => _repo.getExpenses(limit: _pageSize, offset: _currentOffset),
-        ttl: const Duration(minutes: 3), // Expenses change frequently, shorter TTL
+      // Use cached repository with SWR pattern
+      final data = await _repoCached.getExpensesCached(
+        limit: _pageSize,
+        offset: _currentOffset,
+        forceRefresh: false,
+        onDataUpdated: (freshExpenses) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            setState(() {
+              if (reset) {
+                _expenses = freshExpenses;
+              } else {
+                // For load more, append new data
+                final existingIds = _expenses.map((e) => e.id).toSet();
+                final newItems = freshExpenses.where((e) => !existingIds.contains(e.id)).toList();
+                _expenses.addAll(newItems);
+              }
+
+              // Ensure we know about any categories already stored in DB.
+              for (final exp in freshExpenses) {
+                if (!_categoryLabels.containsKey(exp.category)) {
+                  _categoryLabels[exp.category] = _titleCase(exp.category);
+                }
+              }
+            });
+            debugPrint('🔄 Expenses UI updated from background sync');
+          }
+        },
       );
-      
+
       if (mounted) {
         setState(() {
           if (reset) {
@@ -163,11 +183,11 @@ class _ExpensesPageState extends State<ExpensesPage> {
           } else {
             _expenses.addAll(data);
           }
-          
+
           // Check if there are more items
           _hasMore = data.length == _pageSize;
           _currentOffset = _expenses.length;
-          
+
           // Ensure we know about any categories already stored in DB.
           for (final exp in data) {
             if (!_categoryLabels.containsKey(exp.category)) {
@@ -405,7 +425,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
       try {
         final amount = double.parse(_formAmount);
         // Invalidate cache before creating (optimistic)
-        CacheService.invalidate('expenses_list');
+        _repoCached.invalidateCache();
         await _repo.createExpense(
           category: _formCategory,
           amount: amount,
@@ -1804,9 +1824,9 @@ class _ExpensesPageState extends State<ExpensesPage> {
         setState(() {
           _expenses = _expenses.where((e) => e.id != expenseId).toList();
         });
-        
+
         // Invalidate cache before deleting (optimistic)
-        CacheService.invalidate('expenses_list');
+        _repoCached.invalidateCache();
         await _repo.deleteExpense(expenseId);
         
         if (mounted) {
@@ -1986,7 +2006,7 @@ class _ExpensesPageState extends State<ExpensesPage> {
     try {
       final amount = double.parse(_formAmount);
       // Invalidate cache before updating (optimistic)
-      CacheService.invalidate('expenses_list');
+      _repoCached.invalidateCache();
       await _repo.updateExpense(
         id: expenseId,
         category: _formCategory,

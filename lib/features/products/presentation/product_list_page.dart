@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
+import '../../../data/repositories/products_repository_supabase_cached.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/repositories/recipes_repository_supabase.dart';
 import '../../../data/models/product.dart';
@@ -59,6 +60,7 @@ class ProductListPage extends StatefulWidget {
 
 class _ProductListPageState extends State<ProductListPage> {
   final _repo = ProductsRepositorySupabase();
+  final _repoCached = ProductsRepositorySupabaseCached();
   final _productionRepo = ProductionRepository(supabase);
   final _searchController = TextEditingController();
   
@@ -138,11 +140,8 @@ class _ProductListPageState extends State<ProductListPage> {
           .listen((data) {
             if (mounted) {
               // Invalidate products cache when products change
-              CacheService.invalidateMultiple([
-                'products_list',
-                'products_list_inactive',
-                'products_stock_map',
-              ]);
+              _repoCached.invalidateCache();
+              CacheService.invalidate('products_stock_map');
               _scheduleProductsReload(); // Reload with fresh data
             }
           });
@@ -182,17 +181,33 @@ class _ProductListPageState extends State<ProductListPage> {
     setState(() => _loading = true);
 
     try {
-      // Use cache for products list - faster loading
-      final cacheKey = _showDisabledProducts 
-          ? 'products_list_inactive' 
-          : 'products_list';
-      
-      final products = await CacheService.getOrFetch(
-        cacheKey,
-        () => _repo.listProducts(includeInactive: _showDisabledProducts),
-        ttl: const Duration(minutes: 10), // Products don't change often
-      );
-      
+      List<Product> products;
+
+      if (_showDisabledProducts) {
+        // For inactive products, use base repo with in-memory cache
+        products = await CacheService.getOrFetch(
+          'products_list_inactive',
+          () => _repo.listProducts(includeInactive: true),
+          ttl: const Duration(minutes: 10),
+        );
+      } else {
+        // Use cached repository with SWR pattern for active products
+        products = await _repoCached.getAllCached(
+          forceRefresh: false,
+          onDataUpdated: (freshProducts) {
+            // Background sync completed - update UI silently
+            if (mounted) {
+              setState(() {
+                _allProducts = freshProducts;
+                _applyFilters();
+              });
+              _loadStockAsync(freshProducts);
+              debugPrint('🔄 Products UI updated from background sync');
+            }
+          },
+        );
+      }
+
       // Show products immediately (don't wait for stock)
       if (mounted) {
         setState(() {
@@ -201,7 +216,7 @@ class _ProductListPageState extends State<ProductListPage> {
           _applyFilters();
         });
       }
-      
+
       // Load stock in background (non-blocking) with cache
       _loadStockAsync(products);
     } catch (e) {
