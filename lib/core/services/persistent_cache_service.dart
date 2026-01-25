@@ -36,6 +36,8 @@ class PersistentCacheService {
     // Box names should match table names or data types
     await Future.wait([
       _openBoxIfNotExists('products'),
+      _openBoxIfNotExists('products_active_100'),
+      _openBoxIfNotExists('products_active_200'),
       _openBoxIfNotExists('sales'),
       _openBoxIfNotExists('expenses'),
       _openBoxIfNotExists('inventory'),
@@ -54,6 +56,10 @@ class PersistentCacheService {
       // Pengeluaran (Production) boxes - High Priority: User guna setiap hari
       _openBoxIfNotExists('finished_products_summary'),
       _openBoxIfNotExists('production_batches'),
+      // Reports cache - aggregated report data
+      _openBoxIfNotExists('reports_cache'),
+      // Claims cache - consignment claims data
+      _openBoxIfNotExists('consignment_claims'),
       // Additional boxes for filtered queries
       _openBoxIfNotExists('sales_all'),
       _openBoxIfNotExists('expenses_0_50'),
@@ -124,7 +130,9 @@ class PersistentCacheService {
     // 3. CACHE MISS: Fetch fresh data (blocking, first time load)
     debugPrint('🔄 Cache miss: $key - fetching fresh data...');
     final freshData = await fetcher();
+    debugPrint('📦 Fetcher returned ${freshData.length} items for $key');
     final parsedData = _parseData<T>(freshData, fromJson);
+    debugPrint('✅ Parsed data type: ${parsedData.runtimeType}, count: ${_getItemCount(parsedData)}');
     
     // Store in cache
     await _saveToBox(box, parsedData, toJson);
@@ -213,34 +221,57 @@ class PersistentCacheService {
   static T _loadFromBox<T>(Box box, dynamic Function(Map<String, dynamic>) fromJson) {
     final List<dynamic> items = box.values.toList();
     
-    // Check if T is a List type by checking the function signature
-    // For List<Product>, we need to parse each item
+    // Always parse as List for List types
+    // Check if T is List type by checking if it's List<Something>
+    final isListType = T.toString().startsWith('List<');
+    
+    if (items.isEmpty) {
+      // Return empty list if List type, otherwise throw
+      if (isListType) {
+        return <dynamic>[] as T;
+      }
+      throw Exception('Cache is empty');
+    }
+    
     try {
-      // Try to parse as List first
+      // Parse all items as List
       final parsed = items.map((item) {
         if (item is String) {
           return fromJson(jsonDecode(item));
         } else if (item is Map) {
           return fromJson(item as Map<String, dynamic>);
         }
-        throw Exception('Unexpected cache format');
+        throw Exception('Unexpected cache format: ${item.runtimeType}');
       }).toList();
       
-      // If we got here, it's likely a List type
-      // Return as T (caller will handle type casting)
-      return parsed as T;
-    } catch (e) {
-      // If parsing as List fails, try single object
-      if (items.isEmpty) {
+      // If T is List type, convert to proper List type
+      if (isListType) {
+        // For web compatibility: Try direct cast first, then create new list if needed
+        try {
+          final result = parsed as T;
+          return result;
+        } catch (e) {
+          debugPrint('⚠️ Direct cast failed in _loadFromBox, creating new list: $e');
+          final result = <dynamic>[];
+          for (var item in parsed) {
+            result.add(item);
+          }
+          return result as T;
+        }
+      }
+      
+      // For non-List types, return first item
+      if (parsed.isEmpty) {
         throw Exception('Cache is empty');
       }
-      final item = items.first;
-      if (item is String) {
-        return fromJson(jsonDecode(item));
-      } else if (item is Map) {
-        return fromJson(item as Map<String, dynamic>);
+      return parsed.first as T;
+    } catch (e) {
+      debugPrint('⚠️ Error parsing cache: $e');
+      // Return empty list for List types on error
+      if (isListType) {
+        return <dynamic>[] as T;
       }
-      throw Exception('Unexpected cache format: $e');
+      rethrow;
     }
   }
   
@@ -277,17 +308,37 @@ class PersistentCacheService {
     List<Map<String, dynamic>> data,
     dynamic Function(Map<String, dynamic>) fromJson,
   ) {
-    // For List types, parse each item
-    try {
+    // Check if T is List type
+    final isListType = T.toString().startsWith('List<');
+    
+    // Always parse as List for List types
+    if (isListType) {
       final parsed = data.map((json) => fromJson(json)).toList();
-      return parsed as T;
-    } catch (e) {
-      // If that fails, try single object
-      if (data.isEmpty) {
-        throw Exception('No data returned');
+      debugPrint('📋 Parsed ${parsed.length} items, first item type: ${parsed.isNotEmpty ? parsed.first.runtimeType : 'empty'}');
+      
+      // For web compatibility: Use List.castFrom or explicit type conversion
+      // This properly handles JSArray to Dart List conversion
+      try {
+        // Try to cast directly first (works in most cases)
+        final result = parsed as T;
+        debugPrint('📋 Direct cast successful, type: ${result.runtimeType}');
+        return result;
+      } catch (e) {
+        // If direct cast fails (web JSArray issue), create new list
+        debugPrint('⚠️ Direct cast failed, creating new list: $e');
+        final result = <dynamic>[];
+        for (var item in parsed) {
+          result.add(item);
+        }
+        return result as T;
       }
-      return fromJson(data.first);
     }
+    
+    // For non-List types, return first item or throw if empty
+    if (data.isEmpty) {
+      throw Exception('No data returned');
+    }
+    return fromJson(data.first) as T;
   }
   
   /// Check if data has changed (simple comparison)
@@ -335,6 +386,8 @@ class PersistentCacheService {
       'deliveries',
       'bookings',
       'purchase_orders',
+      'reports_cache',
+      'consignment_claims',
     ];
     
     await Future.wait(boxes.map((boxName) async {
@@ -370,6 +423,8 @@ class PersistentCacheService {
       'dashboard_subscription',
       'finished_products_summary',
       'production_batches',
+      'reports_cache',
+      'consignment_claims',
     ];
     
     final stats = <String, dynamic>{};

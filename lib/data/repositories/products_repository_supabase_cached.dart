@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/services/cache_key_tracker.dart';
 import '../../core/services/persistent_cache_service.dart';
-import '../../core/services/sync_service.dart';
 import '../../core/supabase/supabase_client.dart';
 import '../models/product.dart';
 import 'products_repository_supabase.dart';
@@ -8,7 +11,7 @@ import 'products_repository_supabase.dart';
 /// Cached version of ProductsRepository dengan Stale-While-Revalidate
 /// 
 /// Features:
-/// - Load dari cache instantly (Hive)
+/// - Load dari cache instantly (Hive) - Direct implementation (no type casting issues)
 /// - Background sync dengan Supabase
 /// - Delta fetch untuk jimat egress
 /// - Offline-first approach
@@ -20,7 +23,6 @@ import 'products_repository_supabase.dart';
 /// ```
 class ProductsRepositorySupabaseCached {
   final ProductsRepositorySupabase _baseRepo = ProductsRepositorySupabase();
-  final SyncService _syncService = SyncService();
   
   /// Get all products dengan persistent cache + Stale-While-Revalidate
   /// 
@@ -36,83 +38,240 @@ class ProductsRepositorySupabaseCached {
       throw Exception('User not authenticated');
     }
     
-    // Use persistent cache dengan Stale-While-Revalidate
-    return await PersistentCacheService.getOrSync<List<Product>>(
-      'products',
-      fetcher: () async {
-        // Build query dengan delta fetch support
-        final lastSync = await PersistentCacheService.getLastSync('products');
-        var query = supabase
-            .from('products')
-            .select()
-            .eq('business_owner_id', userId)
-            .eq('is_active', true)
-            .order('name', ascending: true);
-        
-        // Delta fetch: hanya ambil updated records
-        if (!forceRefresh && lastSync != null) {
-          query = query.gt('updated_at', lastSync.toIso8601String());
-          debugPrint('🔄 Delta fetch: products updated after ${lastSync.toIso8601String()}');
+    // Build cache key
+    final cacheKey = 'products_active_$limit';
+    
+    // Use direct Hive caching untuk List types (more reliable - no type casting issues)
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
         }
-        
-        // If delta fetch returns empty, do full fetch
-        final deltaData = await query;
-        if (deltaData.isEmpty && lastSync != null && !forceRefresh) {
-          debugPrint('🔄 Delta empty, fetching full products list');
-          // Full fetch for first time or when delta is empty
-          final fullData = await supabase
-              .from('products')
-              .select()
-              .eq('business_owner_id', userId)
-              .eq('is_active', true)
-              .order('name', ascending: true)
-              .limit(limit)
-              .range(offset, offset + limit - 1);
-          return List<Map<String, dynamic>>.from(fullData);
+        // Register cache key untuk tracking
+        await CacheKeyTracker.registerKey('products', cacheKey);
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonList = jsonDecode(cached) as List<dynamic>;
+          final products = jsonList.map((json) {
+            final jsonMap = json as Map<String, dynamic>;
+            return Product.fromJson(jsonMap);
+          }).toList();
+          debugPrint('✅ Cache hit: $cacheKey - ${products.length} products');
+          
+          // Trigger background sync
+          _syncProductsInBackground(
+            userId: userId,
+            limit: limit,
+            offset: offset,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return products;
         }
-        
-        return List<Map<String, dynamic>>.from(deltaData);
-      },
-      fromJson: (json) => Product.fromJson(json),
-      toJson: (product) => (product as Product).toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data as List<Product>)
-          : null,
-      forceRefresh: forceRefresh,
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached products: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _fetchProducts(
+      userId: userId,
+      limit: limit,
+      offset: offset,
     );
+    
+    // Cache it
+    try {
+      if (!Hive.isBoxOpen(cacheKey)) {
+        await Hive.openBox(cacheKey);
+      }
+      // Register cache key untuk tracking
+      await CacheKeyTracker.registerKey('products', cacheKey);
+      final box = Hive.box(cacheKey);
+      final jsonList = fresh.map((p) => p.toJson()).toList();
+      await box.put('data', jsonEncode(jsonList));
+      await _updateLastSync('products');
+      debugPrint('✅ Cached ${fresh.length} products');
+    } catch (e) {
+      debugPrint('⚠️ Error caching products: $e');
+    }
+    
+    return fresh;
+  }
+  
+  /// Fetch products from Supabase
+  Future<List<Product>> _fetchProducts({
+    required String userId,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    // Build query dengan delta fetch support
+    final lastSync = await PersistentCacheService.getLastSync('products');
+    
+    // Build base query
+    dynamic query = supabase
+        .from('products')
+        .select()
+        .eq('business_owner_id', userId)
+        .eq('is_active', true);
+    
+    // Delta fetch: hanya ambil updated records (MUST be before .order())
+    if (lastSync != null) {
+      query = query.gt('updated_at', lastSync.toIso8601String());
+      debugPrint('🔄 Delta fetch: products updated after ${lastSync.toIso8601String()}');
+    }
+    
+    // Order must be after filters
+    query = query.order('name', ascending: true);
+    
+    // If delta fetch, don't limit (get all updates)
+    if (lastSync == null) {
+      query = query.limit(limit).range(offset, offset + limit - 1);
+    }
+    
+    // Execute query
+    final queryResult = await query;
+    final deltaData = List<Map<String, dynamic>>.from(queryResult);
+    
+    // If delta fetch returns empty, do full fetch
+    if (deltaData.isEmpty && lastSync != null) {
+      debugPrint('🔄 Delta empty, fetching full products list');
+      // Full fetch
+      final fullResult = await supabase
+          .from('products')
+          .select()
+          .eq('business_owner_id', userId)
+          .eq('is_active', true)
+          .order('name', ascending: true)
+          .limit(limit)
+          .range(offset, offset + limit - 1);
+      
+      return (fullResult as List).map((json) {
+        return Product.fromJson(json as Map<String, dynamic>);
+      }).toList();
+    }
+    
+    return deltaData.map((json) {
+      return Product.fromJson(json);
+    }).toList();
+  }
+  
+  /// Background sync for products
+  Future<void> _syncProductsInBackground({
+    required String userId,
+    int limit = 100,
+    int offset = 0,
+    required String cacheKey,
+    void Function(List<Product>)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _fetchProducts(
+        userId: userId,
+        limit: limit,
+        offset: offset,
+      );
+      
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        // Register cache key untuk tracking
+        await CacheKeyTracker.registerKey('products', cacheKey);
+        final box = Hive.box(cacheKey);
+        final jsonList = fresh.map((p) => p.toJson()).toList();
+        await box.put('data', jsonEncode(jsonList));
+        await _updateLastSync('products');
+      } catch (e) {
+        debugPrint('⚠️ Error updating products cache: $e');
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey - ${fresh.length} products');
+    } catch (e) {
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+    }
+  }
+  
+  /// Update last sync timestamp
+  Future<void> _updateLastSync(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_sync_$key', DateTime.now().toIso8601String());
   }
   
   /// Get product by ID dengan cache
   Future<Product> getProductCached(String id) async {
-    // For single product, use in-memory cache (CacheService) is better
-    // But can also use persistent cache if needed
+    // For single product, use base repo
     return await _baseRepo.getProduct(id);
   }
   
   /// Force refresh semua products dari Supabase
-  Future<List<Product>> refreshAll() async {
-    return await getAllCached(forceRefresh: true);
+  Future<List<Product>> refreshAll({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    return await getAllCached(
+      limit: limit,
+      offset: offset,
+      forceRefresh: true,
+    );
   }
   
   /// Sync products in background (non-blocking)
   Future<void> syncInBackground({
+    int limit = 100,
+    int offset = 0,
     void Function(List<Product>)? onDataUpdated,
   }) async {
     try {
-      final products = await getAllCached(
+      await getAllCached(
+        limit: limit,
+        offset: offset,
         forceRefresh: false,
         onDataUpdated: onDataUpdated,
       );
-      debugPrint('✅ Background sync completed: ${products.length} products');
+      debugPrint('✅ Background sync completed: products');
     } catch (e) {
       debugPrint('❌ Background sync failed: $e');
-      // Don't throw - this is background operation
     }
   }
   
   /// Invalidate products cache
   Future<void> invalidateCache() async {
-    await PersistentCacheService.invalidate('products');
+    try {
+      // Get all tracked cache keys untuk products
+      final trackedKeys = await CacheKeyTracker.getKeys('products');
+      debugPrint('🗑️ Invalidating ${trackedKeys.length} product cache keys: $trackedKeys');
+
+      // Clear all tracked cache boxes
+      for (final boxName in trackedKeys) {
+        try {
+          if (Hive.isBoxOpen(boxName)) {
+            await Hive.box(boxName).clear();
+          } else {
+            // Open and clear if not open
+            final box = await Hive.openBox(boxName);
+            await box.clear();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error clearing box $boxName: $e');
+        }
+      }
+
+      // Clear the tracker juga
+      await CacheKeyTracker.clearKeys('products');
+
+      // Clear last sync timestamp
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_sync_products');
+
+      debugPrint('✅ Products cache invalidated');
+    } catch (e) {
+      debugPrint('⚠️ Error invalidating products cache: $e');
+    }
   }
 }
-

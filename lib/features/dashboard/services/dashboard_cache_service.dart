@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/services/persistent_cache_service.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/bookings_repository_supabase_cached.dart';
@@ -600,13 +599,36 @@ class DashboardCacheService {
   
   /// Invalidate all dashboard cache
   Future<void> invalidateAll() async {
-    await PersistentCacheService.invalidateMultiple([
-      'dashboard_stats',
-      'dashboard_v2',
-      'dashboard_subscription',
-      'dashboard_pending_tasks',
-      'dashboard_sales_by_channel',
-    ]);
+    try {
+      // Clear all dashboard cache boxes
+      final commonKeys = [
+        'dashboard_stats',
+        'dashboard_v2',
+        'dashboard_subscription',
+        'dashboard_pending_tasks',
+      ];
+
+      for (final key in commonKeys) {
+        try {
+          if (Hive.isBoxOpen(key)) {
+            await Hive.box(key).clear();
+          }
+        } catch (e) {
+          // Box might not exist, ignore
+        }
+      }
+
+      // Also clear last sync from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in commonKeys) {
+        await prefs.remove('last_sync_$key');
+      }
+      await prefs.remove('last_sync_dashboard_sales_by_channel');
+
+      debugPrint('✅ Dashboard cache invalidated');
+    } catch (e) {
+      debugPrint('⚠️ Error invalidating dashboard cache: $e');
+    }
   }
 }
 

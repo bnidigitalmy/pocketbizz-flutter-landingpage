@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/repositories/reports_repository_supabase.dart';
+import '../data/repositories/reports_repository_supabase_cached.dart';
 import '../data/models/profit_loss_report.dart';
 import '../data/models/top_product.dart';
 import '../data/models/top_vendor.dart';
@@ -103,6 +104,7 @@ class ReportsState {
 /// UI rebuilds automatically via ref.watch() when state changes.
 class ReportsStateNotifier extends StateNotifier<ReportsState> {
   final ReportsRepositorySupabase _repo;
+  final ReportsRepositorySupabaseCached _repoCached = ReportsRepositorySupabaseCached();
   final List<StreamSubscription> _subscriptions = [];
   RealtimeChannel? _realtimeChannel; // Store channel reference for proper cleanup
   final String _instanceId = DateTime.now().millisecondsSinceEpoch.toString(); // Unique ID for debugging
@@ -170,22 +172,34 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     ]);
   }
 
-  /// Load Profit Loss Report
+  /// Load Profit Loss Report with SWR caching
   Future<void> loadProfitLoss() async {
     // Guard: prevent concurrent loads
     if (state.isLoadingProfitLoss) return;
-    
+
     state = state.copyWith(isLoadingProfitLoss: true, profitLossError: null);
     try {
-      final report = await _repo.getProfitLossReport(
+      // Use cached repository with SWR pattern
+      final report = await _repoCached.getProfitLossReportCached(
         startDate: state.startDate,
         endDate: state.endDate,
+        onDataUpdated: (freshReport) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            state = state.copyWith(profitLoss: freshReport);
+            debugPrint('🔄 P&L UI updated from background sync');
+          }
+        },
       );
-      state = state.copyWith(
-        profitLoss: report,
-        isLoadingProfitLoss: false,
-        profitLossError: null,
-      );
+      if (report != null) {
+        state = state.copyWith(
+          profitLoss: report,
+          isLoadingProfitLoss: false,
+          profitLossError: null,
+        );
+      } else {
+        state = state.copyWith(isLoadingProfitLoss: false);
+      }
     } catch (e) {
       state = state.copyWith(
         isLoadingProfitLoss: false,
@@ -194,17 +208,25 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     }
   }
 
-  /// Load Top Products
+  /// Load Top Products with SWR caching
   Future<void> loadTopProducts() async {
     // Guard: prevent concurrent loads
     if (state.isLoadingProducts) return;
-    
+
     state = state.copyWith(isLoadingProducts: true, productsError: null);
     try {
-      final products = await _repo.getTopProducts(
+      // Use cached repository with SWR pattern
+      final products = await _repoCached.getTopProductsCached(
         limit: 10,
         startDate: state.startDate,
         endDate: state.endDate,
+        onDataUpdated: (freshProducts) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            state = state.copyWith(topProducts: freshProducts);
+            debugPrint('🔄 Top Products UI updated from background sync');
+          }
+        },
       );
       state = state.copyWith(
         topProducts: products,
@@ -219,17 +241,25 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     }
   }
 
-  /// Load Top Vendors
+  /// Load Top Vendors with SWR caching
   Future<void> loadTopVendors() async {
     // Guard: prevent concurrent loads
     if (state.isLoadingVendors) return;
-    
+
     state = state.copyWith(isLoadingVendors: true, vendorsError: null);
     try {
-      final vendors = await _repo.getTopVendors(
+      // Use cached repository with SWR pattern
+      final vendors = await _repoCached.getTopVendorsCached(
         limit: 10,
         startDate: state.startDate,
         endDate: state.endDate,
+        onDataUpdated: (freshVendors) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            state = state.copyWith(topVendors: freshVendors);
+            debugPrint('🔄 Top Vendors UI updated from background sync');
+          }
+        },
       );
       state = state.copyWith(
         topVendors: vendors,
@@ -244,17 +274,25 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     }
   }
 
-  /// Load Monthly Trends
+  /// Load Monthly Trends with SWR caching
   Future<void> loadMonthlyTrends() async {
     // Guard: prevent concurrent loads
     if (state.isLoadingTrends) return;
-    
+
     state = state.copyWith(isLoadingTrends: true, trendsError: null);
     try {
-      final trends = await _repo.getMonthlyTrends(
+      // Use cached repository with SWR pattern
+      final trends = await _repoCached.getMonthlyTrendsCached(
         months: 12,
         startDate: state.startDate,
         endDate: state.endDate,
+        onDataUpdated: (freshTrends) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            state = state.copyWith(monthlyTrends: freshTrends);
+            debugPrint('🔄 Monthly Trends UI updated from background sync');
+          }
+        },
       );
       state = state.copyWith(
         monthlyTrends: trends,
@@ -269,16 +307,24 @@ class ReportsStateNotifier extends StateNotifier<ReportsState> {
     }
   }
 
-  /// Load Sales By Channel
+  /// Load Sales By Channel with SWR caching
   Future<void> loadSalesByChannel() async {
     // Guard: prevent concurrent loads
     if (state.isLoadingChannels) return;
-    
+
     state = state.copyWith(isLoadingChannels: true, channelsError: null);
     try {
-      final channels = await _repo.getSalesByChannel(
+      // Use cached repository with SWR pattern
+      final channels = await _repoCached.getSalesByChannelCached(
         startDate: state.startDate,
         endDate: state.endDate,
+        onDataUpdated: (freshChannels) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            state = state.copyWith(salesByChannel: freshChannels);
+            debugPrint('🔄 Sales By Channel UI updated from background sync');
+          }
+        },
       );
       state = state.copyWith(
         salesByChannel: channels,

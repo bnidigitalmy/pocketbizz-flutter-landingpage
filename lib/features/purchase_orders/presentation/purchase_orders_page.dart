@@ -7,10 +7,11 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_time_helper.dart';
 import '../../../data/models/purchase_order.dart';
 import '../../../data/repositories/purchase_order_repository_supabase.dart';
+import '../../../data/repositories/purchase_order_repository_supabase_cached.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../../core/supabase/supabase_client.dart';
@@ -44,12 +46,17 @@ class PurchaseOrdersPage extends StatefulWidget {
 
 class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   final _poRepo = PurchaseOrderRepository(supabase);
+  final _poRepoCached = PurchaseOrderRepositorySupabaseCached(supabase);
   final _businessProfileRepo = BusinessProfileRepository();
-  
+
   List<PurchaseOrder> _purchaseOrders = [];
   BusinessProfile? _businessProfile;
   bool _isLoading = true;
-  
+
+  // Real-time subscription for cache invalidation
+  StreamSubscription? _poSubscription;
+  Timer? _debounceTimer;
+
   // Selected PO for dialogs
   PurchaseOrder? _selectedPO;
   
@@ -84,6 +91,7 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
   void initState() {
     super.initState();
     _loadData();
+    _setupRealtimeSubscription();
   }
 
   Future<void> _loadData() async {
@@ -91,6 +99,41 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
       _loadPurchaseOrders(),
       _loadBusinessProfile(),
     ]);
+  }
+
+  /// Setup real-time subscription for purchase_orders table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to purchase_orders changes for current user
+      _poSubscription = supabase
+          .from('purchase_orders')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // PO updated - invalidate cache and refresh with debounce
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          });
+
+      debugPrint('✅ Purchase Orders page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up PO real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _poRepoCached.invalidateCache();
+        _loadPurchaseOrders();
+      }
+    });
   }
 
   Future<void> _loadBusinessProfile() async {
@@ -117,6 +160,8 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
   @override
   void dispose() {
+    _poSubscription?.cancel();
+    _debounceTimer?.cancel();
     _emailRecipientController.dispose();
     _emailNameController.dispose();
     _emailMessageController.dispose();
@@ -139,9 +184,21 @@ class _PurchaseOrdersPageState extends State<PurchaseOrdersPage> {
 
   Future<void> _loadPurchaseOrders() async {
     setState(() => _isLoading = true);
-    
+
     try {
-      final orders = await _poRepo.getAllPurchaseOrders(limit: 100);
+      // Use cached repository with SWR pattern
+      final orders = await _poRepoCached.getAllPurchaseOrdersCached(
+        limit: 100,
+        onDataUpdated: (freshOrders) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            setState(() {
+              _purchaseOrders = freshOrders;
+            });
+            debugPrint('🔄 Purchase Orders UI updated from background sync');
+          }
+        },
+      );
       setState(() {
         _purchaseOrders = orders;
         _isLoading = false;

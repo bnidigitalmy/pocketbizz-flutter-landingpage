@@ -7,6 +7,7 @@ import '../../../core/utils/sales_receipt_pdf_generator.dart';
 import '../../../core/utils/pdf_generator.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../data/repositories/sales_repository_supabase.dart';
+import '../../../data/repositories/sales_repository_supabase_cached.dart';
 import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 
@@ -28,6 +29,7 @@ class SalesPage extends StatefulWidget {
 
 class _SalesPageState extends State<SalesPage> {
   final _repo = SalesRepositorySupabase();
+  final _repoCached = SalesRepositorySupabaseCached();
   List<Sale> _sales = [];
   bool _loading = false;
   String? _selectedChannel;
@@ -79,6 +81,7 @@ class _SalesPageState extends State<SalesPage> {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
+        _repoCached.invalidateCache();
         _loadSales();
       }
     });
@@ -88,7 +91,19 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _loading = true);
 
     try {
-      final sales = await _repo.listSales(channel: _selectedChannel);
+      // Use cached repository with SWR pattern
+      final sales = await _repoCached.listSalesCached(
+        channel: _selectedChannel,
+        onDataUpdated: (freshSales) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            setState(() {
+              _sales = freshSales;
+            });
+            debugPrint('🔄 Sales UI updated from background sync');
+          }
+        },
+      );
       if (mounted) {
         setState(() {
           _sales = sales;
