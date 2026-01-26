@@ -166,6 +166,24 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     }
   }
 
+  /// Helper to convert List<dynamic> to List<Delivery> (web-safe)
+  List<Delivery> _parseDeliveries(dynamic data) {
+    if (data == null) return [];
+    if (data is List<Delivery>) return data;
+    if (data is List) {
+      // Convert List<dynamic> or List<Map> to List<Delivery>
+      return data.map((item) {
+        if (item is Delivery) return item;
+        if (item is Map<String, dynamic>) {
+          return Delivery.fromJson(item);
+        }
+        // Fallback: try to convert
+        return Delivery.fromJson(item as Map<String, dynamic>);
+      }).toList();
+    }
+    return [];
+  }
+
   Future<void> _loadDeliveries({bool reset = false}) async {
     if (reset) {
       _currentOffset = 0;
@@ -183,9 +201,11 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
           if (mounted) {
             setState(() {
               if (reset || _currentOffset == 0) {
-                _deliveries = freshResult['data'] as List<Delivery>;
+                _deliveries = _parseDeliveries(freshResult['data']);
+              } else {
+                _deliveries.addAll(_parseDeliveries(freshResult['data']));
               }
-              _hasMore = freshResult['hasMore'] as bool;
+              _hasMore = freshResult['hasMore'] as bool? ?? false;
               _currentOffset = _deliveries.length;
             });
             debugPrint('🔄 Deliveries UI updated from background sync: ${_deliveries.length} deliveries');
@@ -195,12 +215,13 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
 
       if (mounted) {
         setState(() {
+          final parsedDeliveries = _parseDeliveries(result['data']);
           if (reset) {
-            _deliveries = result['data'] as List<Delivery>;
+            _deliveries = parsedDeliveries;
           } else {
-            _deliveries.addAll(result['data'] as List<Delivery>);
+            _deliveries.addAll(parsedDeliveries);
           }
-          _hasMore = result['hasMore'] as bool;
+          _hasMore = result['hasMore'] as bool? ?? false;
           _currentOffset = _deliveries.length;
           _isLoadingMore = false;
         });
