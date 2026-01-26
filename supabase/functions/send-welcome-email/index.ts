@@ -8,6 +8,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DEFAULT_FROM = "PocketBizz <noreply@notifications.pocketbizz.my>";
 
 const corsHeaders = {
@@ -201,6 +203,29 @@ serve(async (req: Request) => {
     }
 
     console.log(`Welcome email sent successfully: ${resendResult.id}`);
+
+    // Send Telegram notification for new user registration
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/telegram-admin-notify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          type: "new_user",
+          data: {
+            user_email: email,
+            user_name: userName,
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      });
+      console.log(`Telegram notification sent for new user: ${email}`);
+    } catch (telegramError) {
+      // Don't fail if Telegram notification fails
+      console.error("Failed to send Telegram notification:", telegramError);
+    }
 
     return new Response(
       JSON.stringify({ success: true, messageId: resendResult.id }),

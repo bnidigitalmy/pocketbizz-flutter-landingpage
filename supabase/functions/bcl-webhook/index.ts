@@ -661,6 +661,54 @@ Deno.serve(async (req) => {
       }
 
       console.log(`[${new Date().toISOString()}] Payment and subscription activated successfully`);
+
+      // Send Telegram notification for successful upgrade
+      try {
+        // Get user email and business name
+        const { data: userData } = await supabase.auth.admin.getUserById(payment.user_id as string);
+        const userEmail = userData?.user?.email ?? payloadData.payer_email ?? "Unknown";
+
+        // Get business profile
+        const { data: businessProfile } = await supabase
+          .from("business_profiles")
+          .select("business_name, owner_name")
+          .eq("user_id", payment.user_id)
+          .maybeSingle();
+
+        // Get plan details
+        const { data: planData } = await supabase
+          .from("subscription_plans")
+          .select("name, duration_months")
+          .eq("id", subscription.plan_id)
+          .maybeSingle();
+
+        await fetch(`${SUPABASE_URL}/functions/v1/telegram-admin-notify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            type: "upgrade_pro",
+            data: {
+              user_email: userEmail,
+              user_name: businessProfile?.owner_name ?? payloadData.payer_name ?? "N/A",
+              business_name: businessProfile?.business_name ?? "N/A",
+              plan_name: planData?.name ?? "Pro",
+              duration_months: planData?.duration_months ?? 1,
+              amount: finalAmount,
+              currency: "MYR",
+              order_id: orderNumber,
+              timestamp: nowIso,
+            },
+          }),
+        });
+        console.log(`[${new Date().toISOString()}] Telegram notification sent for upgrade`);
+      } catch (telegramError) {
+        // Don't fail the webhook if Telegram notification fails
+        console.error(`[${new Date().toISOString()}] Failed to send Telegram notification:`, telegramError);
+      }
+
       return jsonResponse({ message: "OK" });
     }
 
@@ -694,6 +742,35 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${new Date().toISOString()}] Payment marked as failed`);
+
+    // Send Telegram notification for failed payment
+    try {
+      const { data: userData } = await supabase.auth.admin.getUserById(payment.user_id as string);
+      const userEmail = userData?.user?.email ?? payloadData.payer_email ?? "Unknown";
+
+      await fetch(`${SUPABASE_URL}/functions/v1/telegram-admin-notify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          type: "payment_failed",
+          data: {
+            user_email: userEmail,
+            amount: webhookAmount,
+            currency: "MYR",
+            order_id: orderNumber,
+            failure_reason: payloadData.status_description ?? "Payment failed",
+            timestamp: nowIso,
+          },
+        }),
+      });
+      console.log(`[${new Date().toISOString()}] Telegram notification sent for failed payment`);
+    } catch (telegramError) {
+      console.error(`[${new Date().toISOString()}] Failed to send Telegram notification:`, telegramError);
+    }
+
     return jsonResponse({ message: "Marked failed" });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Unhandled error:`, error);
