@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/persistent_cache_service.dart';
 import '../../core/supabase/supabase_client.dart';
 import '../models/supplier.dart';
@@ -7,7 +10,7 @@ import 'suppliers_repository_supabase.dart';
 /// Cached version of SuppliersRepository dengan Stale-While-Revalidate
 /// 
 /// Features:
-/// - Load dari cache instantly (Hive)
+/// - Load dari cache instantly (Hive) - Direct implementation (no type casting issues)
 /// - Background sync dengan Supabase
 /// - Delta fetch untuk jimat egress
 /// - Offline-first approach
@@ -33,54 +36,159 @@ class SuppliersRepositorySupabaseCached {
     // Build cache key dengan pagination
     final cacheKey = 'suppliers_${offset}_${limit}';
     
-    return await PersistentCacheService.getOrSync<List<Supplier>>(
-      key: cacheKey,
-      fetcher: () async {
-        // Build query dengan delta fetch support
-        final lastSync = await PersistentCacheService.getLastSync('suppliers');
-        dynamic query = supabase
-            .from('suppliers')
-            .select();
-        
-        // Apply filters first (keep as PostgrestFilterBuilder)
-        query = query.eq('business_owner_id', userId);
-        
-        // Delta fetch: hanya ambil updated records
-        if (!forceRefresh && lastSync != null) {
-          query = query.gt('updated_at', lastSync.toIso8601String());
-          debugPrint('🔄 Delta fetch: suppliers updated after ${lastSync.toIso8601String()}');
+    // Use direct Hive caching untuk List types (more reliable - no type casting issues)
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
         }
-        
-        // Order and pagination
-        query = query.order('name');
-        
-        if (forceRefresh || lastSync == null) {
-          query = query.range(offset, offset + limit - 1);
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonList = jsonDecode(cached) as List<dynamic>;
+          final suppliers = jsonList.map((json) {
+            final jsonMap = json as Map<String, dynamic>;
+            return Supplier.fromJson(jsonMap);
+          }).toList();
+          debugPrint('✅ Cache hit: $cacheKey - ${suppliers.length} suppliers');
+          
+          // Trigger background sync
+          _syncSuppliersInBackground(
+            userId: userId,
+            limit: limit,
+            offset: offset,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return suppliers;
         }
-        
-        // If delta fetch returns empty, do full fetch
-        final deltaData = await query;
-        if (deltaData.isEmpty && lastSync != null && !forceRefresh) {
-          debugPrint('🔄 Delta empty, fetching full suppliers list');
-          // Full fetch
-          final fullData = await supabase
-              .from('suppliers')
-              .select()
-              .eq('business_owner_id', userId)
-              .order('name')
-              .range(offset, offset + limit - 1);
-          return List<Map<String, dynamic>>.from(fullData);
-        }
-        
-        return List<Map<String, dynamic>>.from(deltaData);
-      },
-      fromJson: (json) => Supplier.fromJson(json),
-      toJson: (supplier) => supplier.toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data as List<Supplier>)
-          : null,
-      forceRefresh: forceRefresh,
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached suppliers: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _fetchSuppliers(
+      userId: userId,
+      limit: limit,
+      offset: offset,
     );
+    
+    // Cache it
+    try {
+      if (!Hive.isBoxOpen(cacheKey)) {
+        await Hive.openBox(cacheKey);
+      }
+      final box = Hive.box(cacheKey);
+      final jsonList = fresh.map((s) => s.toJson()).toList();
+      await box.put('data', jsonEncode(jsonList));
+      await _updateLastSync('suppliers');
+      debugPrint('✅ Cached ${fresh.length} suppliers');
+    } catch (e) {
+      debugPrint('⚠️ Error caching suppliers: $e');
+    }
+    
+    return fresh;
+  }
+  
+  /// Fetch suppliers from Supabase
+  Future<List<Supplier>> _fetchSuppliers({
+    required String userId,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    // Build query dengan delta fetch support
+    final lastSync = await PersistentCacheService.getLastSync('suppliers');
+    
+    // Build base query
+    dynamic query = supabase
+        .from('suppliers')
+        .select();
+    
+    // Apply filters first (before .order())
+    query = query.eq('business_owner_id', userId);
+    
+    // Delta fetch: hanya ambil updated records (MUST be before .order())
+    if (lastSync != null) {
+      query = query.gt('updated_at', lastSync.toIso8601String());
+      debugPrint('🔄 Delta fetch: suppliers updated after ${lastSync.toIso8601String()}');
+    }
+    
+    // Order must be after filters
+    query = query.order('name');
+    
+    // If delta fetch, don't limit (get all updates)
+    if (lastSync == null) {
+      query = query.range(offset, offset + limit - 1);
+    }
+    
+    // Execute query
+    final queryResult = await query;
+    final deltaData = List<Map<String, dynamic>>.from(queryResult);
+    
+    // If delta fetch returns empty, do full fetch
+    if (deltaData.isEmpty && lastSync != null) {
+      debugPrint('🔄 Delta empty, fetching full suppliers list');
+      // Full fetch
+      final fullResult = await supabase
+          .from('suppliers')
+          .select()
+          .eq('business_owner_id', userId)
+          .order('name')
+          .range(offset, offset + limit - 1);
+      
+      return (fullResult as List).map((json) {
+        return Supplier.fromJson(json as Map<String, dynamic>);
+      }).toList();
+    }
+    
+    return deltaData.map((json) {
+      return Supplier.fromJson(json);
+    }).toList();
+  }
+  
+  /// Background sync for suppliers
+  Future<void> _syncSuppliersInBackground({
+    required String userId,
+    int limit = 100,
+    int offset = 0,
+    required String cacheKey,
+    void Function(List<Supplier>)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _fetchSuppliers(
+        userId: userId,
+        limit: limit,
+        offset: offset,
+      );
+      
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final jsonList = fresh.map((s) => s.toJson()).toList();
+        await box.put('data', jsonEncode(jsonList));
+        await _updateLastSync('suppliers');
+      } catch (e) {
+        debugPrint('⚠️ Error updating suppliers cache: $e');
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey - ${fresh.length} suppliers');
+    } catch (e) {
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+    }
+  }
+  
+  /// Update last sync timestamp
+  Future<void> _updateLastSync(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_sync_$key', DateTime.now().toIso8601String());
   }
   
   /// Get supplier by ID dengan cache
@@ -122,7 +230,22 @@ class SuppliersRepositorySupabaseCached {
   
   /// Invalidate suppliers cache
   Future<void> invalidateCache() async {
-    await PersistentCacheService.invalidate('suppliers');
+    try {
+      // Clear common supplier cache boxes
+      final commonKeys = ['suppliers_0_100', 'suppliers_100_100', 'suppliers'];
+      for (final key in commonKeys) {
+        try {
+          if (Hive.isBoxOpen(key)) {
+            await Hive.box(key).clear();
+          }
+        } catch (e) {
+          // Box might not exist, ignore
+        }
+      }
+      debugPrint('✅ Suppliers cache invalidated');
+    } catch (e) {
+      debugPrint('⚠️ Error invalidating suppliers cache: $e');
+    }
   }
   
   // Delegate methods untuk write operations (invalidate cache after)
@@ -175,4 +298,3 @@ class SuppliersRepositorySupabaseCached {
   /// Expose base repository for widgets that need full SuppliersRepository interface
   SuppliersRepository get baseRepository => _baseRepo;
 }
-

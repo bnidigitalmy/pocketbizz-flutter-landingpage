@@ -326,7 +326,33 @@ class BookingsRepositorySupabaseCached {
   
   /// Invalidate bookings cache
   Future<void> invalidateCache() async {
-    await PersistentCacheService.invalidate('bookings');
+    try {
+      // Clear common bookings cache boxes
+      final commonKeys = [
+        'bookings_all_50',
+        'bookings_pending_50',
+        'bookings_confirmed_50',
+        'bookings_completed_50',
+        'bookings',
+      ];
+      for (final key in commonKeys) {
+        try {
+          if (Hive.isBoxOpen(key)) {
+            await Hive.box(key).clear();
+          }
+        } catch (e) {
+          // Box might not exist, ignore
+        }
+      }
+
+      // Also clear last sync from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_sync_bookings');
+
+      debugPrint('✅ Bookings cache invalidated');
+    } catch (e) {
+      debugPrint('⚠️ Error invalidating bookings cache: $e');
+    }
   }
   
   /// Expose base repository for widgets that need full BookingsRepositorySupabase interface

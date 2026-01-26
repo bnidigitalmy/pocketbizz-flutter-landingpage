@@ -234,21 +234,82 @@ class ProductionRepositoryCached {
   }) async {
     final cacheKey = 'production_batch_$id';
     
-    return await PersistentCacheService.getOrSync<ProductionBatch?>(
-      key: cacheKey,
-      fetcher: () async {
-        final batch = await _baseRepo.getBatchById(id);
-        // Convert to List<Map> or empty list for caching
-        if (batch == null) return <Map<String, dynamic>>[];
-        return [batch.toJson()];
-      },
-      fromJson: (json) => json != null ? ProductionBatch.fromJson(json) : null,
-      toJson: (batch) => batch?.toJson(),
-      onDataUpdated: onDataUpdated != null 
-          ? (data) => onDataUpdated(data)
-          : null,
-      forceRefresh: forceRefresh,
-    );
+    // Use direct Hive caching untuk single nullable object
+    if (!forceRefresh) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        final cached = box.get('data');
+        if (cached != null && cached is String) {
+          final jsonMap = jsonDecode(cached) as Map<String, dynamic>;
+          final batch = ProductionBatch.fromJson(jsonMap);
+          debugPrint('✅ Cache hit: $cacheKey');
+          
+          // Trigger background sync
+          _syncBatchByIdInBackground(
+            id: id,
+            cacheKey: cacheKey,
+            onDataUpdated: onDataUpdated,
+          );
+          
+          return batch;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error loading cached batch: $e');
+      }
+    }
+    
+    // Cache miss or force refresh
+    debugPrint('🔄 Cache miss: $cacheKey - fetching fresh data...');
+    final fresh = await _baseRepo.getBatchById(id);
+    
+    // Cache it (if not null)
+    if (fresh != null) {
+      try {
+        if (!Hive.isBoxOpen(cacheKey)) {
+          await Hive.openBox(cacheKey);
+        }
+        final box = Hive.box(cacheKey);
+        await box.put('data', jsonEncode(fresh.toJson()));
+        debugPrint('✅ Cached batch: $id');
+      } catch (e) {
+        debugPrint('⚠️ Error caching batch: $e');
+      }
+    }
+    
+    return fresh;
+  }
+  
+  /// Background sync for single batch by ID
+  Future<void> _syncBatchByIdInBackground({
+    required String id,
+    required String cacheKey,
+    void Function(ProductionBatch?)? onDataUpdated,
+  }) async {
+    try {
+      final fresh = await _baseRepo.getBatchById(id);
+      
+      if (fresh != null) {
+        try {
+          if (!Hive.isBoxOpen(cacheKey)) {
+            await Hive.openBox(cacheKey);
+          }
+          final box = Hive.box(cacheKey);
+          await box.put('data', jsonEncode(fresh.toJson()));
+        } catch (e) {
+          debugPrint('⚠️ Error updating batch cache: $e');
+        }
+      }
+      
+      if (onDataUpdated != null) {
+        onDataUpdated(fresh);
+      }
+      debugPrint('✅ Background sync completed: $cacheKey');
+    } catch (e) {
+      debugPrint('❌ Background sync failed for $cacheKey: $e');
+    }
   }
   
   // Delegate methods yang tak perlu cache (write operations atau complex queries)

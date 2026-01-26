@@ -15,6 +15,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../core/services/cache_service.dart';
 import '../../../data/repositories/stock_repository_supabase.dart';
+import '../../../data/repositories/stock_repository_supabase_cached.dart';
 import '../../../data/models/stock_item.dart';
 import '../../../core/utils/unit_conversion.dart';
 import '../../../core/utils/stock_export_import.dart';
@@ -39,6 +40,7 @@ class StockPage extends StatefulWidget {
 
 class _StockPageState extends State<StockPage> {
   late final StockRepository _stockRepository;
+  late final StockRepositorySupabaseCached _stockRepoCached;
   List<StockItem> _stockItems = [];
   List<StockItem> _filteredItems = [];
   bool _isLoading = true;
@@ -67,6 +69,7 @@ class _StockPageState extends State<StockPage> {
   void initState() {
     super.initState();
     _stockRepository = StockRepository(supabase);
+    _stockRepoCached = StockRepositorySupabaseCached(supabase);
     _loadStockItems();
     _setupRealtimeSubscriptions();
   }
@@ -93,10 +96,8 @@ class _StockPageState extends State<StockPage> {
           .listen((data) {
             if (mounted) {
               // Invalidate stock cache when items change
-              CacheService.invalidateMultiple([
-                'stock_items_list',
-                'stock_batch_summaries',
-              ]);
+              _stockRepoCached.invalidateCache();
+              CacheService.invalidate('stock_batch_summaries');
               _loadStockItems(); // Reload with fresh data
             }
           });
@@ -109,10 +110,8 @@ class _StockPageState extends State<StockPage> {
           .listen((data) {
             if (mounted) {
               // Invalidate stock cache when movements change
-              CacheService.invalidateMultiple([
-                'stock_items_list',
-                'stock_batch_summaries',
-              ]);
+              _stockRepoCached.invalidateCache();
+              CacheService.invalidate('stock_batch_summaries');
               _loadStockItems(); // Reload with fresh data
             }
           });
@@ -142,13 +141,24 @@ class _StockPageState extends State<StockPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Use cache for stock items - faster loading
-      final items = await CacheService.getOrFetch<List<StockItem>>(
-        'stock_items_list',
-        () => _stockRepository.getAllStockItems(limit: 100),
-        ttl: const Duration(minutes: 5), // Stock changes moderately
+      // Use cached repository with SWR pattern
+      final items = await _stockRepoCached.getAllStockItemsCached(
+        limit: 100,
+        forceRefresh: false,
+        onDataUpdated: (freshItems) {
+          // Background sync completed - update UI silently
+          if (mounted) {
+            setState(() {
+              _stockItems = freshItems;
+              _filteredItems = freshItems;
+            });
+            _applyFilters();
+            _loadBatchSummariesAsync(freshItems);
+            debugPrint('🔄 Stock UI updated from background sync');
+          }
+        },
       );
-      
+
       // Show items immediately (don't wait for batch summaries)
       setState(() {
         _stockItems = items;
@@ -156,7 +166,7 @@ class _StockPageState extends State<StockPage> {
         _isLoading = false;
       });
       _applyFilters();
-      
+
       // Load batch summaries in parallel (non-blocking, lazy load)
       // This won't block the UI from showing stock items
       _loadBatchSummariesAsync(items);
