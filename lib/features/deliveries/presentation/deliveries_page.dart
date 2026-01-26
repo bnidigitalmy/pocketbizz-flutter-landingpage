@@ -105,7 +105,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> {
     if (userId == null) return;
 
     _deliveriesSubscription = supabase
-        .from('deliveries')
+        .from('vendor_deliveries')
         .stream(primaryKey: ['id'])
         .eq('business_owner_id', userId)
         .listen((data) {
