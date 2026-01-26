@@ -1,0 +1,2580 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PocketBizz - Urus Bisnes Kecil Jadi Lebih Teratur, Cepat & Jelas. Sistem pengurusan bisnes lengkap untuk usahawan kecil dan SME di Malaysia.">
+  <meta name="keywords" content="pocketbizz, sistem pengurusan bisnes, SME Malaysia, urus bisnes kecil, produksi automatik, stok terkawal, vendor consignment">
+  <meta name="author" content="BNI Digital Enterprise">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pocketbizz.my">
+  <meta property="og:title" content="PocketBizz - Urus Bisnes Kecil Jadi Lebih Teratur, Cepat & Jelas">
+  <meta property="og:description" content="Jualan, stok, kos, produksi dan penghantaran — semuanya dalam satu sistem ringkas. Direka khas untuk usahawan kecil dan SME di Malaysia.">
+  <meta property="og:image" content="https://pocketbizz.my/og-image.jpg">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://pocketbizz.my">
+  <meta property="twitter:title" content="PocketBizz - Urus Bisnes Kecil Jadi Lebih Teratur">
+  <meta property="twitter:description" content="Jualan, stok, kos, produksi dan penghantaran — semuanya dalam satu sistem ringkas.">
+  <meta property="twitter:image" content="https://pocketbizz.my/og-image.jpg">
+  
+  <title>PocketBizz - Urus Bisnes Kecil Jadi Lebih Teratur, Cepat & Jelas | Sistem Pengurusan Bisnes Lengkap</title>
+  <link rel="canonical" href="https://pocketbizz.my">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#14b8a6">
+  
+  <!-- Preload critical resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  
+  <!-- Preload critical images -->
+  <link rel="preload" as="image" href="assets/images/dashboard_baru.png" fetchpriority="high">
+  <link rel="preload" as="image" href="transparentlogo2.png">
+  
+  <!-- Google Fonts - Optimized loading -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Structured Data for SEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "PocketBizz",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "offers": {
+      "@type": "Offer",
+      "price": "39.00",
+      "priceCurrency": "MYR",
+      "priceValidUntil": "2025-12-31"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "500"
+    },
+    "description": "Sistem pengurusan bisnes lengkap untuk usahawan kecil dan SME di Malaysia. Urus jualan, stok, kos, produksi dan penghantaran dalam satu sistem ringkas.",
+    "provider": {
+      "@type": "Organization",
+      "name": "BNI Digital Enterprise",
+      "legalName": "BNI Digital Enterprise (TR0323644-V)"
+    }
+  }
+  </script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+            },
+            accent: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    :root {
+      --primary: #14b8a6;
+      --primary-dark: #0d9488;
+      --primary-light: #2dd4bf;
+      --accent: #3b82f6;
+      --accent-dark: #2563eb;
+      --accent-light: #60a5fa;
+      --logo-gradient: linear-gradient(to bottom, #14b8a6, #3b82f6);
+    }
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .hover-elevate {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .hover-elevate:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    .bg-grid {
+      background-image: 
+        linear-gradient(to right, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .will-change-transform {
+      will-change: transform;
+    }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--primary-600);
+      outline-offset: 2px;
+    }
+    img[loading="lazy"] {
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    img[loading="lazy"].loaded {
+      opacity: 1;
+    }
+    .section-padding {
+      padding: 3rem 1rem;
+    }
+    @media (min-width: 640px) {
+      .section-padding {
+        padding: 4rem 1.5rem;
+      }
+    }
+    @media (min-width: 1024px) {
+      .section-padding {
+        padding: 5rem 2rem;
+      }
+    }
+    /* FAQ Accordion Styles */
+    .faq-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+    }
+    .faq-content:not(.hidden) {
+      max-height: 1000px;
+      transition: max-height 0.3s ease-in, padding 0.3s ease-in;
+    }
+    .faq-icon {
+      transition: transform 0.3s ease;
+    }
+    .faq-toggle {
+      cursor: pointer;
+    }
+    .faq-toggle:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-white">
+  <!-- Header / Navigation -->
+  <header class="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60" role="banner">
+    <div class="max-w-7xl mx-auto flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <a href="#" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="PocketBizz Home">
+        <img src="transparentlogo2.png" alt="PocketBizz Logo" class="h-8 w-auto sm:h-9" loading="eager" width="200" height="50" fetchpriority="high">
+      </a>
+      <nav class="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Main navigation">
+        <a href="#features" class="text-sm font-medium hover:opacity-80 transition-colors">Features</a>
+        <a href="#perfect" class="text-sm font-medium hover:opacity-80 transition-colors">Perfect Untuk</a>
+        <a href="#pricing" class="text-sm font-medium hover:opacity-80 transition-colors">Harga</a>
+        <a href="#testimoni" class="text-sm font-medium hover:opacity-80 transition-colors">Testimoni</a>
+        <a href="#faq" class="text-sm font-medium hover:opacity-80 transition-colors">FAQ</a>
+      </nav>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a href="https://app.pocketbizz.my/auth/login" class="hidden sm:flex h-9 px-4 items-center justify-center rounded-md text-sm font-medium hover:bg-slate-100 transition-colors" aria-label="Log Masuk">
+          Log Masuk
+        </a>
+        <a href="https://app.pocketbizz.my/auth/register" class="h-9 px-4 flex items-center justify-center rounded-md text-sm font-semibold text-white transition-colors" style="background: var(--logo-gradient);" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'" aria-label="Cuba Percuma 7 Hari">
+          Cuba Percuma
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 🔥 HERO SECTION -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 lg:py-28 bg-gradient-to-b from-white to-slate-50" aria-labelledby="hero-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 lg:gap-16 items-center">
+          <div class="space-y-4 sm:space-y-6">
+            <div class="space-y-3 sm:space-y-4">
+              <h1 id="hero-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-tight">
+                Urus Bisnes Kecil Jadi Lebih <span style="color: var(--primary);">Teratur, Cepat & Jelas</span>
+              </h1>
+              <p class="text-base sm:text-lg md:text-xl text-slate-700 leading-relaxed font-medium">
+                Jualan, stok, kos, produksi dan penghantaran —<br>
+                semuanya dalam satu sistem ringkas.
+              </p>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                <strong>Direka khas untuk usahawan kecil dan SME di Malaysia.</strong>
+              </p>
+              <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                Tidak perlu ilmu akaun.<br>
+                Tidak perlu Excel.<br>
+                Cukup guna telefon pintar.
+              </p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <a href="https://app.pocketbizz.my/auth/register" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md px-8 text-base sm:text-lg font-semibold text-white transition-all will-change-transform shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Mula Percuma 7 Hari">
+                Cuba Percuma 7 Hari
+                <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+              </a>
+              <a href="#features" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md border border-slate-300 px-8 text-base sm:text-lg font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                Lihat Bagaimana PocketBizz Berfungsi
+              </a>
+            </div>
+          </div>
+          <div class="relative order-first lg:order-last">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/dashboard_baru.png" 
+                alt="PocketBizz Dashboard - Urus bisnes dari poket tanpa stress. Lihat untung rugi hari ini, tindakan segera, dan semua operasi bisnes dalam satu skrin." 
+                class="w-full h-auto object-contain"
+                loading="eager"
+                fetchpriority="high"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-[9/16] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-dashed border-slate-300">
+                <div class="text-center p-4">
+                  <i data-lucide="smartphone" class="h-16 w-16 text-slate-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-slate-600 mb-1">DASHBOARD_PREVIEW</p>
+                  <p class="text-xs text-slate-500">Screenshot: Dashboard utama dengan untung rugi hari ini</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 😵 SECTION: MASALAH SEBENAR USAHAWAN -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="masalah-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <h2 id="masalah-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            Adakah situasi ini biasa berlaku dalam bisnes anda?
+          </h2>
+        </div>
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Duit masuk setiap hari, tetapi tidak pasti untung atau rugi</strong></p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Stok bahan mentah habis tanpa disedari</strong></p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Harga jualan ditetapkan berdasarkan anggaran</strong></p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Produksi jadi lambat sebab perlu kira bahan satu per satu</strong></p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Resit dan rekod berselerak, susah untuk semak semula</strong></p>
+              </div>
+            </div>
+            <div class="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+              <div class="flex items-start gap-3">
+                <i data-lucide="alert-circle" class="h-6 w-6 text-red-500 flex-shrink-0 mt-1" aria-hidden="true"></i>
+                <p class="text-base text-slate-700"><strong>Hantar barang ke banyak kedai, tapi sukar untuk track</strong></p>
+              </div>
+            </div>
+          </div>
+          <div class="text-center p-6 rounded-xl bg-amber-50 border border-amber-200">
+            <p class="text-lg font-semibold text-slate-900">
+              Jika anda mengalami salah satu daripada masalah ini,<br>
+              <span style="color: var(--primary);">anda tidak keseorangan.</span>
+            </p>
+            <p class="text-base text-slate-700 mt-2">
+              Inilah realiti kebanyakan usahawan kecil dan SME.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💡 SECTION: PENGENALAN POCKETBIZZ -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="pengenalan-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <h2 id="pengenalan-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            PocketBizz dibina untuk memudahkan kerja harian usahawan.
+          </h2>
+          <p class="text-base sm:text-lg text-slate-600">
+            PocketBizz bukan sekadar aplikasi rekod.<br>
+            Ia adalah <strong>sistem pengurusan bisnes lengkap</strong> yang membantu anda:
+          </p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="clock" class="h-10 w-10 mx-auto mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Menjimatkan masa</h3>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="shield-check" class="h-10 w-10 mx-auto mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Mengurangkan kesilapan manual</h3>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="layout-grid" class="h-10 w-10 mx-auto mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Mengurus bisnes dengan lebih teratur</h3>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="trending-up" class="h-10 w-10 mx-auto mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Bersedia untuk berkembang dengan lebih cepat</h3>
+          </div>
+        </div>
+        <div class="text-center mt-8 p-6 rounded-xl bg-primary-50 border border-primary-200 max-w-3xl mx-auto">
+          <p class="text-base text-slate-700">
+            Semua ini dibuat <strong>mengikut cara sebenar peniaga Malaysia bekerja</strong>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🏭 SECTION: PRODUKSI TANPA KIRA MANUAL -->
+    <section id="features" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="produksi-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="produksi-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Produksi Jadi Lebih Pantas & Tersusun.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Dengan PocketBizz, anda tidak perlu lagi mengira bahan mentah secara manual.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Hanya masukkan <strong>kuantiti pengeluaran</strong>, sistem akan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Mengira semua bahan mentah yang diperlukan secara automatik</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Menolak stok secara automatik apabila produksi dibuat</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Memaklumkan sama ada stok mencukupi atau tidak</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Menyenaraikan bahan yang perlu dibeli sebelum produksi bermula</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              PocketBizz juga merekodkan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Tarikh produksi</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Tarikh luput (expired)</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua ini boleh disemak dari telefon pada bila-bila masa.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Produksi lebih cepat, kurang tekanan dan kurang kesilapan.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/Production2.png" 
+                alt="PocketBizz Production Module - Produksi automatik dengan kiraan bahan mentah, tolakan stok, dan tracking tarikh luput. Production planning yang pantas dan tersusun." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-dashed border-blue-300">
+                <div class="text-center p-4">
+                  <i data-lucide="factory" class="h-16 w-16 text-blue-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-blue-600 mb-1">PRODUCTION_MODULE</p>
+                  <p class="text-xs text-blue-500">Screenshot: Production planning dengan auto calculation</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💰 SECTION: KOS, HARGA & UNTUNG YANG JELAS -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="kos-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/produk_kos3.png" 
+                alt="PocketBizz Cost Calculation - Kira kos produk secara automatik berdasarkan resepi, cadangan harga jualan, dan margin untung. Auto cost calculation yang tepat dan mudah." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-green-50 to-green-100 border-2 border-dashed border-green-300">
+                <div class="text-center p-4">
+                  <i data-lucide="dollar-sign" class="h-16 w-16 text-green-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-green-600 mb-1">COST_CALCULATION</p>
+                  <p class="text-xs text-green-500">Screenshot: Auto cost calculation & pricing suggestion</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="kos-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Tahu Kos Sebenar Sebelum Tetapkan Harga.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz mengira kos produk secara automatik berdasarkan resepi.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem akan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Mengira kos bahan mentah</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Mengambil kira kos tambahan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Memberi cadangan harga jualan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Anda masih boleh menetapkan harga sendiri mengikut strategi bisnes.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Setiap jualan akan menunjukkan:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Margin untung</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Prestasi produk</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Tanpa Excel.<br>
+              Tanpa kira manual.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Harga lebih yakin, untung lebih terkawal.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📦 SECTION: STOK & PEMBELIAN TERKAWAL -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="stok-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="stok-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Elakkan Stok Habis Di Saat Akhir.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz membantu anda merancang pembelian dengan lebih teratur:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Alert automatik apabila stok rendah</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Cadangan bahan mentah yang perlu dibeli</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Senarai pembelian dijana secara automatik</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem juga boleh:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Menyediakan Purchase Order (PO)</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Share PO terus ke WhatsApp supplier</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Share senarai pembelian kepada staff tanpa perlu menaip semula</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Supplier boleh disimpan terus dalam sistem untuk kegunaan jangka panjang.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Pembelian lebih terancang, kerja lebih lancar.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/stok2.png" 
+                alt="PocketBizz Stock Management - Alert automatik apabila stok rendah, cadangan bahan mentah yang perlu dibeli, dan senarai pembelian dijana secara automatik. Stock management yang terancang dan terkawal." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-dashed border-purple-300">
+                <div class="text-center p-4">
+                  <i data-lucide="package" class="h-16 w-16 text-purple-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-purple-600 mb-1">STOCK_MANAGEMENT</p>
+                  <p class="text-xs text-purple-500">Screenshot: Stock alerts & purchase suggestions</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🚚 SECTION: DELIVERY, VENDOR & CONSIGNMENT -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="delivery-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/delivery.png" 
+                alt="PocketBizz Delivery & Vendor Management - Rekod setiap penghantaran produk, track pergerakan produk, dan generate invois penghantaran secara automatik. Delivery management yang mudah dan teratur." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-dashed border-orange-300">
+                <div class="text-center p-4">
+                  <i data-lucide="truck" class="h-16 w-16 text-orange-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-orange-600 mb-1">DELIVERY_TRACKING</p>
+                  <p class="text-xs text-orange-500">Screenshot: Delivery management & vendor tracking</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="delivery-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Urus Penghantaran & Vendor Dengan Lebih Mudah.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Jika anda menghantar produk ke:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Kedai runcit</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Kantin</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Vendor</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Sistem consignment</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              PocketBizz membantu anda:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Rekod setiap penghantaran produk</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Track pergerakan produk ke mana ia dihantar</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Generate invois penghantaran secara automatik</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700 font-medium">
+              Sistem menyokong:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Format thermal print</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Filter ikut kedai, tarikh dan status</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua rekod tersimpan dan mudah untuk semakan atau claim.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Rekod kemas, senang audit, senang urus banyak vendor.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🧾 SECTION: TEMPAHAN, PLANNER & DOKUMEN -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="tempahan-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="tempahan-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Operasi Bisnes Lengkap Dalam Satu Sistem.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz menyediakan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Sistem tempahan yang link terus dengan produk</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Invois dan resit dijana automatik untuk pelanggan</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Planner untuk tugasan dan peringatan</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua dokumen disimpan dalam <strong>database cloud yang selamat</strong><br>
+              dan boleh diakses bila-bila masa dari mana-mana peranti.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Operasi lebih profesional dan teratur.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/booking.png" 
+                alt="PocketBizz Booking & Planner - Sistem tempahan yang link terus dengan produk, invois dan resit dijana automatik, dan planner untuk tugasan dan peringatan. Operasi bisnes lengkap dalam satu sistem." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-dashed border-indigo-300">
+                <div class="text-center p-4">
+                  <i data-lucide="calendar" class="h-16 w-16 text-indigo-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-indigo-600 mb-1">BOOKING_PLANNER</p>
+                  <p class="text-xs text-indigo-500">Screenshot: Booking system & planner</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📊 SECTION: LAPORAN MUDAH DIFAHAMI -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="laporan-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="relative order-2 lg:order-1">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/laporan2.png" 
+                alt="PocketBizz Reports & Dashboard - Laporan lengkap tanpa perlu Excel yang rumit. Lihat jualan, kos, untung, pergerakan stok, dan semua maklumat penting dalam format yang mudah difahami." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-dashed border-cyan-300">
+                <div class="text-center p-4">
+                  <i data-lucide="bar-chart-3" class="h-16 w-16 text-cyan-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-cyan-600 mb-1">REPORTS_DASHBOARD</p>
+                  <p class="text-xs text-cyan-500">Screenshot: Easy-to-understand reports & analytics</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-4 order-1 lg:order-2">
+            <h2 id="laporan-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Laporan Yang Boleh Difahami Sekali Pandang.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              PocketBizz menyediakan laporan lengkap tanpa perlu Excel yang rumit.
+            </p>
+            <p class="text-base text-slate-700 font-medium">
+              Anda boleh melihat:
+            </p>
+            <ul class="space-y-2 ml-9">
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Jualan</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Kos</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Untung</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Prestasi produk</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-base text-slate-700">• Pergerakan stok</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua dalam paparan yang ringkas dan jelas.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Buat keputusan lebih cepat dan tepat.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📱 SECTION: PENGURUSAN & REKOD PERBELANJAAN DENGAN OCR -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="expenses-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid gap-8 md:gap-12 lg:grid-cols-2 items-center">
+          <div class="space-y-4">
+            <h2 id="expenses-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+              Rekod Perbelanjaan Dengan <span style="color: var(--primary);">Scan OCR</span> - Auto & Pantas.
+            </h2>
+            <p class="text-base sm:text-lg text-slate-600">
+              Tak perlu lagi key-in manual setiap resit. Dengan teknologi OCR (Optical Character Recognition) PocketBizz, 
+              <span class="font-semibold text-slate-900">hanya ambil gambar resit</span>, sistem akan:
+            </p>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Detect nama kedai/merchant secara automatik dari resit</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Extract jumlah perbelanjaan dengan tepat</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Detect tarikh transaksi dari resit</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <i data-lucide="check-circle" class="h-6 w-6 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-base text-slate-700">Auto suggest kategori perbelanjaan berdasarkan merchant atau pattern sebelumnya</span>
+              </li>
+            </ul>
+            <p class="text-base text-slate-700">
+              Semua data akan <strong>direkod secara automatik</strong> dalam sistem cloud yang selamat. 
+              Anda boleh <strong>rujuk pada bila-bila masa dan dimana-mana</strong> dari telefon atau komputer.
+            </p>
+            <div class="p-4 rounded-lg bg-green-50 border border-green-200">
+              <p class="text-base font-semibold text-slate-900">
+                <strong>Hasil:</strong> Rekod perbelanjaan jadi lebih cepat, teratur dan senang untuk audit atau buat laporan kos.
+              </p>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-xl overflow-hidden shadow-lg hover-elevate">
+              <img 
+                src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/scan_resit.png" 
+                alt="PocketBizz OCR Scanner - Scan resit dengan teknologi OCR, auto-detect nama kedai, jumlah perbelanjaan, tarikh transaksi, dan auto suggest kategori. Rekod perbelanjaan automatik dan pantas." 
+                class="w-full h-auto object-cover"
+                loading="lazy"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-video items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-dashed border-emerald-300">
+                <div class="text-center p-4">
+                  <i data-lucide="scan-line" class="h-16 w-16 text-emerald-400 mx-auto mb-2" aria-hidden="true"></i>
+                  <p class="text-sm font-mono text-emerald-600 mb-1">OCR_SCAN_RECEIPT</p>
+                  <p class="text-xs text-emerald-500">Screenshot: OCR Scan Receipt Feature</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🤝 SECTION: KOMUNITI & SOKONGAN -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="komuniti-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <h2 id="komuniti-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            Anda Tidak Mengurus Bisnes Seorang Diri.
+          </h2>
+        </div>
+        <div class="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="users" class="h-12 w-12 mx-auto mb-4" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Akses ke komuniti pengguna</h3>
+            <p class="text-sm text-slate-600">Bertanya dan berbincang dengan pengguna lain</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="headphones" class="h-12 w-12 mx-auto mb-4" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Sistem sokongan private</h3>
+            <p class="text-sm text-slate-600">Terus dengan admin apabila anda perlukan</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate text-center">
+            <i data-lucide="help-circle" class="h-12 w-12 mx-auto mb-4" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Bantuan apabila diperlukan</h3>
+            <p class="text-sm text-slate-600">Kami sentiasa sedia membantu</p>
+          </div>
+        </div>
+        <div class="text-center mt-8 p-6 rounded-lg bg-primary-50 border border-primary-200 max-w-3xl mx-auto">
+          <p class="text-base font-semibold text-slate-900">
+            <strong>Hasil:</strong> Lebih yakin, kurang tersekat, lebih cepat belajar.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🇲🇾 SECTION: KENAPA POCKETBIZZ? -->
+    <section id="kenapa" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="kenapa-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <h2 id="kenapa-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            Dibina Khas Untuk Usahawan Malaysia.
+          </h2>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <i data-lucide="map-pin" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Direka mengikut realiti bisnes tempatan</h3>
+            <p class="text-sm text-slate-600">Faham cara kerja peniaga Malaysia</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <i data-lucide="dollar-sign" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Menggunakan Ringgit Malaysia (RM)</h3>
+            <p class="text-sm text-slate-600">Tiada konfusi dengan mata wang lain</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <i data-lucide="message-square" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Bahasa mudah difahami</h3>
+            <p class="text-sm text-slate-600">100% Bahasa Melayu</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <i data-lucide="smartphone" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Fokus penggunaan telefon pintar</h3>
+            <p class="text-sm text-slate-600">Urus bisnes dari mana-mana sahaja</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <i data-lucide="message-circle" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Mesra WhatsApp & operasi harian</h3>
+            <p class="text-sm text-slate-600">Integrasi dengan cara kerja anda</p>
+          </div>
+          <div class="rounded-xl border-2 p-6 shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.3); background: rgba(20, 184, 166, 0.05);">
+            <i data-lucide="heart" class="h-10 w-10 mb-3" style="color: var(--primary);" aria-hidden="true"></i>
+            <h3 class="font-semibold text-slate-900 mb-2">Oleh orang tempatan, untuk peniaga tempatan</h3>
+            <p class="text-sm text-slate-600">PocketBizz bukan aplikasi luar yang sukar difahami</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🚀 SECTION: CARA BERMULA -->
+    <section id="cara-bermula" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="cara-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <h2 id="cara-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+            Mula Dalam 3 Langkah Mudah.
+          </h2>
+        </div>
+        <div class="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 text-primary-600 font-bold text-xl mb-4">
+              1
+            </div>
+            <h3 class="font-semibold text-slate-900 mb-2">Daftar akaun PocketBizz</h3>
+            <p class="text-sm text-slate-600">Pendaftaran mudah dan cepat</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 text-primary-600 font-bold text-xl mb-4">
+              2
+            </div>
+            <h3 class="font-semibold text-slate-900 mb-2">Masukkan jualan, stok atau produksi</h3>
+            <p class="text-sm text-slate-600">Mula rekod operasi bisnes anda</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 text-primary-600 font-bold text-xl mb-4">
+              3
+            </div>
+            <h3 class="font-semibold text-slate-900 mb-2">Pantau bisnes anda dengan lebih jelas</h3>
+            <p class="text-sm text-slate-600">Lihat laporan dan analitik real-time</p>
+          </div>
+        </div>
+        <div class="text-center mt-8 p-6 rounded-lg bg-primary-50 border border-primary-200 max-w-3xl mx-auto">
+          <p class="text-base font-semibold text-slate-900">
+            Tiada setup rumit.<br>
+            Anda boleh mula serta-merta.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🏢 SECTION: POCKETBIZZ PERFECT UNTUK BISNES MACAM ANDA -->
+    <section id="perfect" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50" aria-labelledby="perfect-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 md:mb-16 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+            Perfect Untuk
+          </div>
+          <h2 id="perfect-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
+            PocketBizz Perfect Untuk Bisnes Macam Anda
+          </h2>
+          <p class="text-base sm:text-lg md:text-xl text-slate-600">
+            Tak kira saiz bisnes anda, PocketBizz direka untuk memudahkan operasi harian anda.
+          </p>
+        </div>
+        <div class="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
+          <!-- Use Case 1: Home Bakers -->
+          <div class="rounded-xl border-2 border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="h-12 w-12 rounded-lg flex items-center justify-center mb-4" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);">
+              <i data-lucide="home" class="h-6 w-6 sm:h-8 sm:w-8" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Home Bakers</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              Perfect untuk yang jual kek, donut, atau pastri dari rumah. Uruskan tempahan online & walk-in dengan mudah.
+            </p>
+            <div class="space-y-2">
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Track tempahan & booking</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Urus stok bahan dengan mudah</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Kira untung dengan tepat</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Use Case 2: Small Bakery -->
+          <div class="rounded-xl border-2 border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="h-12 w-12 rounded-lg flex items-center justify-center mb-4" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);">
+              <i data-lucide="store" class="h-6 w-6 sm:h-8 sm:w-8" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Small Bakery</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              Untuk kedai roti atau bakery yang ada multiple sales channels — walk-in, online, delivery, dan konsainan.
+            </p>
+            <div class="space-y-2">
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">POS system untuk jualan harian</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Production planning & recipe costing</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Multi-channel sales tracking</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Use Case 3: SME F&B dengan Konsainan -->
+          <div class="rounded-xl border-2 p-6 shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.3); background: rgba(20, 184, 166, 0.05);">
+            <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white mb-4" style="background: var(--primary);">
+              <i data-lucide="truck" class="h-6 w-6 sm:h-8 sm:w-8" aria-hidden="true"></i>
+            </div>
+            <div class="flex items-center gap-2 mb-2">
+              <h3 class="text-lg font-bold text-slate-900">SME F&B dengan Konsainan</h3>
+              <span class="px-2 py-0.5 rounded text-xs font-semibold text-white" style="background: var(--primary);">POPULAR</span>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              Perfect untuk bisnes yang ada vendor konsainan. Uruskan delivery, claims, dan payout vendor dengan sistem auto.
+            </p>
+            <div class="space-y-2">
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Vendor & delivery management</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Auto-calculate commission & claims</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Thermal invoice & WhatsApp share</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Use Case 4: Production-Focused Business -->
+          <div class="rounded-xl border-2 border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="h-12 w-12 rounded-lg flex items-center justify-center mb-4" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);">
+              <i data-lucide="factory" class="h-6 w-6 sm:h-8 sm:w-8" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Production-Focused</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              Untuk bisnes yang perlu track production, recipes, dan ingredient costing dengan tepat untuk control kos.
+            </p>
+            <div class="space-y-2">
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Recipe builder & auto-costing</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Production planning dengan material calculation</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i data-lucide="check" class="h-4 w-4 mt-0.5 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                <span class="text-xs text-slate-600">Batch tracking & expiry management</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-8 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba Percuma 7 Hari">
+            Cuba Percuma 7 Hari
+            <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💡 SECTION: POCKETBIZZ DIBINA DARI PENGALAMAN SEBENAR -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-900 text-white" aria-labelledby="pengalaman-heading">
+      <div class="max-w-7xl mx-auto grid gap-10 lg:grid-cols-2 lg:items-center">
+        <div class="space-y-4 sm:space-y-6">
+          <div class="inline-flex flex-col sm:flex-row items-center gap-2 sm:gap-3 px-6 py-3 sm:px-8 sm:py-4 rounded-2xl shadow-2xl" style="background: linear-gradient(135deg, rgba(20, 184, 166, 0.95), rgba(59, 130, 246, 0.95)); border: 2px solid rgba(255, 255, 255, 0.3);">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sparkles" class="h-5 w-5 sm:h-6 sm:w-6 text-white animate-pulse" aria-hidden="true"></i>
+              <span class="text-lg sm:text-xl font-bold text-white">RM0.79</span>
+              <span class="text-sm sm:text-base font-semibold text-white/90">sen/hari sahaja</span>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 text-white/90">
+              <span class="text-sm">—</span>
+              <i data-lucide="coffee" class="h-4 w-4" aria-hidden="true"></i>
+              <span class="text-sm font-medium">lebih murah dari teh tarik + roti canai</span>
+            </div>
+            <div class="sm:hidden text-center">
+              <p class="text-xs text-white/90 font-medium">Lebih murah dari teh tarik + roti canai</p>
+            </div>
+          </div>
+          <h2 id="pengalaman-heading" class="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">
+            Lebih murah dari sarapan pagi, tapi boleh automasi semua kerja harian anda
+          </h2>
+          <!-- Poster Comparison: PocketBizz vs Teh Tarik & Roti Canai -->
+          <div class="relative rounded-2xl overflow-hidden shadow-2xl">
+            <img 
+              src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/sarapan_pagi_v2.png" 
+              alt="PocketBizz RM0.79 sen/hari vs Teh Tarik & Roti Canai - Lebih murah dari sarapan pagi, tapi boleh automasi semua kerja harian anda. Visual comparison yang menunjukkan nilai PocketBizz." 
+              class="w-full h-auto object-cover"
+              loading="lazy"
+              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="hidden w-full aspect-[4/3] items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100 p-8">
+              <div class="text-center space-y-4">
+                <i data-lucide="receipt-text" class="h-16 w-16 text-amber-600 mx-auto" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-amber-900">[Poster: PocketBizz vs Teh Tarik & Roti Canai]</p>
+                <p class="text-xs text-amber-700">Gantikan dengan poster comparison visual sebenar</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-base sm:text-lg text-slate-200 leading-relaxed">
+            Bayangkan, dengan hanya <span class="font-semibold text-white">RM0.79 sen/hari</span> — kurang dari secawan teh tarik — anda dapat sistem yang uruskan semua benda yang buatkan kepala pening: stok, pengeluaran, invois thermal, konsainan, vendor claims, resit digital, laporan & dashboard. 
+            <span class="font-semibold text-white">Tak perlu stress lagi</span> pasal kira-kira yang silap, atau risau data hilang. Masa yang jimat tu, boleh fokus pada perkara yang penting: <span class="font-semibold text-white">tarik pelanggan baru & develop bisnes</span>.
+          </p>
+        </div>
+        <div class="space-y-4 sm:space-y-6 rounded-2xl bg-white text-slate-900 p-6 sm:p-8 shadow-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary-700">
+            Dibina oleh peniaga sebenar
+          </div>
+          <h3 class="text-xl sm:text-2xl font-bold">Sistem yang saya sendiri guna setiap hari dalam bisnes saya</h3>
+          <p class="text-base text-slate-700 leading-relaxed">
+            Saya sendiri seorang peniaga SME & F&B, dan <span class="font-semibold text-slate-900">saya tahu betapa susahnya</span> nak uruskan semua benda ni. Stok tiba-tiba hilang, claim vendor lambat sampai vendor marah, kira untung-rugi silap sampai tak tahu untung ke rugi, masa habis untuk kerja manual yang sepatutnya boleh auto.
+          </p>
+          <p class="text-base text-slate-700 leading-relaxed">
+            Sebab tu saya buat PocketBizz — <span class="font-semibold text-slate-900">sistem yang saya sendiri guna</span> untuk bisnes saya. Bukan teori dari buku, tapi <span class="font-semibold text-slate-900">flow yang memang saya pakai setiap hari</span> dalam operasi sebenar. Setiap feature tu ada sebab — sebab saya sendiri pernah hadapi masalah tu. 
+            <span class="font-semibold text-slate-900">Kerja jadi lebih cepat, kurang silap, team boleh fokus jual</span> — bukan duduk depan komputer kira-kira sepanjang hari.
+          </p>
+          <!-- Poster Founder -->
+          <div class="relative rounded-xl overflow-hidden shadow-lg">
+            <img 
+              src="https://gxllowlurizrkvpdircw.supabase.co/storage/v1/object/public/landing-page/founder_pocketbizz.png" 
+              alt="Founder PocketBizz - Dibina oleh peniaga sebenar. Sistem yang saya sendiri guna setiap hari dalam bisnes saya. Bukan teori dari buku, tapi flow yang memang saya pakai setiap hari dalam operasi sebenar." 
+              class="w-full h-auto object-cover"
+              loading="lazy"
+              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="hidden w-full aspect-[4/3] items-center justify-center bg-gradient-to-br from-primary-100 to-accent-100 p-6">
+              <div class="text-center space-y-3">
+                <i data-lucide="user-circle" class="h-12 w-12 text-primary-600 mx-auto" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-primary-900">[Poster: Founder PocketBizz]</p>
+                <p class="text-xs text-primary-700">Gantikan dengan gambar founder sebenar</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center justify-center gap-2 rounded-md px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba percuma PocketBizz">
+              Cuba Percuma 7 Hari
+              <i data-lucide="arrow-right" class="h-4 w-4" aria-hidden="true"></i>
+            </a>
+            <p class="text-xs sm:text-sm text-slate-600 sm:ml-2">Tiada kad kredit, boleh batal bila-bila.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 📊 SECTION: PERBEZAAN YANG JELAS - POCKETBIZZ VS CARA LAMA -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="comparison-heading">
+      <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+            Perbezaan Yang Jelas
+          </div>
+          <h2 id="comparison-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">PocketBizz vs Cara Lama</h2>
+          <p class="text-base sm:text-lg text-slate-600">Lihat sendiri macam mana PocketBizz jimatkan masa & tingkatkan keuntungan anda</p>
+        </div>
+        <div class="overflow-x-auto">
+          <div class="inline-block min-w-full align-middle">
+            <div class="overflow-hidden rounded-xl border border-slate-200">
+              <table class="min-w-full divide-y divide-slate-200" role="table">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th scope="col" class="py-4 px-4 sm:px-6 text-left text-sm font-semibold text-slate-900">Kerja Harian</th>
+                    <th scope="col" class="py-4 px-4 sm:px-6 text-left text-sm font-semibold text-slate-600">Manual / Excel</th>
+                    <th scope="col" class="py-4 px-4 sm:px-6 text-left text-sm font-semibold" style="background: rgba(20, 184, 166, 0.05); color: var(--primary);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="sparkles" class="h-4 w-4" aria-hidden="true"></i>
+                        <span>PocketBizz</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 bg-white">
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Update Stok</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">✍️ 30 minit</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Manual key-in, typo biasa, slow</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">⚡ 10 saat</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Auto-sync, zero errors, FIFO</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Kira Untung Rugi</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📊 2 jam</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Manual calculation, prone to errors</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🎯 Auto Realtime</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Live dashboard, accurate 100%</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Vendor Claims</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">😵 Kelam-kabut</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Dispute banyak, calculation manual</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">✨ Auto & Transparent</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Breakdown clear, vendor happy</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Production Planning</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📝 1 jam</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Kira manual, stok shortage surprise</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🚀 Smart Auto</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Material calculation + alerts</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Recipe Costing</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📝 45 minit</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Kira manual setiap kali harga bahan berubah</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">⚡ Auto Update</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Auto-calculate berdasarkan harga bahan terkini</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Delivery Invoice</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📄 20 minit</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Buat invoice manual, print, WhatsApp manual</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">✅ 2 minit</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Thermal print + WhatsApp share auto</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Track Expenses</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📋 15 minit</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Key-in manual, susah cari receipt lama</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">📸 OCR Scan</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Scan receipt OCR, auto-detect merchant & amount, search mudah</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Generate Reports</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📊 3 jam</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Export data, format Excel, buat charts manual</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🎯 1 klik</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Auto-generate dengan charts & breakdown</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Backup Data</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">💾 Manual</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Copy file manual, risau hilang data</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🔒 Selamat & Auto</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Encryption at rest, backup harian, download bila-bila masa</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Multi-User Access</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">👤 Satu User</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Satu orang handle semua, bottleneck</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">👥 Team Access</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Role-based access, staf boleh kerja serentak</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Low Stock Alert</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">❌ Tiada</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Tahu stok habis masa jual, lost sales</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🔔 Auto Alert</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Notifikasi auto bila stok rendah, boleh restock awal</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Mobile Access</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">❌ Desktop Only</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Stuck at office, tak flexible</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">📱 Anywhere</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Phone/tablet/desktop, on-the-go</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Task Management</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📝 Manual Notes</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Sticky notes, mudah hilang, tak organize</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">✅ Planner Pintar</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Kanban, Calendar, auto-tasks dari business events</p>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-medium">Shopping List</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm text-slate-600">
+                      <div class="flex items-center gap-2">
+                        <span class="text-red-600 font-semibold">📝 Manual List</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-500">Tulis manual, mudah lupa item, tak sync</p>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.05);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="check" class="h-4 w-4" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="font-semibold" style="color: var(--primary);">🛒 Auto-Generated</span>
+                      </div>
+                      <p class="text-xs mt-1 text-slate-600">Auto dari low stock, convert to PO dengan satu klik</p>
+                    </td>
+                  </tr>
+                  <tr class="bg-slate-100">
+                    <td class="py-4 px-4 sm:px-6 text-sm font-bold">Total Masa/Minggu</td>
+                    <td class="py-4 px-4 sm:px-6 text-sm">
+                      <div class="flex items-center gap-2">
+                        <span class="text-lg font-bold text-red-600">~15 jam</span>
+                      </div>
+                    </td>
+                    <td class="py-4 px-4 sm:px-6 text-sm" style="background: rgba(20, 184, 166, 0.1);">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="crown" class="h-5 w-5" style="color: var(--primary);" aria-hidden="true"></i>
+                        <span class="text-lg font-bold" style="color: var(--primary);">~5 jam</span>
+                      </div>
+                      <p class="text-xs mt-1 font-semibold" style="color: var(--primary);">Jimat 10 jam seminggu! 🎉</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-8 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-colors" style="background: var(--primary);" aria-label="Cuba Percuma 7 Hari">
+            Cuba Percuma 7 Hari
+            <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+          </a>
+          <p class="text-sm text-slate-600 mt-4">Join 500+ peniaga yang dah transform bisnes dengan PocketBizz</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ⭐ SECTION: TESTIMONIALS -->
+    <section id="testimoni" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="testimonials-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+            <i data-lucide="star" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+            Testimonials
+          </div>
+          <h2 id="testimonials-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">500+ Peniaga Dah Transform Bisnes</h2>
+          <p class="text-base sm:text-lg text-slate-600">Dengar sendiri pengalaman peniaga yang dah guna PocketBizz</p>
+        </div>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);" aria-hidden="true">SH</div>
+                <div>
+                  <h3 class="font-semibold text-base">Siti Hajar</h3>
+                  <p class="text-sm text-slate-500">Home Baker, Melaka</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Dulu kira stok guna Excel, selalu silap kira. Lepas guna PocketBizz, <span class="font-semibold text-slate-900">stok auto update</span> setiap kali jual. 
+              Tak perlu risau stok habis tiba-tiba. <span class="font-semibold" style="color: var(--primary);">Jimat masa banyak</span> untuk fokus buat kek!"
+            </p>
+          </article>
+          <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);" aria-hidden="true">AR</div>
+                <div>
+                  <h3 class="font-semibold text-base">Ahmad Razif</h3>
+                  <p class="text-sm text-slate-500">Kedai Roti Canai, KL</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Thermal invoice tu memang best! <span class="font-semibold text-slate-900">Print terus</span> lepas order, terus WhatsApp ke customer. 
+              Customer suka sebab nampak <span class="font-semibold" style="color: var(--primary);">professional</span>. Order repeat customer naik sebab service cepat!"
+            </p>
+          </article>
+          <article class="rounded-xl border-2 p-6 shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.2); background: rgba(20, 184, 166, 0.05);">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.2); color: var(--primary);" aria-hidden="true">FZ</div>
+                <div>
+                  <h3 class="font-semibold text-base">Fatimah Zainal</h3>
+                  <p class="text-sm text-slate-500">Donut Shop, Johor</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Vendor claims dulu memang <span class="font-semibold text-slate-900">pening kepala</span>. Kira manual, selalu dispute dengan vendor. 
+              Sekarang system <span class="font-semibold" style="color: var(--primary);">auto calculate</span> semua, vendor nampak breakdown jelas. 
+              Takde complain lagi, <span class="font-semibold" style="color: var(--primary);">jimat masa 5 jam seminggu</span>!"
+            </p>
+          </article>
+          <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);" aria-hidden="true">MH</div>
+                <div>
+                  <h3 class="font-semibold text-base">Mohd Hafiz</h3>
+                  <p class="text-sm text-slate-500">Bakery, Penang</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Production planning dulu <span class="font-semibold text-slate-900">kira manual</span>, selalu bahan tak cukup masa nak buat. 
+              Sekarang system <span class="font-semibold" style="color: var(--primary);">alert awal</span> kalau bahan kurang. 
+              <span class="font-semibold" style="color: var(--primary);">Waste kurang 40%</span> sebab planning lebih tepat!"
+            </p>
+          </article>
+          <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);" aria-hidden="true">NS</div>
+                <div>
+                  <h3 class="font-semibold text-base">Norazura</h3>
+                  <p class="text-sm text-slate-500">Catering, Selangor</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Recipe costing dulu <span class="font-semibold text-slate-900">kira manual</span> setiap kali harga bahan naik. 
+              Sekarang <span class="font-semibold" style="color: var(--primary);">auto update</span> kos berdasarkan harga terkini. 
+              Boleh <span class="font-semibold" style="color: var(--primary);">adjust harga jualan</span> dengan tepat, untung lebih konsisten!"
+            </p>
+          </article>
+          <article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover-elevate">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex gap-3">
+                <div class="h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg" style="background: rgba(20, 184, 166, 0.1); color: var(--primary);" aria-hidden="true">IK</div>
+                <div>
+                  <h3 class="font-semibold text-base">Iskandar</h3>
+                  <p class="text-sm text-slate-500">Kedai Kek, Negeri Sembilan</p>
+                </div>
+              </div>
+              <div class="flex gap-0.5" aria-label="5 bintang">
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+                <i data-lucide="star" class="h-4 w-4 text-amber-400 fill-amber-400" aria-hidden="true"></i>
+              </div>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              "Dashboard tu memang <span class="font-semibold text-slate-900">best</span>! Buka app terus nampak untung hari ni, stok rendah, 
+              dan apa yang perlu buat. <span class="font-semibold" style="color: var(--primary);">Tak perlu buka banyak file</span> macam dulu. 
+              <span class="font-semibold" style="color: var(--primary);">Decision making lebih cepat</span> sebab semua info ada depan mata!"
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 💰 SECTION: PILIH PAKEJ YANG SESUAI -->
+    <section id="pricing" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-gradient-to-b from-white to-slate-50" aria-labelledby="pricing-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 md:mb-16 space-y-4 md:space-y-6 max-w-4xl mx-auto px-4">
+          <div class="inline-flex items-center gap-1 px-4 py-2 rounded-full border-2 text-sm sm:text-base font-semibold" style="border-color: rgba(20, 184, 166, 0.3); background: rgba(20, 184, 166, 0.1); color: var(--primary);">
+            <i data-lucide="sparkles" class="h-4 w-4" aria-hidden="true"></i>
+            Harga Promosi Tahun Baru 2026
+          </div>
+          <h2 id="pricing-heading" class="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
+            Pilih Pakej Yang Sesuai
+          </h2>
+          <div class="space-y-3">
+            <p class="text-lg sm:text-xl md:text-2xl font-semibold text-slate-900">
+              Harga Asal: <span class="line-through text-slate-500">RM 69.00/bulan</span>
+            </p>
+            <p class="text-xl sm:text-2xl md:text-3xl font-bold" style="color: var(--primary);">
+              Promosi Tahun Baru: Serendah <span class="text-4xl sm:text-5xl md:text-6xl">RM0.79</span> sen/hari sahaja!
+            </p>
+            <p class="text-base sm:text-lg md:text-xl font-medium text-slate-700">
+              Lebih murah dari Secawan Teh Tarik dan Roti Canai...
+            </p>
+          </div>
+        </div>
+        <div class="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto overflow-visible">
+          <!-- 1 Bulan -->
+          <div class="rounded-xl border-2 border-slate-200 bg-white p-6 shadow-lg hover-elevate">
+            <div class="text-center pb-6 space-y-4">
+              <h3 class="text-xl font-bold text-slate-900">1 Bulan</h3>
+              <p class="text-sm text-slate-600">Fleksibel tanpa komitmen</p>
+              <div class="pt-4 space-y-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300">
+                  <span class="text-2xl sm:text-3xl font-bold text-amber-900">RM0.97</span>
+                  <span class="text-sm font-semibold text-amber-800">sen/hari</span>
+                </div>
+                <p class="text-xs text-slate-500">Serendah</p>
+                <div class="pt-2">
+                  <p class="text-sm text-slate-500 line-through">RM 69.00/bulan</p>
+                  <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-2xl sm:text-3xl font-bold text-slate-900">RM 29</span>
+                    <span class="text-sm text-slate-600">/bulan</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <ul class="space-y-2">
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Semua features Pro</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Support chat/email</span>
+                </li>
+              </ul>
+              <a href="https://app.pocketbizz.my/auth/register" class="block w-full text-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                Cuba Percuma 7 Hari
+              </a>
+            </div>
+          </div>
+
+          <!-- 3 Bulan -->
+          <div class="rounded-xl border-2 border-slate-200 bg-white p-6 shadow-lg hover-elevate">
+            <div class="text-center pb-6 space-y-4">
+              <h3 class="text-xl font-bold text-slate-900">3 Bulan</h3>
+              <p class="text-sm text-slate-600">Komitmen sederhana</p>
+              <div class="pt-4 space-y-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300">
+                  <span class="text-2xl sm:text-3xl font-bold text-amber-900">RM0.97</span>
+                  <span class="text-sm font-semibold text-amber-800">sen/hari</span>
+                </div>
+                <p class="text-xs text-slate-500">Serendah</p>
+                <div class="pt-2">
+                  <p class="text-sm text-slate-500 line-through">RM 207.00/3 bulan</p>
+                  <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-2xl sm:text-3xl font-bold text-slate-900">RM 87</span>
+                    <span class="text-sm text-slate-600">/3 bulan</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1">RM 29/bulan</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <ul class="space-y-2">
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Semua features Pro</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Support chat/email</span>
+                </li>
+              </ul>
+              <a href="https://app.pocketbizz.my/auth/register" class="block w-full text-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                Cuba Percuma 7 Hari
+              </a>
+            </div>
+          </div>
+
+          <!-- 6 Bulan - POPULAR -->
+          <div class="relative rounded-xl border-2 border-green-500 bg-white p-6 pt-10 sm:pt-12 lg:pt-14 shadow-xl hover-elevate overflow-visible" style="transform: scale(1.05);">
+            <div class="absolute -top-5 sm:-top-6 lg:-top-7 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
+              <span class="px-5 py-2 rounded-full bg-green-500 text-xs sm:text-sm font-bold text-white shadow-xl">Paling Popular</span>
+            </div>
+            <div class="text-center pb-6 space-y-4">
+              <h3 class="text-xl font-bold text-slate-900">6 Bulan</h3>
+              <p class="text-sm font-semibold text-green-700">Lebih Berbaloi</p>
+              <div class="pt-4 space-y-2">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 border-2 border-green-400">
+                  <span class="text-3xl sm:text-4xl font-bold text-green-900">RM0.89</span>
+                  <span class="text-base font-bold text-green-800">sen/hari</span>
+                </div>
+                <p class="text-xs text-slate-500">Lebih Berbaloi</p>
+                <div class="pt-2">
+                  <p class="text-sm text-slate-500 line-through">RM 414.00/6 bulan</p>
+                  <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-2xl sm:text-3xl font-bold text-slate-900">RM 160</span>
+                    <span class="text-sm text-slate-600">/6 bulan</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1">RM 26.67/bulan</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <ul class="space-y-2">
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Penjimatan 8%</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Semua features Pro</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Support chat/email</span>
+                </li>
+              </ul>
+              <a href="https://app.pocketbizz.my/auth/register" class="block w-full text-center rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors" style="background: var(--primary);">
+                Cuba Percuma 7 Hari
+              </a>
+            </div>
+          </div>
+
+          <!-- 12 Bulan -->
+          <div class="relative rounded-xl border-2 bg-white p-6 pt-10 sm:pt-12 lg:pt-14 shadow-xl hover-elevate overflow-visible" style="border-color: var(--primary);">
+            <div class="absolute -top-5 sm:-top-6 lg:-top-7 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
+              <span class="px-5 py-2 rounded-full text-xs sm:text-sm font-bold text-white shadow-xl" style="background: var(--primary);">Pilihan Terbaik</span>
+            </div>
+            <div class="text-center pb-6 space-y-4">
+              <h3 class="text-xl font-bold text-slate-900">12 Bulan</h3>
+              <p class="text-sm font-semibold" style="color: var(--primary);">Pilihan Terbaik</p>
+              <div class="pt-4 space-y-2">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full" style="background: rgba(20, 184, 166, 0.15); border: 2px solid var(--primary);">
+                  <span class="text-3xl sm:text-4xl font-bold" style="color: var(--primary);">RM0.79</span>
+                  <span class="text-base font-bold" style="color: var(--primary-dark);">sen/hari</span>
+                </div>
+                <p class="text-xs text-slate-500">Serendah</p>
+                <div class="pt-2">
+                  <p class="text-sm text-slate-500 line-through">RM 828.00/tahun</p>
+                  <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-2xl sm:text-3xl font-bold text-slate-900">RM 290</span>
+                    <span class="text-sm text-slate-600">/12 bulan</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-1">RM 24.17/bulan</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <ul class="space-y-2">
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Penjimatan 15%</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Semua features Pro</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <i data-lucide="check" class="h-4 w-4 flex-shrink-0" style="color: var(--primary);" aria-hidden="true"></i>
+                  <span class="text-xs sm:text-sm">Support chat/email</span>
+                </li>
+              </ul>
+              <a href="https://app.pocketbizz.my/auth/register" class="block w-full text-center rounded-md px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-colors" style="background: var(--primary);">
+                Cuba Percuma 7 Hari
+              </a>
+            </div>
+          </div>
+        </div>
+        <div class="mt-10 text-center space-y-4">
+          <div class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-md">
+            <i data-lucide="sparkles" class="h-6 w-6 text-amber-600" aria-hidden="true"></i>
+            <p class="text-base font-bold text-amber-900">
+              Tawaran Terhad Tahun Baru: Harga istimewa untuk 100 subscriber terawal - <span class="text-amber-700">harga kekal selagi langganan aktif!</span>
+            </p>
+          </div>
+          <p class="text-sm text-slate-600">
+            Selepas 100 subscriber terawal, harga akan kembali ke harga asal RM 69.00/bulan
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🛡️ SECTION: JAMINAN KEPUASAN -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20" style="background: linear-gradient(to bottom, rgba(20, 184, 166, 0.05), rgba(59, 130, 246, 0.05));" aria-labelledby="guarantee-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-3 md:space-y-4 max-w-3xl mx-auto px-4">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border text-xs sm:text-sm font-medium" style="border-color: rgba(20, 184, 166, 0.3); background: rgba(20, 184, 166, 0.1);">
+            <i data-lucide="shield-check" class="h-3 w-3" style="color: var(--primary);" aria-hidden="true"></i>
+            Jaminan Kepuasan
+          </div>
+          <h2 id="guarantee-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
+            Kami Jamin Kepuasan Anda 100%
+          </h2>
+          <p class="text-base sm:text-lg md:text-xl text-slate-600">
+            Kami yakin PocketBizz akan membantu transform perniagaan anda. Kalau tak puas hati, kami refund 100%.
+          </p>
+        </div>
+        <div class="grid gap-6 sm:gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+          <div class="rounded-xl border-2 p-6 text-center bg-white shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.3);">
+            <div class="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(20, 184, 166, 0.1));">
+              <i data-lucide="refresh-ccw" class="h-8 w-8" style="color: var(--primary);" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">30-Hari Money Back</h3>
+            <p class="text-sm text-slate-600">Tak puas hati dalam 30 hari? Kami refund 100% tanpa soalan.</p>
+          </div>
+          <div class="rounded-xl border-2 p-6 text-center bg-white shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.3);">
+            <div class="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(20, 184, 166, 0.1));">
+              <i data-lucide="shield" class="h-8 w-8" style="color: var(--primary);" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Data Selamat Macam Bank</h3>
+            <p class="text-sm text-slate-600">Encryption at rest (AES-256), SSL/TLS, Row Level Security. Data anda 100% milik anda.</p>
+          </div>
+          <div class="rounded-xl border-2 p-6 text-center bg-white shadow-sm hover-elevate" style="border-color: rgba(20, 184, 166, 0.3);">
+            <div class="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: linear-gradient(135deg, rgba(20, 184, 166, 0.2), rgba(20, 184, 166, 0.1));">
+              <i data-lucide="headphones" class="h-8 w-8" style="color: var(--primary);" aria-hidden="true"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Support 24/7</h3>
+            <p class="text-sm text-slate-600">Team kami sedia membantu via WhatsApp, email, atau chat dalam app.</p>
+          </div>
+        </div>
+        <div class="mt-8 text-center">
+          <div class="inline-flex items-center gap-2 px-6 py-3 rounded-lg" style="background: rgba(20, 184, 166, 0.1); border: 2px solid rgba(20, 184, 166, 0.3);">
+            <i data-lucide="check-circle" class="h-6 w-6" style="color: var(--primary);" aria-hidden="true"></i>
+            <p class="text-sm font-semibold text-slate-900">Tiada risiko. Cuba percuma 7 hari. Kalau tak puas hati dalam 30 hari, refund 100%.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🎥 SECTION: VIDEO DEMO -->
+    <section id="demo" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-white" aria-labelledby="demo-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 md:mb-16 space-y-4 md:space-y-6 max-w-4xl mx-auto">
+          <div class="inline-flex items-center gap-1 px-4 py-2 rounded-full border-2 text-sm sm:text-base font-semibold" style="border-color: rgba(20, 184, 166, 0.3); background: rgba(20, 184, 166, 0.1); color: var(--primary);">
+            <i data-lucide="play-circle" class="h-4 w-4" aria-hidden="true"></i>
+            Video Demo
+          </div>
+          <h2 id="demo-heading" class="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl leading-tight">
+            Lihat Bagaimana PocketBizz Memudahkan Aktiviti Bisnes Harian Anda
+          </h2>
+          <p class="text-base sm:text-lg md:text-xl text-slate-600 leading-relaxed">
+            Tengok sendiri macam mana PocketBizz automasi kerja-kerja yang biasa buatkan anda penat — dari urus stok hingga settle vendor claims. 
+            <span class="font-semibold text-slate-900">Semua dalam 5 minit video ni</span>, anda akan nampak betapa mudahnya nak guna sistem ni.
+          </p>
+        </div>
+        
+        <!-- Video Container -->
+        <div class="max-w-5xl mx-auto">
+          <div class="relative rounded-2xl overflow-hidden shadow-2xl bg-slate-900" style="aspect-ratio: 16/9;">
+            <!-- YouTube Video Placeholder -->
+            <div class="absolute inset-0 flex items-center justify-center">
+              <iframe 
+                class="w-full h-full" 
+                src="https://www.youtube.com/embed/PLACEHOLDER_VIDEO_ID" 
+                title="PocketBizz Demo - Lihat Bagaimana Memudahkan Aktiviti Bisnes Harian Anda" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen
+                loading="lazy">
+              </iframe>
+            </div>
+          </div>
+          
+          <!-- Video Description -->
+          <div class="mt-6 text-center space-y-4">
+            <p class="text-sm sm:text-base text-slate-600">
+              Dalam video ni, anda akan tengok:
+            </p>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 max-w-4xl mx-auto">
+              <div class="flex items-start gap-2 p-3 rounded-lg bg-slate-50">
+                <i data-lucide="check" class="h-5 w-5 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-sm text-slate-700">Cara urus stok dengan mudah</p>
+              </div>
+              <div class="flex items-start gap-2 p-3 rounded-lg bg-slate-50">
+                <i data-lucide="check" class="h-5 w-5 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-sm text-slate-700">Create delivery & claims</p>
+              </div>
+              <div class="flex items-start gap-2 p-3 rounded-lg bg-slate-50">
+                <i data-lucide="check" class="h-5 w-5 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-sm text-slate-700">Thermal invoice & WhatsApp</p>
+              </div>
+              <div class="flex items-start gap-2 p-3 rounded-lg bg-slate-50">
+                <i data-lucide="check" class="h-5 w-5 flex-shrink-0 mt-0.5" style="color: var(--primary);" aria-hidden="true"></i>
+                <p class="text-sm text-slate-700">Dashboard & laporan auto</p>
+              </div>
+            </div>
+            <div class="pt-4">
+              <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center gap-2 rounded-md px-8 py-3 text-base sm:text-lg font-semibold text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba Percuma 7 Hari Selepas Tengok Demo">
+                Cuba Percuma 7 Hari
+                <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ❓ SECTION: SOALAN LAZIM & KERAGUAN USAHAWAN -->
+    <section id="faq" class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-slate-50" aria-labelledby="faq-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 md:mb-16 space-y-3 md:space-y-4 max-w-3xl mx-auto px-4">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-300 text-xs sm:text-sm font-medium">
+            FAQ
+          </div>
+          <h2 id="faq-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">Soalan Lazim & Keraguan Usahawan</h2>
+          <p class="text-base sm:text-lg text-slate-600">Jawapan kepada soalan yang sering ditanya oleh usahawan seperti anda</p>
+        </div>
+        <div class="grid gap-4 sm:gap-6 max-w-5xl mx-auto">
+          <!-- FAQ 1 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-1">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Saya bukan orang IT. Susah tak nak guna PocketBizz?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-1" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Tidak susah.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz direka khas untuk usahawan kecil yang tidak mempunyai latar belakang teknikal atau perakaunan.
+                </p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Antaramuka adalah ringkas dan fokus kepada kerja harian seperti:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Masuk jualan</li>
+                  <li>Buat produksi</li>
+                  <li>Rekod stok</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Kebanyakan pengguna boleh mula menggunakan PocketBizz <span class="text-slate-900">dalam hari yang sama</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 2 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-2">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Saya biasa guna buku atau Excel. Kenapa perlu tukar ke sistem?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-2" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Buku dan Excel sesuai untuk permulaan, tetapi bila bisnes mula berkembang, ia mudah menyebabkan:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Kesilapan kiraan</li>
+                  <li>Rekod bercampur</li>
+                  <li>Sukar untuk jejak stok, kos dan penghantaran</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  PocketBizz menyatukan semua rekod dalam satu sistem supaya anda <span class="text-slate-900">tidak perlu kira dan semak secara manual</span> lagi.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 3 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-3">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Adakah PocketBizz sesuai untuk bisnes kecil sahaja?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-3" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz sesuai untuk:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Bisnes kecil</li>
+                  <li>Usahawan baru</li>
+                  <li>SME yang sedang berkembang</li>
+                </ul>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Anda boleh mula dengan fungsi asas, dan gunakan ciri tambahan apabila bisnes semakin besar.
+                </p>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  PocketBizz <span class="text-slate-900">ikut perkembangan bisnes anda</span>, bukan memaksa anda guna semuanya sekali gus.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 4 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-4">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Bagaimana jika saya hanya guna sebahagian fungsi sahaja?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-4" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Tidak menjadi masalah.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Anda boleh guna PocketBizz mengikut keperluan bisnes anda. Contohnya:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Hanya rekod jualan dan stok</li>
+                  <li>Atau fokus kepada produksi dan kos</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Sistem tetap akan berfungsi dengan baik walaupun anda tidak menggunakan semua modul.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 5 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-5">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Perlu ke saya setup sistem yang rumit sebelum guna?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-5" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Tidak perlu.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Tiada setup teknikal atau konfigurasi kompleks. Anda boleh:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Daftar akaun</li>
+                  <li>Masuk ke dashboard</li>
+                  <li>Terus mula rekod bisnes</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Jika perlukan bantuan, team sokongan sedia membantu.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 6 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-6">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Bagaimana dengan data saya? Adakah ia selamat?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-6" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Ya.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Semua data disimpan dalam <span class="font-semibold text-slate-900">database cloud yang selamat</span> dan boleh diakses hanya oleh akaun anda.
+                </p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Data tidak disimpan secara raw di telefon sahaja, dan boleh diakses dari peranti berbeza bila-bila masa.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 7 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-7">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Jika telefon rosak atau hilang, adakah data saya akan hilang?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-7" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Tidak.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Oleh kerana data disimpan di cloud, anda hanya perlu log masuk semula menggunakan akaun anda untuk akses semua rekod bisnes.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 8 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-8">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Saya hantar produk ke banyak kedai. Boleh ke PocketBizz urus semua itu?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-8" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Ya.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz direka untuk menyokong:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Penghantaran ke banyak vendor</li>
+                  <li>Sistem consignment</li>
+                  <li>Tracking produk yang dihantar</li>
+                </ul>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Anda boleh filter rekod ikut:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Kedai</li>
+                  <li>Tarikh</li>
+                  <li>Status</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Semua dari telefon sahaja.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 9 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-9">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">PocketBizz boleh ke generate invois dan resit?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-9" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Boleh.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz boleh menjana:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Invois</li>
+                  <li>Resit</li>
+                  <li>Invois penghantaran</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Termasuk format yang sesuai untuk <span class="text-slate-900">thermal print</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 10 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-10">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Saya ambil tempahan pelanggan. Sistem ini sesuai tak?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-10" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Sesuai.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Sistem tempahan PocketBizz link terus dengan produk sedia ada. Anda hanya perlu:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Pilih produk</li>
+                  <li>Masukkan kuantiti</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Invois dan resit akan dijana secara automatik.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 11 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-11">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Jika saya perlukan bantuan, siapa yang boleh saya hubungi?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-11" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Anda tidak keseorangan.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz menyediakan:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Sistem sokongan private</li>
+                  <li>Akses kepada komuniti pengguna</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Anda boleh bertanya, berbincang dan mendapatkan bantuan apabila diperlukan.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 12 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-12">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">PocketBizz ini mahal tak?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-12" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  PocketBizz direka supaya <span class="text-slate-900">mampu milik untuk usahawan kecil</span>.
+                </p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Harga adalah jauh lebih rendah berbanding kos kesilapan manual, pembaziran stok, dan masa yang terbuang setiap bulan.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 13 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-13">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Saya nak cuba dulu sebelum bayar. Boleh?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-13" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">Boleh.</p>
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Anda boleh cuba <span class="font-semibold text-slate-900">percuma 7 hari</span> terlebih dahulu untuk melihat sendiri bagaimana PocketBizz membantu bisnes anda. Tiada komitmen jangka panjang. Tiada kad kredit diperlukan.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- FAQ 14 -->
+          <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <button class="faq-toggle w-full px-6 py-4 text-left flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors" aria-expanded="false" aria-controls="faq-answer-14">
+              <h3 class="text-base sm:text-lg font-semibold text-slate-900 flex-1">Adakah PocketBizz sesuai untuk bisnes makanan sahaja?</h3>
+              <i data-lucide="chevron-down" class="h-5 w-5 flex-shrink-0 text-slate-500 faq-icon transition-transform duration-300" aria-hidden="true"></i>
+            </button>
+            <div id="faq-answer-14" class="faq-content hidden px-6 pb-4">
+              <div class="pt-2 space-y-3">
+                <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  PocketBizz sangat sesuai untuk bisnes makanan, tetapi juga boleh digunakan untuk:
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600 text-sm sm:text-base ml-4">
+                  <li>Produk buatan sendiri</li>
+                  <li>Pengeluaran kecil</li>
+                  <li>Pemborong kecil</li>
+                  <li>Vendor & supplier</li>
+                </ul>
+                <p class="text-slate-700 text-sm sm:text-base leading-relaxed font-semibold">
+                  Selagi melibatkan stok, kos, jualan dan penghantaran, PocketBizz boleh membantu.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ Closing Statement -->
+        <div class="mt-10 sm:mt-12 text-center space-y-6 max-w-3xl mx-auto px-4">
+          <div class="rounded-xl border-2 p-6 sm:p-8 bg-white shadow-lg" style="border-color: rgba(20, 184, 166, 0.3);">
+            <p class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 mb-4">
+              Jika anda masih ragu-ragu, cara terbaik adalah <span class="text-slate-900" style="color: var(--primary);">mencuba sendiri</span>.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a href="https://app.pocketbizz.my/auth/register" class="inline-flex items-center justify-center gap-2 rounded-md px-6 py-3 text-base sm:text-lg font-semibold text-white shadow-lg hover:shadow-xl transition-all" style="background: var(--logo-gradient);" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" aria-label="Cuba Percuma Sekarang">
+                Cuba Percuma Sekarang
+                <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+              </a>
+              <a href="#demo" class="inline-flex items-center justify-center gap-2 rounded-md border-2 px-6 py-3 text-base sm:text-lg font-semibold text-slate-700 hover:bg-slate-50 transition-colors" style="border-color: rgba(20, 184, 166, 0.3);">
+                Lihat Bagaimana PocketBizz Berfungsi
+                <i data-lucide="play-circle" class="h-5 w-5" style="color: var(--primary);" aria-hidden="true"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🎯 FINAL CTA -->
+    <section class="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 bg-gradient-to-br from-primary-500 to-accent-600 text-white" aria-labelledby="final-cta-heading">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12 space-y-4 md:space-y-6 max-w-3xl mx-auto">
+          <h2 id="final-cta-heading" class="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-5xl">
+            Berhenti Membuat Anggaran.<br>
+            Mulakan Pengurusan Bisnes Yang Lebih Jelas.
+          </h2>
+          <p class="text-base sm:text-lg md:text-xl text-white/90">
+            Gunakan PocketBizz untuk mengurus bisnes anda<br>
+            dengan lebih cepat, teratur dan produktif.
+          </p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-2xl mx-auto">
+          <a href="https://app.pocketbizz.my/auth/register" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md px-8 text-base sm:text-lg font-semibold bg-white text-primary-600 transition-all will-change-transform shadow-lg hover:shadow-xl hover:scale-105" aria-label="Cuba Percuma 7 Hari">
+            Cuba Percuma 7 Hari
+            <i data-lucide="arrow-right" class="h-5 w-5" aria-hidden="true"></i>
+          </a>
+          <a href="#features" class="w-full sm:w-auto min-h-[56px] sm:min-h-[48px] flex items-center justify-center gap-2 rounded-md border-2 border-white px-8 text-base sm:text-lg font-semibold text-white hover:bg-white/10 transition-colors">
+            Lihat Contoh Paparan Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 🔒 FOOTER -->
+  <footer class="w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 bg-slate-900 text-white" role="contentinfo">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center space-y-4">
+        <div class="flex items-center justify-center gap-2">
+          <span class="text-lg sm:text-xl font-bold" style="color: var(--primary);">PocketBizz</span>
+        </div>
+        <p class="text-sm sm:text-base text-slate-400">
+          <em>Aplikasi Pengurusan Bisnes Lengkap Untuk Usahawan Kecil & SME Malaysia.</em>
+        </p>
+        <!-- Legal Links -->
+        <div class="flex flex-wrap justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-slate-400 pt-4">
+          <a href="javascript:void(0)" onclick="document.getElementById('privacy-policy').classList.remove('hidden'); document.getElementById('privacy-policy').classList.add('flex');" class="hover:text-white transition-colors">Privacy Policy</a>
+          <a href="javascript:void(0)" onclick="document.getElementById('terms-of-service').classList.remove('hidden'); document.getElementById('terms-of-service').classList.add('flex');" class="hover:text-white transition-colors">Terms of Service</a>
+          <a href="javascript:void(0)" onclick="document.getElementById('refund-policy').classList.remove('hidden'); document.getElementById('refund-policy').classList.add('flex');" class="hover:text-white transition-colors">Refund Policy</a>
+        </div>
+        <!-- Copyright -->
+        <div class="pt-4 border-t border-slate-800 space-y-1">
+          <p class="text-xs text-slate-400">
+            © 2025 PocketBizz. Hak Cipta Terpelihara.
+          </p>
+          <p class="text-xs text-slate-500">
+            BNI Digital Enterprise (TR0323644-V)
+          </p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating WhatsApp Button -->
+  <!-- DISABLED: Uncomment below to enable WhatsApp button -->
+  <!--
+  <a href="https://wa.me/60107827802?text=Hai%2C%20saya%20berminat%20nak%20tahu%20lebih%20lanjut%20tentang%20PocketBizz" 
+     target="_blank" 
+     rel="noopener noreferrer"
+     class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-105"
+     style="background: #25D366;"
+     aria-label="WhatsApp PocketBizz Support">
+    <i data-lucide="message-circle" class="h-6 w-6 sm:h-7 sm:w-7 text-white" aria-hidden="true"></i>
+    <span class="hidden sm:inline-block text-sm sm:text-base font-semibold text-white">Ada Soalan?</span>
+    <span class="hidden md:inline-block text-sm font-medium text-white/90">WhatsApp Kami</span>
+  </a>
+  -->
+
+  <!-- Privacy Policy Modal -->
+  <div id="privacy-policy" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="privacy-policy-title" onclick="closeModal('privacy-policy')">
+    <div class="max-w-3xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <h2 id="privacy-policy-title" class="text-xl font-bold">Privacy Policy</h2>
+        <button onclick="closeModal('privacy-policy')" class="text-slate-500 hover:text-slate-900" aria-label="Tutup Privacy Policy">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+      <div class="px-6 py-6 space-y-4 text-sm text-slate-700 leading-relaxed">
+        <p class="font-semibold text-base">Dikemaskini: 1 Januari 2025</p>
+        <p>PocketBizz menghormati privasi anda. Kami mengumpul data peribadi (nama, email, telefon), data perniagaan, transaksi, dan penggunaan aplikasi untuk menyediakan perkhidmatan, sokongan, dan pematuhan undang-undang.</p>
+        <h3 class="font-bold text-base mt-4">Perlindungan Data</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Encryption at rest (AES-256) & SSL/TLS</li>
+          <li>Row Level Security (RLS)</li>
+          <li>Backup harian</li>
+          <li>Akses terhad kepada staf diberi kuasa</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Hak Anda</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Akses dan salinan data</li>
+          <li>Memperbetulkan atau memadam data</li>
+          <li>Batalkan komunikasi pemasaran</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Hubungi Kami</h3>
+        <p class="font-medium">Email: support@pocketbizz.my<br>WhatsApp: 010-782 7802</p>
+      </div>
+      <div class="px-6 pb-6 flex justify-end">
+        <button onclick="closeModal('privacy-policy')" class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+          <i data-lucide="x" class="h-4 w-4"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terms of Service Modal -->
+  <div id="terms-of-service" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="tos-title" onclick="closeModal('terms-of-service')">
+    <div class="max-w-3xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <h2 id="tos-title" class="text-xl font-bold">Terms of Service</h2>
+        <button onclick="closeModal('terms-of-service')" class="text-slate-500 hover:text-slate-900" aria-label="Tutup Terms of Service">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+      <div class="px-6 py-6 space-y-4 text-sm text-slate-700 leading-relaxed">
+        <p class="font-semibold text-base">Dikemaskini: 1 Januari 2025</p>
+        <p>Dengan menggunakan PocketBizz, anda bersetuju dengan terma ini: jaga kredensial, berikan maklumat tepat, dan patuhi undang-undang.</p>
+        <h3 class="font-bold text-base mt-4">Langganan & Bayaran</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Trial 7 hari tanpa kad kredit</li>
+          <li>Bayaran mengikut pakej (1/3/6/12 bulan) dalam RM</li>
+          <li>Bayaran tidak dikembalikan selepas tempoh refund 30 hari</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Larangan</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Aktiviti haram atau gangguan perkhidmatan</li>
+          <li>Akses tanpa kebenaran ke data pengguna lain</li>
+          <li>Penyebaran malware atau kod berbahaya</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Hubungi Kami</h3>
+        <p class="font-medium">Email: support@pocketbizz.my<br>WhatsApp: 010-782 7802</p>
+      </div>
+      <div class="px-6 pb-6 flex justify-end">
+        <button onclick="closeModal('terms-of-service')" class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+          <i data-lucide="x" class="h-4 w-4"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Refund Policy Modal -->
+  <div id="refund-policy" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="refund-title" onclick="closeModal('refund-policy')">
+    <div class="max-w-3xl w-full bg-white rounded-lg shadow-xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <h2 id="refund-title" class="text-xl font-bold">Refund Policy</h2>
+        <button onclick="closeModal('refund-policy')" class="text-slate-500 hover:text-slate-900" aria-label="Tutup Refund Policy">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+      <div class="px-6 py-6 space-y-4 text-sm text-slate-700 leading-relaxed">
+        <p class="font-semibold text-base">Dikemaskini: 1 Januari 2025</p>
+        <p>Jaminan 30-hari money back jika tidak berpuas hati.</p>
+        <h3 class="font-bold text-base mt-4">Syarat Kelayakan</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Permohonan dalam 30 hari selepas pembayaran</li>
+          <li>Anda telah mencuba perkhidmatan</li>
+          <li>Permohonan melalui email/WhatsApp rasmi</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Proses</h3>
+        <ol class="list-decimal list-inside space-y-2 ml-4">
+          <li>Hubungi support@pocketbizz.my atau WhatsApp</li>
+          <li>Berikan order number & tarikh pembayaran</li>
+          <li>Nyatakan sebab bayaran balik</li>
+          <li>Proses 5-7 hari bekerja (bank/payment gateway 3-14 hari)</li>
+        </ol>
+        <h3 class="font-bold text-base mt-4">Tidak Layak</h3>
+        <ul class="list-disc list-inside space-y-2 ml-4">
+          <li>Permohonan selepas 30 hari</li>
+          <li>Langgar Terma Perkhidmatan</li>
+          <li>Penggunaan melebihi had munasabah</li>
+        </ul>
+        <h3 class="font-bold text-base mt-4">Percubaan Percuma</h3>
+        <p>Trial 7 hari tiada caj, jadi tiada bayaran balik diperlukan.</p>
+        <h3 class="font-bold text-base mt-4">Hubungi Kami</h3>
+        <p class="font-medium">Email: support@pocketbizz.my<br>WhatsApp: 010-782 7802</p>
+      </div>
+      <div class="px-6 pb-6 flex justify-end">
+        <button onclick="closeModal('refund-policy')" class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+          <i data-lucide="x" class="h-4 w-4"></i> Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script>
+    // Initialize Lucide icons - multiple attempts to ensure they load
+    function initLucideIcons() {
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        lucide.createIcons();
+        return true;
+      }
+      return false;
+    }
+
+    // Try immediately
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (!initLucideIcons()) {
+          // Retry after short delay
+          setTimeout(initLucideIcons, 100);
+          setTimeout(initLucideIcons, 500);
+          setTimeout(initLucideIcons, 1000);
+        }
+      });
+    } else {
+      // DOM already loaded
+      if (!initLucideIcons()) {
+        setTimeout(initLucideIcons, 100);
+        setTimeout(initLucideIcons, 500);
+        setTimeout(initLucideIcons, 1000);
+      }
+    }
+
+    // Also reinitialize on window load
+    window.addEventListener('load', function() {
+      initLucideIcons();
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Update URL without jumping
+          history.pushState(null, null, this.getAttribute('href'));
+        }
+      });
+    });
+
+    // Lazy load images
+    if ('loading' in HTMLImageElement.prototype) {
+      const images = document.querySelectorAll('img[loading="lazy"]');
+      images.forEach(img => {
+        img.addEventListener('load', function() {
+          this.classList.add('loaded');
+        });
+      });
+    }
+
+    // Performance: Preload critical resources on hover
+    document.querySelectorAll('a[href^="https://app.pocketbizz.my"]').forEach(link => {
+      link.addEventListener('mouseenter', function() {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = this.href;
+        document.head.appendChild(link);
+      }, { once: true });
+    });
+
+    // Modal helpers
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      }
+    }
+
+    // FAQ Accordion functionality
+    function initFAQAccordion() {
+      const faqToggles = document.querySelectorAll('.faq-toggle');
+      
+      faqToggles.forEach(toggle => {
+        toggle.addEventListener('click', function() {
+          const isExpanded = this.getAttribute('aria-expanded') === 'true';
+          const answerId = this.getAttribute('aria-controls');
+          const answer = document.getElementById(answerId);
+          const icon = this.querySelector('.faq-icon');
+          
+          // Toggle current FAQ
+          if (isExpanded) {
+            this.setAttribute('aria-expanded', 'false');
+            answer.style.maxHeight = '0';
+            answer.classList.add('hidden');
+            if (icon) {
+              icon.style.transform = 'rotate(0deg)';
+            }
+          } else {
+            this.setAttribute('aria-expanded', 'true');
+            answer.classList.remove('hidden');
+            // Set max-height to scrollHeight for smooth animation
+            answer.style.maxHeight = answer.scrollHeight + 'px';
+            if (icon) {
+              icon.style.transform = 'rotate(180deg)';
+            }
+          }
+          
+          // Reinitialize Lucide icons after toggle
+          if (typeof lucide !== 'undefined' && lucide.createIcons) {
+            lucide.createIcons();
+          }
+        });
+      });
+    }
+
+    // Initialize FAQ accordion after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFAQAccordion);
+    } else {
+      initFAQAccordion();
+    }
+  </script>
+</body>
+</html>
+
