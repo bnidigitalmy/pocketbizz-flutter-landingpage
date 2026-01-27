@@ -23,7 +23,7 @@ import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../onboarding/services/onboarding_service.dart';
-import 'widgets/multi_select_product_modal.dart';
+import '../../../shared/widgets/multi_select_product_modal.dart';
 
 /// Delivery Form Dialog
 /// Handles creating new deliveries with items

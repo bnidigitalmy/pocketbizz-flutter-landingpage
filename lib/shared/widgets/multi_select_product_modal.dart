@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../data/models/product.dart';
+import '../../core/theme/app_colors.dart';
+import '../../data/models/product.dart';
 
 /// Model untuk track selected product dengan quantity
 class SelectedProductItem {
@@ -15,26 +15,42 @@ class SelectedProductItem {
   });
 }
 
-/// Multi-Select Product Modal untuk delivery form
-/// Membolehkan user pilih multiple products sekaligus dengan kuantiti inline
+/// Shared Multi-Select Product Modal
+/// Boleh guna untuk Sales, Bookings, dan modul lain
+///
+/// Features:
+/// - Checkbox multi-select
+/// - Inline quantity input dengan stepper
+/// - Search/filter produk
+/// - Optional stock validation
+/// - Bulk add button
 class MultiSelectProductModal extends StatefulWidget {
   final List<Product> products;
-  final Map<String, double> productStockCache;
+  final Map<String, double>? productStockCache; // Optional - null means no stock check
   final Function(List<SelectedProductItem>) onConfirm;
+  final String title;
+  final String confirmButtonText;
+  final bool validateStock;
 
   const MultiSelectProductModal({
     super.key,
     required this.products,
-    required this.productStockCache,
+    this.productStockCache,
     required this.onConfirm,
+    this.title = 'Pilih Produk',
+    this.confirmButtonText = 'Tambah',
+    this.validateStock = true,
   });
 
   /// Show the multi-select modal as a bottom sheet
   static Future<void> show({
     required BuildContext context,
     required List<Product> products,
-    required Map<String, double> productStockCache,
+    Map<String, double>? productStockCache,
     required Function(List<SelectedProductItem>) onConfirm,
+    String title = 'Pilih Produk',
+    String confirmButtonText = 'Tambah',
+    bool validateStock = true,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -44,6 +60,9 @@ class MultiSelectProductModal extends StatefulWidget {
         products: products,
         productStockCache: productStockCache,
         onConfirm: onConfirm,
+        title: title,
+        confirmButtonText: confirmButtonText,
+        validateStock: validateStock,
       ),
     );
   }
@@ -92,9 +111,17 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
 
   int get _selectedCount => _selectedItems.values.where((item) => item.isSelected).length;
 
-  void _toggleProduct(Product product) {
-    final stock = widget.productStockCache[product.id] ?? 0.0;
+  double _getStock(String productId) {
+    if (widget.productStockCache == null) return double.infinity;
+    return widget.productStockCache![productId] ?? 0.0;
+  }
 
+  bool _hasStock(String productId) {
+    if (!widget.validateStock || widget.productStockCache == null) return true;
+    return _getStock(productId) > 0;
+  }
+
+  void _toggleProduct(Product product) {
     setState(() {
       if (_selectedItems.containsKey(product.id) && _selectedItems[product.id]!.isSelected) {
         // Deselect
@@ -111,12 +138,10 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
           _selectedItems[product.id]!.isSelected = true;
         }
 
-        // Auto-focus quantity field after selection if stock available
-        if (stock > 0) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _qtyFocusNodes[product.id]?.requestFocus();
-          });
-        }
+        // Auto-focus quantity field after selection
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _qtyFocusNodes[product.id]?.requestFocus();
+        });
       }
     });
   }
@@ -134,9 +159,11 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
   }
 
   void _incrementQty(Product product) {
-    final stock = widget.productStockCache[product.id] ?? 0.0;
+    final stock = _getStock(product.id);
     final currentQty = _selectedItems[product.id]?.quantity ?? 1.0;
-    if (currentQty < stock) {
+    final canIncrement = !widget.validateStock || currentQty < stock;
+
+    if (canIncrement) {
       setState(() {
         _updateQuantity(product, currentQty + 1);
         _qtyControllers[product.id]?.text = (currentQty + 1).toStringAsFixed(0);
@@ -157,6 +184,11 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
   void _onConfirm() {
     final selectedList = _selectedItems.values
         .where((item) => item.isSelected && item.quantity > 0)
+        .where((item) {
+          if (!widget.validateStock || widget.productStockCache == null) return true;
+          final stock = _getStock(item.product.id);
+          return item.quantity <= stock;
+        })
         .toList();
 
     widget.onConfirm(selectedList);
@@ -225,10 +257,10 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Pilih Produk',
-              style: TextStyle(
+              widget.title,
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -295,7 +327,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
       color: AppColors.primary.withOpacity(0.05),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.check_circle,
             color: AppColors.primary,
             size: 20,
@@ -303,7 +335,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
           const SizedBox(width: 8),
           Text(
             '$_selectedCount produk dipilih',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
             ),
@@ -365,11 +397,12 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
 
   Widget _buildProductCard(Product product) {
     final hasPrice = product.salePrice > 0;
-    final stock = widget.productStockCache[product.id] ?? 0.0;
-    final isAvailable = stock > 0;
+    final stock = _getStock(product.id);
+    final hasStockCheck = widget.validateStock && widget.productStockCache != null;
+    final isAvailable = !hasStockCheck || stock > 0;
     final isSelected = _selectedItems[product.id]?.isSelected ?? false;
     final currentQty = _selectedItems[product.id]?.quantity ?? 1.0;
-    final qtyExceedsStock = currentQty > stock;
+    final qtyExceedsStock = hasStockCheck && currentQty > stock;
 
     return Card(
       elevation: isSelected ? 4 : 2,
@@ -439,7 +472,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        _buildProductBadges(product, hasPrice, isAvailable, stock),
+                        _buildProductBadges(product, hasPrice, isAvailable, stock, hasStockCheck),
                       ],
                     ),
                   ),
@@ -450,7 +483,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
           // Quantity input (shown when selected)
           if (isSelected && hasPrice && isAvailable) ...[
             const Divider(height: 1),
-            _buildQuantityInput(product, stock, qtyExceedsStock),
+            _buildQuantityInput(product, stock, qtyExceedsStock, hasStockCheck),
           ],
         ],
       ),
@@ -509,7 +542,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
     );
   }
 
-  Widget _buildProductBadges(Product product, bool hasPrice, bool isAvailable, double stock) {
+  Widget _buildProductBadges(Product product, bool hasPrice, bool isAvailable, double stock, bool hasStockCheck) {
     return Wrap(
       spacing: 6,
       runSpacing: 4,
@@ -530,33 +563,51 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
             ),
           ),
         ),
-        // Stock badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isAvailable ? Colors.green[50] : Colors.red[50],
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isAvailable ? Icons.inventory_2 : Icons.inventory_2_outlined,
-                size: 12,
-                color: isAvailable ? Colors.green[700] : Colors.red[700],
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Stok: ${stock.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+        // Stock badge (only if stock check enabled)
+        if (hasStockCheck)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isAvailable ? Colors.green[50] : Colors.red[50],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isAvailable ? Icons.inventory_2 : Icons.inventory_2_outlined,
+                  size: 12,
                   color: isAvailable ? Colors.green[700] : Colors.red[700],
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  'Stok: ${stock.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isAvailable ? Colors.green[700] : Colors.red[700],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        // Category badge
+        if (product.category != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.purple[50],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              product.category!,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.purple[700],
+              ),
+            ),
+          ),
         // No price warning
         if (!hasPrice)
           Container(
@@ -578,7 +629,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
     );
   }
 
-  Widget _buildQuantityInput(Product product, double stock, bool qtyExceedsStock) {
+  Widget _buildQuantityInput(Product product, double stock, bool qtyExceedsStock, bool hasStockCheck) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -656,17 +707,19 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
           _buildQtyButton(
             icon: Icons.add,
             onTap: () => _incrementQty(product),
-            enabled: (_selectedItems[product.id]?.quantity ?? 1.0) < stock,
+            enabled: !hasStockCheck || (_selectedItems[product.id]?.quantity ?? 1.0) < stock,
           ),
-          const SizedBox(width: 12),
-          // Stock info
-          Text(
-            '/ ${stock.toStringAsFixed(0)}',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
+          // Stock info (only if stock check enabled)
+          if (hasStockCheck) ...[
+            const SizedBox(width: 12),
+            Text(
+              '/ ${stock.toStringAsFixed(0)}',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -698,14 +751,20 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
   Widget _buildBottomBar() {
     final hasValidSelection = _selectedItems.values.any((item) {
       if (!item.isSelected) return false;
-      final stock = widget.productStockCache[item.product.id] ?? 0.0;
-      return item.quantity > 0 && item.quantity <= stock;
+      if (widget.validateStock && widget.productStockCache != null) {
+        final stock = _getStock(item.product.id);
+        return item.quantity > 0 && item.quantity <= stock;
+      }
+      return item.quantity > 0;
     });
 
     final validCount = _selectedItems.values.where((item) {
       if (!item.isSelected) return false;
-      final stock = widget.productStockCache[item.product.id] ?? 0.0;
-      return item.quantity > 0 && item.quantity <= stock;
+      if (widget.validateStock && widget.productStockCache != null) {
+        final stock = _getStock(item.product.id);
+        return item.quantity > 0 && item.quantity <= stock;
+      }
+      return item.quantity > 0;
     }).length;
 
     return Container(
@@ -742,7 +801,7 @@ class _MultiSelectProductModalState extends State<MultiSelectProductModal> {
                 const SizedBox(width: 8),
                 Text(
                   validCount > 0
-                      ? 'Tambah $validCount Produk'
+                      ? '${widget.confirmButtonText} $validCount Produk'
                       : 'Pilih Produk',
                   style: const TextStyle(
                     fontSize: 16,

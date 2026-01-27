@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/business_profile_error_handler.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/product.dart';
+import '../../../shared/widgets/multi_select_product_modal.dart';
 
 class CreateBookingPage extends StatefulWidget {
   const CreateBookingPage({super.key});
@@ -274,7 +276,7 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _showProductSelector(),
+                  onPressed: _showMultiSelectProductModal,
                   icon: const Icon(Icons.add),
                   label: const Text('Add Product'),
                 ),
@@ -409,6 +411,51 @@ class _CreateBookingPageState extends State<CreateBookingPage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Show multi-select product modal for bulk adding products
+  /// Note: Bookings don't require stock validation (future orders)
+  void _showMultiSelectProductModal() {
+    MultiSelectProductModal.show(
+      context: context,
+      products: _availableProducts,
+      productStockCache: null, // No stock check for bookings
+      validateStock: false,
+      title: 'Pilih Produk Tempahan',
+      confirmButtonText: 'Tambah',
+      onConfirm: (selectedItems) {
+        // Process each selected product
+        for (final selectedItem in selectedItems) {
+          final product = selectedItem.product;
+          final qty = selectedItem.quantity;
+
+          // Skip if invalid
+          if (product.salePrice <= 0 || qty <= 0) {
+            continue;
+          }
+
+          setState(() {
+            _selectedItems.add({
+              'product_id': product.id,
+              'product_name': product.name,
+              'quantity': qty,
+              'unit_price': product.salePrice,
+            });
+          });
+        }
+
+        // Show success message
+        if (selectedItems.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ ${selectedItems.length} produk telah ditambah'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
     );
   }
 }
