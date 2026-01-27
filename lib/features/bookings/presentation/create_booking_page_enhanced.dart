@@ -6,6 +6,7 @@ import '../../../data/repositories/bookings_repository_supabase.dart';
 import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../subscription/widgets/subscription_guard.dart';
+import '../../../shared/widgets/multi_select_product_modal.dart';
 
 /// Enhanced Create Booking Page
 /// Full-featured with discount, deposit, and better UX
@@ -975,7 +976,7 @@ class _CreateBookingPageEnhancedState extends State<CreateBookingPageEnhanced> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _showProductSelector,
+              onPressed: _showMultiSelectProductModal,
               icon: const Icon(Icons.add_shopping_cart),
               label: const Text('Tambah Produk'),
               style: ElevatedButton.styleFrom(
@@ -1365,6 +1366,65 @@ class _CreateBookingPageEnhancedState extends State<CreateBookingPageEnhanced> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Show multi-select product modal for bulk adding products
+  /// Note: Bookings don't require stock validation (future orders)
+  void _showMultiSelectProductModal() {
+    MultiSelectProductModal.show(
+      context: context,
+      products: _availableProducts,
+      productStockCache: null, // No stock check for bookings
+      validateStock: false,
+      title: 'Pilih Produk Tempahan',
+      confirmButtonText: 'Tambah',
+      onConfirm: (selectedItems) {
+        // Process each selected product
+        for (final selectedItem in selectedItems) {
+          final product = selectedItem.product;
+          final qty = selectedItem.quantity;
+
+          // Skip if invalid
+          if (product.salePrice <= 0 || qty <= 0) {
+            continue;
+          }
+
+          // Check if product already added
+          final existingIndex = _selectedItems.indexWhere(
+            (item) => item['product_id'] == product.id,
+          );
+
+          if (existingIndex >= 0) {
+            // Update existing quantity
+            setState(() {
+              _selectedItems[existingIndex]['quantity'] =
+                  (_selectedItems[existingIndex]['quantity'] as double) + qty;
+            });
+          } else {
+            // Add new item
+            setState(() {
+              _selectedItems.add({
+                'product_id': product.id,
+                'product_name': product.name,
+                'quantity': qty,
+                'unit_price': product.salePrice,
+              });
+            });
+          }
+        }
+
+        // Show success message
+        if (selectedItems.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ ${selectedItems.length} produk telah ditambah'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
     );
   }
 }

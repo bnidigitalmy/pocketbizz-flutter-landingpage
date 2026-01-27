@@ -4,10 +4,12 @@ import '../../../data/repositories/products_repository_supabase.dart';
 import '../../../data/repositories/production_repository_supabase.dart';
 import '../../../data/models/product.dart';
 import '../../../core/supabase/supabase_client.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../features/subscription/exceptions/subscription_limit_exception.dart';
 import '../../../features/subscription/presentation/subscription_page.dart';
 import '../../../features/subscription/widgets/subscription_guard.dart';
 import '../../onboarding/services/onboarding_service.dart';
+import '../../../shared/widgets/multi_select_product_modal.dart';
 
 /**
  * 🔒 POCKETBIZZ CORE ENGINE (STABLE)
@@ -562,7 +564,7 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _showProductSelector(),
+                  onPressed: _showMultiSelectProductModal,
                   icon: const Icon(Icons.add),
                   label: const Text('Tambah Produk'),
                   style: ElevatedButton.styleFrom(
@@ -1344,6 +1346,51 @@ class _CreateSalePageEnhancedState extends State<CreateSalePageEnhanced> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Show multi-select product modal for bulk adding products
+  void _showMultiSelectProductModal() {
+    MultiSelectProductModal.show(
+      context: context,
+      products: _availableProducts,
+      productStockCache: _productStockCache,
+      validateStock: true,
+      title: 'Pilih Produk',
+      confirmButtonText: 'Tambah',
+      onConfirm: (selectedItems) {
+        // Process each selected product
+        for (final selectedItem in selectedItems) {
+          final product = selectedItem.product;
+          final qty = selectedItem.quantity;
+          final stock = _productStockCache[product.id] ?? 0.0;
+
+          // Skip if invalid
+          if (product.salePrice <= 0 || qty <= 0 || qty > stock) {
+            continue;
+          }
+
+          setState(() {
+            _selectedItems.add({
+              'product_id': product.id,
+              'product_name': product.name,
+              'quantity': qty,
+              'unit_price': product.salePrice,
+            });
+          });
+        }
+
+        // Show success message
+        if (selectedItems.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ ${selectedItems.length} produk telah ditambah'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
     );
   }
 }
