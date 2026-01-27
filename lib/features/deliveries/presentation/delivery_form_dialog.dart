@@ -23,6 +23,7 @@ import '../../../core/utils/business_profile_error_handler.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../onboarding/services/onboarding_service.dart';
+import 'widgets/multi_select_product_modal.dart';
 
 /// Delivery Form Dialog
 /// Handles creating new deliveries with items
@@ -530,6 +531,57 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Show multi-select product modal for bulk adding products
+  void _showMultiSelectProductModal() {
+    MultiSelectProductModal.show(
+      context: context,
+      products: widget.products,
+      productStockCache: _productStockCache,
+      onConfirm: (selectedItems) async {
+        // Process each selected product
+        for (final selectedItem in selectedItems) {
+          final product = selectedItem.product;
+          final qty = selectedItem.quantity;
+          final stock = _productStockCache[product.id] ?? 0.0;
+
+          // Skip if invalid
+          if (product.salePrice <= 0 || qty <= 0 || qty > stock) {
+            continue;
+          }
+
+          final retailPrice = product.salePrice.toStringAsFixed(2);
+          final vendorPrice = await _calculateVendorPrice(retailPrice);
+
+          setState(() {
+            _items.add(DeliveryItemForm(
+              productId: product.id,
+              productName: product.name,
+              quantity: qty,
+              unitPrice: vendorPrice,
+              retailPrice: retailPrice,
+            ));
+          });
+        }
+
+        // Recalculate total after all items added
+        setState(() {
+          _calculateTotal();
+        });
+
+        // Show success message
+        if (selectedItems.isNotEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ ${selectedItems.length} produk telah ditambah'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -1062,7 +1114,7 @@ class _DeliveryFormDialogState extends State<DeliveryFormDialog> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: _showProductSelector,
+                      onPressed: _showMultiSelectProductModal,
                       icon: const Icon(Icons.add),
                       label: const Text('Tambah Produk'),
                       style: ElevatedButton.styleFrom(
