@@ -251,7 +251,9 @@ function parseReceiptText(text: string): ParsedReceipt {
   // Priority 1: NET TOTAL / NETT (most accurate - amount after discounts/tax)
   // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
   // FIX: Use match() instead of exec() to avoid global flag issues
-  const netTotalPattern = /(?:NET\s*TOTAL|NETT|NET)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+  // FIX: Now matches amounts WITH or WITHOUT decimals (e.g., "TOTAL 23" or "TOTAL 23.50")
+  // FIX: Handles various spacing: "TOTAL:RM23", "TOTAL : RM 23", "TOTAL RM23.50"
+  const netTotalPattern = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
   let match = text.match(netTotalPattern);
   if (match && match[1]) {
     const num = normalizeAmountString(match[1]);
@@ -267,11 +269,16 @@ function parseReceiptText(text: string): ParsedReceipt {
   // IMPROVED: Handles 1,234.50 format
   // FIX: Use match() to get first match, not continue from previous
   // FIX: More flexible pattern - handles various spacing and formats
+  // FIX: Now matches amounts WITH or WITHOUT decimals (e.g., "TOTAL 23" or "TOTAL 23.50")
   if (!totalAmount) {
     // Try multiple patterns for better matching
+    // Pattern explanation: (\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)
+    //   - \d{1,3}(?:[.,]\d{3})* = handles thousand separators (1,234 or 1.234)
+    //   - (?:[.,]\d{1,2})? = OPTIONAL decimal (makes .50 or ,50 optional)
+    //   - |\d+(?:[.,]\d{1,2})? = OR just digits with optional decimal
     const totalPatterns = [
-      /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i,
-      /(?:TOTAL|JUMLAH)[:\s]*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i, // Simpler pattern without RM
+      /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|AMOUNT\s*DUE)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i,
+      /(?:TOTAL)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i,
     ];
     
     for (const totalPattern of totalPatterns) {
@@ -292,8 +299,9 @@ function parseReceiptText(text: string): ParsedReceipt {
   // Priority 3: JUMLAH (if total not found)
   // IMPROVED: Handles 1,234.50 format
   // FIX: Use match() to avoid regex state issues
+  // FIX: Now matches amounts WITH or WITHOUT decimals
   if (!totalAmount) {
-    const jumlahPattern = /(?:JUMLAH)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+    const jumlahPattern = /(?:JUMLAH)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
     match = text.match(jumlahPattern);
     if (match && match[1]) {
       const num = normalizeAmountString(match[1]);
@@ -306,11 +314,12 @@ function parseReceiptText(text: string): ParsedReceipt {
     }
   }
   
-  // Priority 4: SUBTOTAL (if nothing else found - less ideal but better than cash)
+  // Priority 4: SUBTOTAL / SUB-TOTAL (if nothing else found - less ideal but better than cash)
   // IMPROVED: Handles 1,234.50 format
   // FIX: Use match() to avoid regex state issues
+  // FIX: Now matches amounts WITH or WITHOUT decimals
   if (!totalAmount) {
-    const subtotalPattern = /(?:SUBTOTAL)[:\s]*RM?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/i;
+    const subtotalPattern = /(?:SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
     match = text.match(subtotalPattern);
     if (match && match[1]) {
       const num = normalizeAmountString(match[1]);
@@ -330,7 +339,8 @@ function parseReceiptText(text: string): ParsedReceipt {
   // This check ensures fallback NEVER runs if we found an explicit label
   if (!totalAmount) {
     // SAFETY CHECK: Verify no explicit labels exist in text (double-check pattern matching)
-    const hasExplicitLabel = /(?:NET\s*TOTAL|NETT|NET|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUBTOTAL)[:\s]*RM?\s*\d/i.test(text);
+    // IMPROVED: Pattern now matches amounts with or without decimals
+    const hasExplicitLabel = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?\d/i.test(text);
     if (hasExplicitLabel) {
       console.error("⚠️ WARNING: Explicit label detected in text but not matched by patterns!");
       console.error("   This suggests a pattern matching issue - patterns may need adjustment");
@@ -347,7 +357,8 @@ function parseReceiptText(text: string): ParsedReceipt {
     if (!totalAmount && !hasExplicitLabel) {
       const allAmounts: Array<{ value: number; line: string }> = [];
     // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
-    const amountPattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2,4}|\d+[.,]\d{2,4})/g;
+    // FIX: Now matches amounts WITH or WITHOUT decimals
+    const amountPattern = /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/g;
     
     // FIX #1: Payment Context Window - Skip lines after CASH/TUNAI keywords
     // OCR often puts CASH and amount on separate lines:
@@ -355,12 +366,13 @@ function parseReceiptText(text: string): ParsedReceipt {
     //   "CASH"
     //   "50.00"  ← This gets captured without context window
     let skipNextLines = 0;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      
+
       // If payment keyword found, skip this line + next 2 lines (payment context window)
-      if (/(?:TUNAI|CASH|BAYAR|PAYMENT|CHANGE|BAKI)/i.test(line)) {
+      // IMPROVED: Added more payment keywords - DIBAYAR, PAID, TENDER, RECEIVED, TERIMA, WANG MASUK
+      if (/(?:TUNAI|CASH|BAYAR|DIBAYAR|PAYMENT|PAID|TENDER|CHANGE|BAKI|RECEIVED|TERIMA|WANG\s*MASUK|AMOUNT\s*RECEIVED|AMOUNT\s*TENDERED)/i.test(line)) {
         skipNextLines = 2; // Skip current line + next 2 lines
         continue;
       }
@@ -397,8 +409,9 @@ function parseReceiptText(text: string): ParsedReceipt {
   
   // FIX #2: Final Safety Guard - Prevent CASH from overriding TOTAL
   // Even if fallback found an amount, if it matches CASH value, reject it
-  if (totalAmount && amountSource === "fallback" && /(?:CASH|TUNAI)/i.test(text)) {
-    const cashMatch = text.match(/(?:CASH|TUNAI)[^\d]*(\d+[.,]\d{2,4})/i);
+  // IMPROVED: Added more payment keywords and handles amounts with/without decimals
+  if (totalAmount && amountSource === "fallback" && /(?:CASH|TUNAI|DIBAYAR|PAID|TENDER|RECEIVED|TERIMA)/i.test(text)) {
+    const cashMatch = text.match(/(?:CASH|TUNAI|DIBAYAR|PAID|TENDER|RECEIVED|TERIMA)[^\d]*(\d+(?:[.,]\d{1,2})?)/i);
     if (cashMatch) {
       const cashValue = parseFloat(cashMatch[1].replace(",", "."));
       if (Math.abs(totalAmount - cashValue) < 0.01) { // Allow small floating point differences
@@ -432,7 +445,8 @@ function parseReceiptText(text: string): ParsedReceipt {
   
   // FINAL ENFORCEMENT: Triple-check that explicit labels always win
   // This is the ultimate safety net - if explicit label exists in text but fallback was used, something is wrong
-  const explicitLabelExists = /(?:NET\s*TOTAL|NETT|NET|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUBTOTAL)[:\s]*RM?\s*\d/i.test(text);
+  // IMPROVED: Pattern now matches amounts with or without decimals
+  const explicitLabelExists = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?\d/i.test(text);
   if (explicitLabelExists && amountSource === "fallback" && totalAmount) {
     console.error("❌ CRITICAL: Explicit label found in text but fallback was used!");
     console.error("   This indicates a pattern matching failure - patterns need to be fixed");

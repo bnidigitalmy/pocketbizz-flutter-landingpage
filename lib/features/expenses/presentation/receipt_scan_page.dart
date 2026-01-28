@@ -80,6 +80,17 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
   final _repo = ExpensesRepositorySupabase();
   final _picker = ImagePicker();
 
+  // Image size limits
+  static const int _maxImagePixels = 10 * 1000 * 1000; // 10 megapixels
+  static const int _maxImageBytes = 8 * 1024 * 1024; // 8MB max file size
+  static const int _targetWidth = 1920; // Target width for compression
+  static const int _targetHeight = 2560; // Target height for compression (4:3 portrait)
+
+  // OCR retry configuration
+  static const int _maxOcrRetries = 3;
+  static const Duration _ocrTimeout = Duration(seconds: 60);
+  static const Duration _initialRetryDelay = Duration(seconds: 2);
+
   /// Convert PlatformFile to XFile (for web FilePicker)
   XFile _xFileFromPickedBytes(PlatformFile f) {
     final bytes = f.bytes;
@@ -297,6 +308,85 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     _zoomLevel = 1.0; // Reset zoom
   }
 
+  /// Validate and compress image if too large
+  /// Returns compressed bytes or original if already within limits
+  Future<Uint8List> _validateAndCompressImage(Uint8List bytes, int width, int height) async {
+    final pixels = width * height;
+    final fileSize = bytes.length;
+
+    debugPrint('📷 Image validation: ${width}x$height = $pixels pixels, $fileSize bytes');
+
+    // Check if image is within limits
+    if (pixels <= _maxImagePixels && fileSize <= _maxImageBytes) {
+      debugPrint('✅ Image within limits, no compression needed');
+      return bytes;
+    }
+
+    debugPrint('⚠️ Image exceeds limits, compressing...');
+
+    // Calculate scale factor to fit within limits
+    double scale = 1.0;
+    if (pixels > _maxImagePixels) {
+      scale = (_maxImagePixels / pixels).clamp(0.1, 1.0);
+      scale = scale * 0.9; // Add 10% margin for safety
+    }
+
+    // Calculate new dimensions
+    int newWidth = (width * scale).round();
+    int newHeight = (height * scale).round();
+
+    // Also ensure we don't exceed target dimensions
+    if (newWidth > _targetWidth) {
+      final ratio = _targetWidth / newWidth;
+      newWidth = _targetWidth;
+      newHeight = (newHeight * ratio).round();
+    }
+    if (newHeight > _targetHeight) {
+      final ratio = _targetHeight / newHeight;
+      newHeight = _targetHeight;
+      newWidth = (newWidth * ratio).round();
+    }
+
+    debugPrint('📐 Compressing to: ${newWidth}x$newHeight');
+
+    // Create a canvas and draw the image scaled down
+    final img = html.ImageElement();
+    final completer = Completer<Uint8List>();
+
+    img.onLoad.listen((_) {
+      final canvas = html.CanvasElement(width: newWidth, height: newHeight);
+      final ctx = canvas.context2D;
+      ctx.drawImageScaled(img, 0, 0, newWidth, newHeight);
+
+      // Adjust quality based on file size - start high and reduce if needed
+      double quality = 0.85;
+      String dataUrl = canvas.toDataUrl('image/jpeg', quality);
+      Uint8List compressedBytes = base64Decode(dataUrl.split(',').last);
+
+      // If still too large, reduce quality further
+      while (compressedBytes.length > _maxImageBytes && quality > 0.5) {
+        quality -= 0.1;
+        dataUrl = canvas.toDataUrl('image/jpeg', quality);
+        compressedBytes = base64Decode(dataUrl.split(',').last);
+        debugPrint('📉 Reducing quality to $quality, size: ${compressedBytes.length} bytes');
+      }
+
+      debugPrint('✅ Compressed: ${compressedBytes.length} bytes (quality: $quality)');
+      completer.complete(compressedBytes);
+    });
+
+    img.onError.listen((_) {
+      debugPrint('❌ Failed to load image for compression');
+      completer.complete(bytes); // Return original if compression fails
+    });
+
+    // Load image from bytes
+    final base64 = base64Encode(bytes);
+    img.src = 'data:image/jpeg;base64,$base64';
+
+    return completer.future;
+  }
+
   /// Capture frame from live camera
   /// Captures exactly what user sees on screen (no zoom/crop)
   Future<void> _captureFromLiveCamera() async {
@@ -308,7 +398,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       // Get actual video dimensions (what camera is capturing)
       final videoWidth = _videoElement!.videoWidth;
       final videoHeight = _videoElement!.videoHeight;
-      
+
       if (videoWidth == 0 || videoHeight == 0) {
         throw Exception('Camera dimensions not available');
       }
@@ -320,7 +410,7 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         height: videoHeight,
       );
       final ctx = canvas.context2D;
-      
+
       // Draw the video frame directly - this captures what user sees
       // drawImage signature: drawImage(image, dx, dy, [dWidth, dHeight])
       ctx.drawImageScaled(_videoElement!, 0, 0, videoWidth, videoHeight);
@@ -328,18 +418,24 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       // Convert to base64 with high quality (0.90 for better OCR accuracy)
       final dataUrl = canvas.toDataUrl('image/jpeg', 0.90);
       final base64Data = dataUrl.split(',').last;
-      final bytes = base64Decode(base64Data);
+      var bytes = base64Decode(base64Data);
+
+      // Validate and compress if needed
+      bytes = await _validateAndCompressImage(Uint8List.fromList(bytes), videoWidth, videoHeight);
 
       // Stop camera after capture
       _stopCamera();
 
+      // Update dataUrl if bytes were compressed
+      final finalDataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+
       setState(() {
-        _imageDataUrl = dataUrl;
+        _imageDataUrl = finalDataUrl;
         _imageBytes = bytes;
         _isCameraReady = false;
       });
 
-      // Process OCR immediately with original image
+      // Process OCR immediately with validated/compressed image
       await _processImageBytes(bytes);
 
     } catch (e) {
@@ -409,10 +505,34 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
   /// Process XFile image (from gallery)
   Future<void> _processImage(XFile image) async {
-    final bytes = await image.readAsBytes();
-    final base64Image = base64Encode(bytes);
+    var bytes = await image.readAsBytes();
+
+    // Get image dimensions for validation
+    // For web, we need to decode the image to get dimensions
+    final img = html.ImageElement();
+    final dimensionsCompleter = Completer<List<int>>();
+
+    img.onLoad.listen((_) {
+      dimensionsCompleter.complete([img.naturalWidth, img.naturalHeight]);
+    });
+    img.onError.listen((_) {
+      // If we can't get dimensions, use default large values to trigger compression
+      dimensionsCompleter.complete([4000, 3000]);
+    });
+
+    final base64ForDimensions = base64Encode(bytes);
     final mimeType = image.mimeType ?? 'image/jpeg';
-    final dataUrl = 'data:$mimeType;base64,$base64Image';
+    img.src = 'data:$mimeType;base64,$base64ForDimensions';
+
+    final dimensions = await dimensionsCompleter.future;
+    final width = dimensions[0];
+    final height = dimensions[1];
+
+    // Validate and compress if needed
+    bytes = await _validateAndCompressImage(bytes, width, height);
+
+    final base64Image = base64Encode(bytes);
+    final dataUrl = 'data:image/jpeg;base64,$base64Image';
 
     setState(() {
       _imageDataUrl = dataUrl;
@@ -420,11 +540,12 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       _isCameraReady = false;
     });
 
-    // Process OCR immediately with original image
+    // Process OCR immediately with validated/compressed image
     await _processImageBytes(bytes);
   }
 
   /// Process image bytes with Google Cloud Vision OCR
+  /// Includes retry mechanism with exponential backoff for timeouts
   Future<void> _processImageBytes(Uint8List bytes) async {
     setState(() {
       _isProcessing = true;
@@ -447,39 +568,21 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
 
       final base64Image = base64Encode(bytes);
 
-      // Call Supabase Edge Function for OCR (with image upload option)
-      // Add timeout to prevent indefinite waiting and unhandled promise rejections
-      final response = await supabase.functions.invoke(
-        'OCR-Cloud-Vision',
-        body: {
-          'imageBase64': base64Image,
-          'uploadImage': true, // Request Edge Function to upload image
-        },
-      ).timeout(
-        const Duration(seconds: 60), // 60 second timeout
-        onTimeout: () {
-          throw Exception('OCR processing timeout. Sila cuba lagi.');
-        },
-      );
+      // Call OCR with retry mechanism
+      final result = await _callOcrWithRetry(base64Image);
 
-      if (response.status != 200) {
-        throw Exception('OCR failed: ${response.data?['error'] ?? 'Unknown error'}');
+      if (result == null) {
+        throw Exception('OCR gagal selepas $_maxOcrRetries percubaan. Sila cuba lagi.');
       }
 
-      final data = response.data as Map<String, dynamic>;
-      
-      if (data['success'] != true) {
-        throw Exception(data['error'] ?? 'OCR processing failed');
-      }
+      final parsed = ParsedReceipt.fromJson(result['parsed'] as Map<String, dynamic>);
 
-      final parsed = ParsedReceipt.fromJson(data['parsed'] as Map<String, dynamic>);
-      
       // Check if Edge Function uploaded image and returned storage path
-      final storagePathFromOCR = data['storagePath'] as String?;
+      final storagePathFromOCR = result['storagePath'] as String?;
       if (storagePathFromOCR != null) {
         debugPrint('✅ Image uploaded by OCR Edge Function: $storagePathFromOCR');
       }
-      
+
       setState(() {
         _parsedReceipt = parsed;
         _storagePathFromOCR = storagePathFromOCR; // Store for use when saving
@@ -514,6 +617,89 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  /// Call OCR Edge Function with retry mechanism and exponential backoff
+  Future<Map<String, dynamic>?> _callOcrWithRetry(String base64Image) async {
+    int attempt = 0;
+    Duration delay = _initialRetryDelay;
+
+    while (attempt < _maxOcrRetries) {
+      attempt++;
+      debugPrint('🔄 OCR attempt $attempt of $_maxOcrRetries');
+
+      try {
+        final response = await supabase.functions.invoke(
+          'OCR-Cloud-Vision',
+          body: {
+            'imageBase64': base64Image,
+            'uploadImage': true, // Request Edge Function to upload image
+          },
+        ).timeout(
+          _ocrTimeout,
+          onTimeout: () {
+            throw TimeoutException('OCR timeout after ${_ocrTimeout.inSeconds}s');
+          },
+        );
+
+        if (response.status != 200) {
+          throw Exception('OCR failed: ${response.data?['error'] ?? 'Unknown error'}');
+        }
+
+        final data = response.data as Map<String, dynamic>;
+
+        if (data['success'] != true) {
+          throw Exception(data['error'] ?? 'OCR processing failed');
+        }
+
+        debugPrint('✅ OCR succeeded on attempt $attempt');
+        return data;
+
+      } on TimeoutException catch (e) {
+        debugPrint('⏱️ OCR timeout on attempt $attempt: $e');
+
+        if (attempt >= _maxOcrRetries) {
+          debugPrint('❌ OCR failed after $_maxOcrRetries attempts');
+          return null;
+        }
+
+        // Show retry notification to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('OCR timeout. Cuba semula... (${attempt}/$_maxOcrRetries)'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: delay.inSeconds),
+            ),
+          );
+        }
+
+        // Wait with exponential backoff before retry
+        await Future.delayed(delay);
+        delay = delay * 2; // Exponential backoff: 2s -> 4s -> 8s
+
+      } catch (e) {
+        debugPrint('❌ OCR error on attempt $attempt: $e');
+
+        // For non-timeout errors, don't retry (might be auth/subscription issue)
+        if (e.toString().contains('Subscription') ||
+            e.toString().contains('401') ||
+            e.toString().contains('403')) {
+          rethrow;
+        }
+
+        if (attempt >= _maxOcrRetries) {
+          debugPrint('❌ OCR failed after $_maxOcrRetries attempts');
+          return null;
+        }
+
+        // Wait before retry
+        await Future.delayed(delay);
+        delay = delay * 2;
+      }
+    }
+
+    return null;
   }
 
   /// Pre-fill form fields from parsed receipt
@@ -642,7 +828,51 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     return 'lain';
   }
 
+  /// Upload image with retry mechanism
+  /// Returns storage path on success, null on failure
+  Future<String?> _uploadImageWithRetry(Uint8List bytes, {int maxRetries = 3}) async {
+    int attempt = 0;
+    Duration delay = const Duration(seconds: 2);
+
+    while (attempt < maxRetries) {
+      attempt++;
+      debugPrint('📤 Image upload attempt $attempt of $maxRetries');
+
+      try {
+        final receiptImageUrl = await ReceiptStorageService.uploadReceipt(
+          imageBytes: bytes,
+          fileName: 'receipt-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
+        debugPrint('✅ Image uploaded on attempt $attempt: $receiptImageUrl');
+        return receiptImageUrl;
+      } catch (e) {
+        debugPrint('❌ Image upload failed on attempt $attempt: $e');
+
+        if (attempt >= maxRetries) {
+          return null;
+        }
+
+        // Show retry notification
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Upload gagal. Cuba semula... ($attempt/$maxRetries)'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: delay.inSeconds),
+            ),
+          );
+        }
+
+        await Future.delayed(delay);
+        delay = delay * 2; // Exponential backoff
+      }
+    }
+
+    return null;
+  }
+
   /// Save expense to database
+  /// Implements proper transaction handling - won't save if image upload fails (when image exists)
   Future<void> _saveExpense() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -661,44 +891,70 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     try {
       final amountText = _amountController.text.trim();
       final amount = double.tryParse(amountText) ?? 0;
-      
+
       if (amount <= 0) {
         throw Exception('Jumlah tidak sah: $amountText');
       }
 
-      // Upload original image to Supabase Storage
+      // Step 1: Upload image first (if exists) - BEFORE creating expense
+      // This ensures we don't create incomplete records
       String? receiptImageUrl;
-      
-      if (_imageBytes != null) {
-        try {
-          // Use storage path from OCR if available, otherwise upload now
-          if (_storagePathFromOCR != null) {
-            // OCR Edge Function already uploaded the image
-            receiptImageUrl = _storagePathFromOCR;
-            debugPrint('✅ Using image uploaded by OCR: $receiptImageUrl');
-          } else {
-            // Upload original image using ReceiptStorageService
-            receiptImageUrl = await ReceiptStorageService.uploadReceipt(
-              imageBytes: _imageBytes!,
-              fileName: 'receipt-${DateTime.now().millisecondsSinceEpoch}.jpg',
-            );
-            debugPrint('✅ Original image uploaded: $receiptImageUrl');
-          }
-        } catch (uploadError) {
-          debugPrint('❌ Image upload failed: $uploadError');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Amaran: Gagal upload gambar. Rekod akan disimpan tanpa gambar. Error: ${uploadError.toString()}'),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 5),
+      bool hasImage = _imageBytes != null;
+
+      if (hasImage) {
+        // Use storage path from OCR if available (already uploaded)
+        if (_storagePathFromOCR != null) {
+          receiptImageUrl = _storagePathFromOCR;
+          debugPrint('✅ Using image uploaded by OCR: $receiptImageUrl');
+        } else {
+          // Upload with retry mechanism
+          receiptImageUrl = await _uploadImageWithRetry(_imageBytes!);
+
+          if (receiptImageUrl == null) {
+            // Upload failed after all retries - ask user what to do
+            if (!mounted) return;
+
+            final shouldContinue = await showDialog<bool>(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Upload Gambar Gagal'),
+                content: const Text(
+                  'Gambar resit gagal di-upload selepas beberapa percubaan.\n\n'
+                  'Pilihan:\n'
+                  '• Simpan tanpa gambar - rekod disimpan tapi tiada gambar resit\n'
+                  '• Batal - cuba lagi kemudian',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Batal'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: const Text('Simpan Tanpa Gambar'),
+                  ),
+                ],
               ),
             );
+
+            if (shouldContinue != true) {
+              // User chose to cancel - don't save
+              debugPrint('❌ User cancelled save after upload failure');
+              return;
+            }
+
+            // User chose to continue without image
+            debugPrint('⚠️ User chose to save without image');
+            receiptImageUrl = null;
           }
         }
       }
 
-      // Build description from merchant and notes
+      // Step 2: Build description from merchant and notes
       String description = _merchantController.text.isNotEmpty
           ? _merchantController.text
           : 'Scan Resit';
@@ -706,11 +962,11 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         description = '$description\n${_notesController.text}';
       }
 
-      // Build structured receipt data from parsed receipt (simplified - no items)
+      // Step 3: Build structured receipt data from parsed receipt (simplified - no items)
       ReceiptData? receiptData;
       if (_parsedReceipt != null) {
         final merchantText = _merchantController.text.trim();
-        
+
         receiptData = ReceiptData(
           merchant: _parsedReceipt!.merchant ?? (merchantText.isEmpty ? null : merchantText),
           date: _parsedReceipt!.date ?? DateFormat('yyyy-MM-dd').format(_selectedDate),
@@ -719,15 +975,15 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
         );
       }
 
-      // Log receipt URL before saving
+      // Step 4: Create expense record (only after image upload confirmed)
       debugPrint('📝 Saving expense with receiptImageUrl: $receiptImageUrl');
-      
+
       final savedExpense = await _repo.createExpense(
         amount: amount,
         category: _selectedCategory,
         expenseDate: _selectedDate,
         description: description,
-        receiptImageUrl: receiptImageUrl, // Original image
+        receiptImageUrl: receiptImageUrl,
         receiptData: receiptData,
       );
 
@@ -738,8 +994,10 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
       if (mounted) {
         final message = receiptImageUrl != null
             ? 'Perbelanjaan berjaya disimpan dengan gambar resit!'
-            : 'Perbelanjaan berjaya disimpan (tanpa gambar)';
-        
+            : hasImage
+                ? 'Perbelanjaan disimpan (tanpa gambar - upload gagal)'
+                : 'Perbelanjaan berjaya disimpan';
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
