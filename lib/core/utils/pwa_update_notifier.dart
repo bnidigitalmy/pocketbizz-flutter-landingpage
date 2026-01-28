@@ -3,289 +3,132 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
-import '../../core/supabase/supabase_client.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
-/// PWA Update Notifier
-/// 
-/// Smart notification system untuk inform user bila ada update baru.
-/// Non-intrusive: SnackBar yang user boleh ignore atau reload.
-/// 
-/// Features:
-/// - Check for updates on app start
-/// - Periodic check setiap 5 minit untuk real-time updates
-/// - Service worker event listeners untuk immediate detection
-/// - Show notification sekali sahaja per update version
-/// - Auto-dismiss dalam 5 seconds
-/// - Optional reload button
+/// PWA Silent Update System - Navigation-Based
+///
+/// Update system yang apply update HANYA bila user navigate.
+/// User tak akan perasan update berlaku.
+///
+/// How it works:
+/// 1. Detect new service worker (update available)
+/// 2. Set flag "_pwaUpdateReady" dalam JavaScript
+/// 3. Bila user navigate ke page lain, check flag dan reload
+///
+/// Benefits:
+/// - Zero interruptions - user tak kena reload tiba-tiba
+/// - Update apply secara natural masa navigation
+/// - Smooth user experience
 class PWAUpdateNotifier {
-  static String? _lastUpdateVersion;
-  static bool _isChecking = false;
+  static bool _isInitialized = false;
   static Timer? _periodicCheckTimer;
-  static BuildContext? _currentContext;
 
-  /// Initialize PWA update checking with periodic checks and event listeners
-  /// 
+  /// Initialize PWA update system
+  ///
   /// Call this on app start (e.g., in main.dart after app initialization)
-  /// This will:
-  /// - Check for updates immediately
-  /// - Set up periodic checks every 5 minutes (CHECK sahaja, TIDAK reload)
-  /// - Listen for service worker update events
-  /// 
-  /// IMPORTANT: Sistem hanya CHECK untuk update, TIDAK akan auto-reload.
-  /// User akan dapat notification dan perlu tekan "Reload" button untuk reload.
   static Future<void> initialize(BuildContext context) async {
     if (!kIsWeb) return;
-    
-    _currentContext = context;
-    
-    // Initial check (semak sekali pada app start) with error handling
-    checkForUpdate(context).catchError((e) {
-      print('PWA Update: Initial check failed: $e');
-    });
-    
-    // Set up periodic checking setiap 5 minit
-    // PENTING: Ini hanya CHECK untuk update, TIDAK reload app
-    // Kalau ada update, sistem akan show notification kepada user
-    // User perlu tekan "Reload" button untuk reload app
+    if (_isInitialized) return;
+
+    _isInitialized = true;
+
+    // Check for updates periodically (every 5 minutes)
     _periodicCheckTimer?.cancel();
-    _periodicCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
-      if (_currentContext != null && _currentContext!.mounted) {
-        // Hanya check untuk update, tidak reload
-        checkForUpdate(_currentContext!).catchError((e) {
-          print('PWA Update: Periodic check failed: $e');
-        });
-      } else {
-        timer.cancel();
-      }
+    _periodicCheckTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _triggerUpdateCheck();
     });
-    
-    // Set up service worker event listeners for immediate detection
-    _setupServiceWorkerListeners(context);
+
+    // Initial check
+    _triggerUpdateCheck();
+
+    debugPrint('🔄 PWA Update: Initialized (navigation-based reload)');
   }
 
-  /// Set up service worker event listeners for real-time update detection
-  static void _setupServiceWorkerListeners(BuildContext context) {
-    if (!kIsWeb || html.window.navigator.serviceWorker == null) return;
-    
-    try {
-      html.window.navigator.serviceWorker!.ready.then((registration) {
-        // Listen for updatefound event (new service worker detected)
-        registration.addEventListener('updatefound', (event) {
-          print('🔄 PWA Update: New service worker detected!');
-          
-          final newWorker = registration.installing;
-          if (newWorker != null) {
-            // Listen for state changes
-            newWorker.addEventListener('statechange', (event) {
-              if (newWorker.state == 'installed' && registration.waiting != null) {
-                // New version installed and waiting
-                print('🔄 PWA Update: New version installed, waiting for activation');
-                if (context.mounted) {
-                  _handleUpdateAvailable(context);
-                }
-              } else if (newWorker.state == 'activated') {
-                // New version activated
-                print('✅ PWA Update: New version activated');
-                if (context.mounted) {
-                  _handleUpdateActivated(context);
-                }
-              }
-            });
-          }
-        });
-        
-        // Also check for waiting service worker (update already downloaded)
-        if (registration.waiting != null && context.mounted) {
-          _handleUpdateAvailable(context);
-        }
-      }).catchError((e) {
-        // Handle promise rejection silently - service worker may not be available
-        print('PWA Update: Service worker ready promise rejected: $e');
-      });
-    } catch (e) {
-      print('PWA Update: Error setting up listeners: $e');
-    }
-  }
-
-  /// Handle when update is available
-  static void _handleUpdateAvailable(BuildContext context) {
-    final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
-    if (_lastUpdateVersion != newVersion) {
-      _lastUpdateVersion = newVersion;
-      _showUpdateNotification(context);
-    }
-  }
-
-  /// Handle when update is activated (auto-reload option)
-  static void _handleUpdateActivated(BuildContext context) {
-    // Option 1: Auto-reload (uncomment if you want immediate reload)
-    // html.window.location.reload();
-    
-    // Option 2: Show notification (current behavior - user chooses when to reload)
-    final newVersion = DateTime.now().millisecondsSinceEpoch.toString();
-    if (_lastUpdateVersion != newVersion) {
-      _lastUpdateVersion = newVersion;
-      _showUpdateNotification(context);
-    }
-  }
-
-  /// Check for PWA updates and show notification if available
-  /// 
-  /// PENTING: Function ini hanya CHECK untuk update, TIDAK reload app.
-  /// Kalau ada update, sistem akan show notification kepada user.
-  /// User perlu tekan "Reload" button untuk reload app.
-  /// 
-  /// This can be called manually or automatically via periodic timer
-  static Future<void> checkForUpdate(BuildContext context) async {
-    // Only check on web platform
+  /// Trigger service worker update check
+  static void _triggerUpdateCheck() {
     if (!kIsWeb) return;
 
-    // Prevent multiple simultaneous checks
-    if (_isChecking) return;
-    _isChecking = true;
-
     try {
-      // Check if service worker is supported
-      if (html.window.navigator.serviceWorker == null) {
-        print('PWA Update: Service Worker not supported');
-        return;
-      }
-
-      // Get service worker registration with error handling
-      final registration = await html.window.navigator.serviceWorker!.ready.catchError((e) {
-        print('PWA Update: Service worker ready failed: $e');
-        return null;
-      });
-
-      if (registration == null) {
-        _isChecking = false;
-        return;
-      }
-
-      // Check for updates with error handling
-      await registration.update().catchError((e) {
-        print('PWA Update: Update check failed: $e');
-        return null;
-      });
-
-      // Check if there's a waiting service worker (new update available)
-      // This means a new version has been downloaded and is waiting to be activated
-      if (registration.waiting != null && context.mounted) {
-        _handleUpdateAvailable(context);
-      }
-      
-      // Also check for installing service worker (update in progress)
-      if (registration.installing != null && context.mounted) {
-        // Wait a bit for installation to complete, then check again
-        await Future.delayed(const Duration(seconds: 2));
-        
-        // Re-check after delay with error handling
-        final updatedRegistration = await html.window.navigator.serviceWorker!.ready.catchError((e) {
-          print('PWA Update: Re-check failed: $e');
-          return null;
+      html.window.navigator.serviceWorker?.ready.then((registration) {
+        registration.update().catchError((e) {
+          // Silently fail
         });
-        
-        if (updatedRegistration != null && updatedRegistration.waiting != null && context.mounted) {
-          _handleUpdateAvailable(context);
-        }
-      }
+      }).catchError((e) {
+        // Silently fail
+      });
     } catch (e) {
-      print('PWA Update: Error checking for updates: $e');
-      // Silently fail - don't interrupt user experience
-    } finally {
-      _isChecking = false;
+      // Silently fail
     }
   }
 
-  /// Clean up resources (call when app is disposed)
-  static void dispose() {
-    _periodicCheckTimer?.cancel();
-    _periodicCheckTimer = null;
-    _currentContext = null;
-  }
+  /// Check if PWA update is ready to be applied
+  ///
+  /// Returns true if a new version is waiting to be applied
+  static bool isUpdateReady() {
+    if (!kIsWeb) return false;
 
-  /// Show non-intrusive update notification
-  /// Only shows if user is authenticated
-  static void _showUpdateNotification(BuildContext context) {
-    if (!context.mounted) return;
-
-    // Check if user is authenticated before showing notification
     try {
-      final currentUser = supabase.auth.currentUser;
-      if (currentUser == null) {
-        // User not logged in, don't show notification
-        print('PWA Update: User not authenticated, skipping notification');
-        return;
-      }
+      final result = js.context.callMethod('pwaIsUpdateReady', []);
+      return result == true;
     } catch (e) {
-      // If we can't check auth state, don't show notification
-      print('PWA Update: Error checking auth state: $e');
-      return;
+      return false;
     }
-
-    // Show SnackBar notification
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.system_update,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Update tersedia!',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Reload untuk dapat versi terbaru.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.blue.shade700,
-        duration: const Duration(seconds: 5), // Auto-dismiss after 5 seconds
-        action: SnackBarAction(
-          label: 'Reload',
-          textColor: Colors.white,
-          onPressed: () {
-            // Reload page to get new version
-            html.window.location.reload();
-          },
-        ),
-        behavior: SnackBarBehavior.floating, // Non-blocking
-        dismissDirection: DismissDirection.horizontal, // User boleh swipe dismiss
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
   }
 
-  /// Manual check for updates (can be called from settings page)
-  static Future<void> manualCheckForUpdate(BuildContext context) async {
+  /// Apply pending update by reloading the page
+  ///
+  /// Call this when user navigates to apply the update seamlessly.
+  /// Returns true if reload was triggered, false if no update pending.
+  static bool applyUpdateIfReady() {
+    if (!kIsWeb) return false;
+
+    try {
+      final result = js.context.callMethod('pwaReloadIfReady', []);
+      if (result == true) {
+        debugPrint('🔄 PWA Update: Reloading to apply update...');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('PWA Update: Error applying update: $e');
+      return false;
+    }
+  }
+
+  /// Call this on EVERY navigation in the app
+  ///
+  /// This will reload the page if an update is pending,
+  /// making the update seamless for the user.
+  ///
+  /// Example usage in navigation:
+  /// ```dart
+  /// Navigator.push(context, ...).then((_) {
+  ///   PWAUpdateNotifier.onNavigation();
+  /// });
+  /// ```
+  ///
+  /// Or use the NavigatorObserver:
+  /// ```dart
+  /// MaterialApp(
+  ///   navigatorObservers: [PWAUpdateNavigatorObserver()],
+  /// )
+  /// ```
+  static void onNavigation() {
+    if (!kIsWeb) return;
+
+    // Small delay to let the navigation complete visually first
+    Future.delayed(const Duration(milliseconds: 100), () {
+      applyUpdateIfReady();
+    });
+  }
+
+  /// Force check and apply update immediately (for settings page)
+  static Future<void> forceUpdate(BuildContext context) async {
     if (!kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Update check hanya tersedia untuk versi web.'),
+          content: Text('Update hanya tersedia untuk versi web.'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -293,24 +136,26 @@ class PWAUpdateNotifier {
     }
 
     try {
-      if (html.window.navigator.serviceWorker == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Service Worker tidak disokong.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-
+      // Trigger update check
       final registration = await html.window.navigator.serviceWorker!.ready;
       await registration.update();
 
-      // Check if update is available
-      if (!context.mounted) return;
-      
-      if (registration.waiting != null) {
-        _showUpdateNotification(context);
+      // Wait a moment for service worker to process
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Check if update is ready
+      if (isUpdateReady()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Update ditemui! Memuat semula...'),
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+        // Force reload
+        await Future.delayed(const Duration(milliseconds: 500));
+        html.window.location.reload();
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -325,12 +170,58 @@ class PWAUpdateNotifier {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ralat semasa menyemak update: $e'),
+            content: Text('Ralat: $e'),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     }
   }
+
+  /// Clean up resources
+  static void dispose() {
+    _periodicCheckTimer?.cancel();
+    _periodicCheckTimer = null;
+    _isInitialized = false;
+  }
+
+  /// Legacy methods for compatibility
+  static Future<void> checkForUpdate(BuildContext context) async {
+    _triggerUpdateCheck();
+  }
+
+  static Future<void> manualCheckForUpdate(BuildContext context) async {
+    await forceUpdate(context);
+  }
 }
 
+/// Navigator observer that automatically applies PWA updates on navigation
+///
+/// Add this to your MaterialApp:
+/// ```dart
+/// MaterialApp(
+///   navigatorObservers: [PWAUpdateNavigatorObserver()],
+/// )
+/// ```
+class PWAUpdateNavigatorObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    // Apply update when navigating to a new page
+    PWAUpdateNotifier.onNavigation();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    // Apply update when going back
+    PWAUpdateNotifier.onNavigation();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    // Apply update when replacing route
+    PWAUpdateNotifier.onNavigation();
+  }
+}

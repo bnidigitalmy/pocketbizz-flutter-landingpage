@@ -8,6 +8,7 @@
 // Only READ-ONLY reference allowed.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
@@ -15,6 +16,7 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/services/image_upload_service.dart';
 import '../../../core/services/user_preferences_service.dart';
+import '../../../core/utils/pwa_update_notifier.dart';
 import '../../onboarding/services/onboarding_service.dart';
 
 /// Settings Page
@@ -73,6 +75,7 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  bool _checkingForUpdate = false;
 
   @override
   void initState() {
@@ -590,6 +593,18 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
           ),
           const SizedBox(height: 16),
           _buildAppPreferencesForm(),
+
+          // PWA Update Section (web only)
+          if (kIsWeb) ...[
+            const SizedBox(height: 32),
+            _buildSectionHeader(
+              'Kemaskini Aplikasi',
+              Icons.system_update_rounded,
+              'Semak dan kemaskini ke versi terkini',
+            ),
+            const SizedBox(height: 16),
+            _buildUpdateSection(),
+          ],
 
           const SizedBox(height: 32),
 
@@ -1406,6 +1421,118 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdate() async {
+    setState(() => _checkingForUpdate = true);
+    try {
+      await PWAUpdateNotifier.forceUpdate(context);
+    } finally {
+      if (mounted) {
+        setState(() => _checkingForUpdate = false);
+      }
+    }
+  }
+
+  Widget _buildUpdateSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Auto-Update',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Aplikasi akan dikemaskini secara automatik bila anda navigate ke halaman lain.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Icon(
+                Icons.check_circle,
+                color: Colors.green[600],
+                size: 24,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _checkingForUpdate ? null : _checkForUpdate,
+              icon: _checkingForUpdate
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(
+                _checkingForUpdate ? 'Menyemak...' : 'Semak Kemaskini Sekarang',
+              ),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.green[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Kemaskini akan diapply secara automatik bila anda navigate ke halaman lain. Anda tidak perlu refresh manual.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green[700],
                     ),
                   ),
                 ),

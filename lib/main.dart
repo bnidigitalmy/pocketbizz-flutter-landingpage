@@ -197,9 +197,10 @@ class PocketBizzApp extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
-      
-      // EasyLocalization automatically injects delegates from wrapper
-      
+
+      // PWA update observer - applies update on navigation
+      navigatorObservers: [PWAUpdateNavigatorObserver()],
+
       home: const AuthWrapper(),
       routes: {
         '/login': (context) => const LoginPage(),

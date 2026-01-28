@@ -149,5 +149,69 @@
   </script>
 
   <script src="flutter_bootstrap.js" defer></script>
+
+  <!-- Silent PWA Update Handler - Reload on Navigation Only -->
+  <script>
+    // Silent update system - only reload when user navigates
+    (function() {
+      'use strict';
+
+      // Global flag for pending update
+      window._pwaUpdateReady = false;
+      window._pwaRefreshing = false;
+
+      if ('serviceWorker' in navigator) {
+        // When service worker is ready, set up update handling
+        navigator.serviceWorker.ready.then(function(registration) {
+          // Listen for waiting service worker
+          if (registration.waiting) {
+            console.log('🔄 PWA: Update already waiting, will apply on next navigation');
+            window._pwaUpdateReady = true;
+            // Activate it but DON'T reload yet
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          // Listen for new service workers
+          registration.addEventListener('updatefound', function() {
+            var newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', function() {
+                if (newWorker.state === 'installed' && registration.waiting) {
+                  console.log('🔄 PWA: New version installed, will apply on next navigation');
+                  window._pwaUpdateReady = true;
+                  // Activate it but DON'T reload yet
+                  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+              });
+            }
+          });
+        });
+
+        // When new service worker takes control, mark ready but DON'T auto-reload
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (window._pwaRefreshing) return;
+          console.log('🔄 PWA: New service worker active, will reload on next navigation');
+          window._pwaUpdateReady = true;
+          // DON'T reload here - let Flutter handle it on navigation
+        });
+      }
+
+      // Function to reload if update is ready (called from Flutter)
+      window.pwaReloadIfReady = function() {
+        if (window._pwaUpdateReady && !window._pwaRefreshing) {
+          window._pwaRefreshing = true;
+          console.log('🔄 PWA: Applying update now...');
+          window.location.reload();
+          return true;
+        }
+        return false;
+      };
+
+      // Check if update is ready (called from Flutter)
+      window.pwaIsUpdateReady = function() {
+        return window._pwaUpdateReady === true;
+      };
+    })();
+  </script>
 </body>
 </html>
