@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.0";
 
 const GOOGLE_CLOUD_API_KEY = Deno.env.get("GOOGLE_CLOUD_API_KEY");
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY"); // From Google AI Studio
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -246,8 +247,13 @@ async function extractWithGemini(rawText: string): Promise<ParsedReceipt> {
     return result;
   }
 
+  if (!GEMINI_API_KEY) {
+    console.log("⚠️ GEMINI_API_KEY not configured, using fallback extraction");
+    return fallbackExtraction(rawText);
+  }
+
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_CLOUD_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=${GEMINI_API_KEY}`;
 
     const prompt = `Kamu adalah AI yang pakar dalam membaca resit/invois Malaysia.
 
