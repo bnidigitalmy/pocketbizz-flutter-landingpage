@@ -1,6 +1,6 @@
-// Supabase Edge Function: OCR Receipt using Google Cloud Vision
-// Accepts base64 image and returns extracted text + parsed receipt data
-// Also uploads image to Supabase Storage and returns storage path
+// Supabase Edge Function: OCR Receipt using Google Cloud Vision + Gemini Flash
+// 1. Vision API extracts raw text from image
+// 2. Gemini Flash intelligently extracts: amount, date, merchant, category
 // Optimized for Malaysian receipts (bakery, grocery, petrol, etc.)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -44,8 +44,20 @@ interface ParsedReceipt {
   items: Array<{ name: string; price: number }>;
   rawText: string;
   category: string;
-  amountSource?: "net" | "total" | "jumlah" | "subtotal" | "fallback" | null; // For debugging/UI display
-  confidence?: number; // 0.0 - 1.0, for UX display (0.95 = high, 0.8 = medium, 0.6 = low)
+  confidence?: number;
+}
+
+interface GeminiResponse {
+  candidates?: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
+  error?: {
+    message: string;
+  };
 }
 
 serve(async (req) => {
@@ -62,10 +74,9 @@ serve(async (req) => {
     // Get user ID from Authorization header (JWT token)
     const authHeader = req.headers.get("Authorization");
     let userId: string | null = null;
-    
+
     if (authHeader) {
       try {
-        // Extract user ID from JWT token payload
         const token = authHeader.replace("Bearer ", "");
         const parts = token.split(".");
         if (parts.length === 3) {
@@ -79,10 +90,8 @@ serve(async (req) => {
     }
 
     const { imageBase64, uploadImage = true } = await req.json();
-    
-    // PHASE: Subscriber Expired System - Backend Enforcement
-    // Check subscription before processing OCR (OCR creates expense data)
-    // NOTE: Grace users must be allowed based on grace_until (even if expires_at is past).
+
+    // Check subscription before processing
     const nowIso = new Date().toISOString();
     if (userId) {
       const { data: subscription, error: subError } = await supabase
@@ -106,11 +115,11 @@ serve(async (req) => {
         );
       }
     }
-    
+
     if (!userId && uploadImage) {
       console.warn("No user ID found - image upload will be skipped");
     }
-    
+
     if (!imageBase64) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing imageBase64" }),
@@ -121,9 +130,10 @@ serve(async (req) => {
     // Remove data URL prefix if present
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    // Call Google Cloud Vision API
+    // ========== STEP 1: Google Vision API - Extract raw text ==========
+    console.log("📷 Step 1: Calling Google Vision API...");
     const visionUrl = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_CLOUD_API_KEY}`;
-    
+
     const visionRequest = {
       requests: [
         {
@@ -148,19 +158,23 @@ serve(async (req) => {
     }
 
     const visionData: VisionResponse = await visionResponse.json();
-    
+
     if (visionData.responses[0]?.error) {
       throw new Error(visionData.responses[0].error.message);
     }
 
-    const rawText = visionData.responses[0]?.fullTextAnnotation?.text || 
-                    visionData.responses[0]?.textAnnotations?.[0]?.description || 
+    const rawText = visionData.responses[0]?.fullTextAnnotation?.text ||
+                    visionData.responses[0]?.textAnnotations?.[0]?.description ||
                     "";
 
-    // Parse the receipt text with improved Malaysian receipt patterns
-    const parsed = parseReceiptText(rawText);
+    console.log("✅ Vision API returned text:", rawText.substring(0, 200) + "...");
 
-    // Upload image to storage if requested and user ID available
+    // ========== STEP 2: Gemini Flash - Intelligent extraction ==========
+    console.log("🤖 Step 2: Calling Gemini Flash for intelligent extraction...");
+    const parsed = await extractWithGemini(rawText);
+    console.log("✅ Gemini extracted:", JSON.stringify(parsed));
+
+    // ========== STEP 3: Upload image to storage ==========
     let storagePath: string | null = null;
     if (uploadImage && userId) {
       try {
@@ -169,28 +183,24 @@ serve(async (req) => {
         const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}`;
         const fileName = `receipt-${timestamp}.jpg`;
         const storagePathFull = `${userId}/${datePath}/${fileName}`;
-        
-        // Convert base64 to Uint8Array
+
         const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
+
+        const { error: uploadError } = await supabase.storage
           .from(RECEIPTS_BUCKET)
           .upload(storagePathFull, imageBytes, {
             contentType: "image/jpeg",
             upsert: false,
           });
-        
+
         if (uploadError) {
           console.error("Storage upload error:", uploadError);
-          // Don't fail OCR if upload fails - just log it
         } else {
           storagePath = `${RECEIPTS_BUCKET}/${storagePathFull}`;
           console.log("✅ Image uploaded to storage:", storagePath);
         }
       } catch (uploadErr) {
         console.error("Failed to upload image:", uploadErr);
-        // Continue without storage path - OCR still succeeded
       }
     }
 
@@ -199,7 +209,7 @@ serve(async (req) => {
         success: true,
         rawText,
         parsed,
-        storagePath, // Return storage path if uploaded
+        storagePath,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -207,9 +217,9 @@ serve(async (req) => {
   } catch (error) {
     console.error("OCR Error:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -217,404 +227,167 @@ serve(async (req) => {
 });
 
 /**
- * Normalize amount string to number
- * Handles: 1,234.50 (comma as thousand separator) and 1234.50
- * Malaysian receipts typically use: comma = thousand separator, period = decimal
+ * Use Gemini Flash to intelligently extract receipt data
+ * Much more accurate than regex patterns!
  */
-function normalizeAmountString(amountStr: string): number {
-  // Remove all commas (thousand separators), keep period as decimal
-  const cleaned = amountStr.replace(/,/g, "");
-  return parseFloat(cleaned);
-}
-
-function parseReceiptText(text: string): ParsedReceipt {
+async function extractWithGemini(rawText: string): Promise<ParsedReceipt> {
   const result: ParsedReceipt = {
     amount: null,
     date: null,
     merchant: null,
-    items: [], // Keep empty - not extracting items anymore
+    items: [],
+    rawText: rawText,
+    category: "lain",
+    confidence: 0,
+  };
+
+  if (!rawText || rawText.trim().length < 10) {
+    console.log("⚠️ Raw text too short, skipping Gemini extraction");
+    return result;
+  }
+
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_CLOUD_API_KEY}`;
+
+    const prompt = `Kamu adalah AI yang pakar dalam membaca resit/invois Malaysia.
+
+Dari teks OCR resit di bawah, ekstrak maklumat berikut:
+1. **amount**: Jumlah TOTAL yang perlu dibayar (bukan CASH/TUNAI yang dibayar). Cari label seperti: TOTAL, JUMLAH, NET TOTAL, AMOUNT DUE, SUBTOTAL. Jangan ambil nilai CASH/TUNAI/BAYAR/CHANGE/BAKI.
+2. **date**: Tarikh resit dalam format DD/MM/YYYY
+3. **merchant**: Nama kedai/syarikat (biasanya di bahagian atas resit)
+4. **category**: Kategori perbelanjaan, pilih SATU dari: "bahan" (bahan mentah/groceries), "minyak" (petrol/diesel), "upah" (gaji/upah), "plastik" (packaging), "lain" (lain-lain)
+
+PENTING:
+- Untuk amount, WAJIB ambil nilai TOTAL/JUMLAH, BUKAN nilai CASH/TUNAI yang lebih besar
+- Contoh: jika TOTAL=23.50 dan CASH=50.00, jawapan amount=23.50
+- Jika tak jumpa, set null
+
+Teks OCR:
+"""
+${rawText.substring(0, 2000)}
+"""
+
+Balas dalam format JSON sahaja, tanpa markdown:
+{"amount": 123.45, "date": "28/01/2026", "merchant": "Nama Kedai", "category": "bahan", "confidence": 0.95}
+
+Jika tak pasti, set confidence rendah (0.5-0.7). Jika yakin, set tinggi (0.9-1.0).`;
+
+    const geminiRequest = {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.1, // Low temperature for consistent extraction
+        maxOutputTokens: 200,
+      }
+    };
+
+    const geminiResponse = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(geminiRequest),
+    });
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error("Gemini API error:", geminiResponse.status, errorText);
+      // Fallback to basic extraction if Gemini fails
+      return fallbackExtraction(rawText);
+    }
+
+    const geminiData: GeminiResponse = await geminiResponse.json();
+
+    if (geminiData.error) {
+      console.error("Gemini error:", geminiData.error.message);
+      return fallbackExtraction(rawText);
+    }
+
+    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("Gemini raw response:", responseText);
+
+    // Parse JSON response from Gemini
+    // Handle potential markdown code blocks
+    let jsonStr = responseText.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+    }
+
+    const extracted = JSON.parse(jsonStr);
+
+    result.amount = typeof extracted.amount === "number" ? extracted.amount : null;
+    result.date = extracted.date || null;
+    result.merchant = extracted.merchant || null;
+    result.category = ["bahan", "minyak", "upah", "plastik", "lain"].includes(extracted.category)
+      ? extracted.category
+      : "lain";
+    result.confidence = typeof extracted.confidence === "number" ? extracted.confidence : 0.8;
+
+    console.log("✅ Gemini extraction successful:", result);
+    return result;
+
+  } catch (error) {
+    console.error("Gemini extraction error:", error);
+    // Fallback to basic regex extraction
+    return fallbackExtraction(rawText);
+  }
+}
+
+/**
+ * Fallback extraction using simple patterns (if Gemini fails)
+ */
+function fallbackExtraction(text: string): ParsedReceipt {
+  console.log("⚠️ Using fallback regex extraction");
+
+  const result: ParsedReceipt = {
+    amount: null,
+    date: null,
+    merchant: null,
+    items: [],
     rawText: text,
     category: "lain",
+    confidence: 0.5, // Low confidence for fallback
   };
 
   const lines = text.split("\n").map(l => l.trim()).filter(l => l);
-  const fullTextLower = text.toLowerCase();
 
-  // ===== EXTRACT TOTAL AMOUNT =====
-  // Priority order: NET TOTAL > TOTAL > JUMLAH > SUBTOTAL > Fallback (largest non-payment)
-  // We want the amount SPENT, not the amount PAID
-  // CRITICAL: TOTAL is LOCKED - CASH cannot override even if larger
-  
-  let totalAmount: number | null = null;
-  let amountSource: "net" | "total" | "jumlah" | "subtotal" | "fallback" | null = null;
-  
-  // Priority 1: NET TOTAL / NETT (most accurate - amount after discounts/tax)
-  // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
-  // FIX: Use match() instead of exec() to avoid global flag issues
-  // FIX: Now matches amounts WITH or WITHOUT decimals (e.g., "TOTAL 23" or "TOTAL 23.50")
-  // FIX: Handles various spacing: "TOTAL:RM23", "TOTAL : RM 23", "TOTAL RM23.50"
-  const netTotalPattern = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
-  let match = text.match(netTotalPattern);
-  if (match && match[1]) {
-    const num = normalizeAmountString(match[1]);
-    const normalized = parseFloat(num.toFixed(2));
-    if (!isNaN(normalized) && normalized > 0) {
-      totalAmount = normalized;
-      amountSource = "net";
-      console.log(`✅ Found NET TOTAL: ${normalized}`);
-    }
-  }
-  
-  // Priority 2: TOTAL / GRAND TOTAL / JUMLAH BESAR (if net total not found)
-  // IMPROVED: Handles 1,234.50 format
-  // FIX: Use match() to get first match, not continue from previous
-  // FIX: More flexible pattern - handles various spacing and formats
-  // FIX: Now matches amounts WITH or WITHOUT decimals (e.g., "TOTAL 23" or "TOTAL 23.50")
-  if (!totalAmount) {
-    // Try multiple patterns for better matching
-    // Pattern explanation: (\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)
-    //   - \d{1,3}(?:[.,]\d{3})* = handles thousand separators (1,234 or 1.234)
-    //   - (?:[.,]\d{1,2})? = OPTIONAL decimal (makes .50 or ,50 optional)
-    //   - |\d+(?:[.,]\d{1,2})? = OR just digits with optional decimal
-    const totalPatterns = [
-      /(?:TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|AMOUNT\s*DUE)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i,
-      /(?:TOTAL)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i,
-    ];
-    
-    for (const totalPattern of totalPatterns) {
-      match = text.match(totalPattern);
-      if (match && match[1]) {
-        const num = normalizeAmountString(match[1]);
-        const normalized = parseFloat(num.toFixed(2));
-        if (!isNaN(normalized) && normalized > 0) {
-          totalAmount = normalized;
-          amountSource = "total";
-          console.log(`✅ Found TOTAL: ${normalized} (matched pattern: ${totalPattern})`);
-          break;
-        }
-      }
-    }
-  }
-  
-  // Priority 3: JUMLAH (if total not found)
-  // IMPROVED: Handles 1,234.50 format
-  // FIX: Use match() to avoid regex state issues
-  // FIX: Now matches amounts WITH or WITHOUT decimals
-  if (!totalAmount) {
-    const jumlahPattern = /(?:JUMLAH)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
-    match = text.match(jumlahPattern);
-    if (match && match[1]) {
-      const num = normalizeAmountString(match[1]);
-      const normalized = parseFloat(num.toFixed(2));
-      if (!isNaN(normalized) && normalized > 0) {
-        totalAmount = normalized;
-        amountSource = "jumlah";
-        console.log(`✅ Found JUMLAH: ${normalized}`);
-      }
-    }
-  }
-  
-  // Priority 4: SUBTOTAL / SUB-TOTAL (if nothing else found - less ideal but better than cash)
-  // IMPROVED: Handles 1,234.50 format
-  // FIX: Use match() to avoid regex state issues
-  // FIX: Now matches amounts WITH or WITHOUT decimals
-  if (!totalAmount) {
-    const subtotalPattern = /(?:SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
-    match = text.match(subtotalPattern);
-    if (match && match[1]) {
-      const num = normalizeAmountString(match[1]);
-      const normalized = parseFloat(num.toFixed(2));
-      if (!isNaN(normalized) && normalized > 0) {
-        totalAmount = normalized;
-        amountSource = "subtotal";
-        console.log(`✅ Found SUBTOTAL: ${normalized}`);
-      }
-    }
-  }
-  
-  // Last resort: Find largest amount (but exclude CASH/TUNAI amounts)
-  // CASH/TUNAI is payment amount, not expense amount
-  // CRITICAL: Only fallback if NO explicit label found (NET TOTAL, TOTAL, JUMLAH, SUBTOTAL)
-  // EXPLICIT LABELS ALWAYS WIN - even if largest amount is bigger
-  // This check ensures fallback NEVER runs if we found an explicit label
-  if (!totalAmount) {
-    // SAFETY CHECK: Verify no explicit labels exist in text (double-check pattern matching)
-    // IMPROVED: Pattern now matches amounts with or without decimals
-    const hasExplicitLabel = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?\d/i.test(text);
-    if (hasExplicitLabel) {
-      console.error("⚠️ WARNING: Explicit label detected in text but not matched by patterns!");
-      console.error("   This suggests a pattern matching issue - patterns may need adjustment");
-      console.error("   NOT using fallback to prevent override of explicit labels");
-      // Don't use fallback if explicit label exists - this prevents override
-      // Set to null to indicate pattern matching failed
-      totalAmount = null;
-      amountSource = null;
-    } else {
-      console.log("⚠️ No TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found, using fallback (largest amount)");
-    }
-    
-    // Only proceed with fallback if no explicit label was found
-    if (!totalAmount && !hasExplicitLabel) {
-      const allAmounts: Array<{ value: number; line: string }> = [];
-    // IMPROVED: Handles 1,234.50 format (comma as thousand separator)
-    // FIX: Now matches amounts WITH or WITHOUT decimals
-    const amountPattern = /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/g;
-    
-    // FIX #1: Payment Context Window - Skip lines after CASH/TUNAI keywords
-    // OCR often puts CASH and amount on separate lines:
-    //   "TOTAL 23.50"
-    //   "CASH"
-    //   "50.00"  ← This gets captured without context window
-    let skipNextLines = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // If payment keyword found, skip this line + next 2 lines (payment context window)
-      // IMPROVED: Added more payment keywords - DIBAYAR, PAID, TENDER, RECEIVED, TERIMA, WANG MASUK
-      if (/(?:TUNAI|CASH|BAYAR|DIBAYAR|PAYMENT|PAID|TENDER|CHANGE|BAKI|RECEIVED|TERIMA|WANG\s*MASUK|AMOUNT\s*RECEIVED|AMOUNT\s*TENDERED)/i.test(line)) {
-        skipNextLines = 2; // Skip current line + next 2 lines
-        continue;
-      }
-      
-      // Skip lines in payment context window
-      if (skipNextLines > 0) {
-        skipNextLines--;
-        continue;
-      }
-      
-      // Extract amounts from non-payment lines
-      let lineMatch;
-      while ((lineMatch = amountPattern.exec(line)) !== null) {
-        const num = normalizeAmountString(lineMatch[1]);
-        const normalized = parseFloat(num.toFixed(2));
-        if (!isNaN(normalized) && normalized > 0 && normalized < 100000) {
-          allAmounts.push({ value: normalized, line });
-        }
-      }
-    }
-    
-      if (allAmounts.length > 0) {
-        // Get the largest amount (usually the total, excluding cash payments)
-        totalAmount = Math.max(...allAmounts.map(a => a.value));
-        amountSource = "fallback";
-        console.log(`⚠️ Fallback: Using largest amount ${totalAmount} from ${allAmounts.length} candidates`);
-        console.log(`   Candidates:`, allAmounts.map(a => `${a.value} (${a.line.substring(0, 30)})`).join(", "));
-        console.log(`   ⚠️ Note: Fallback is used ONLY when no explicit labels (TOTAL/NET TOTAL/JUMLAH) are found`);
-      } else {
-        console.log("⚠️ Fallback: No amounts found in receipt");
-      }
-    }
-  }
-  
-  // FIX #2: Final Safety Guard - Prevent CASH from overriding TOTAL
-  // Even if fallback found an amount, if it matches CASH value, reject it
-  // IMPROVED: Added more payment keywords and handles amounts with/without decimals
-  if (totalAmount && amountSource === "fallback" && /(?:CASH|TUNAI|DIBAYAR|PAID|TENDER|RECEIVED|TERIMA)/i.test(text)) {
-    const cashMatch = text.match(/(?:CASH|TUNAI|DIBAYAR|PAID|TENDER|RECEIVED|TERIMA)[^\d]*(\d+(?:[.,]\d{1,2})?)/i);
-    if (cashMatch) {
-      const cashValue = parseFloat(cashMatch[1].replace(",", "."));
-      if (Math.abs(totalAmount - cashValue) < 0.01) { // Allow small floating point differences
-        // This amount is likely CASH payment, not expense total
-        totalAmount = null;
-        amountSource = null;
-        console.log("⚠️ Rejected amount matching CASH payment:", cashValue);
-      }
-    }
-  }
-  
-  // FIX #3: Lock TOTAL - Never allow fallback to override explicit TOTAL
-  // CRITICAL: If we found ANY explicit label (NET TOTAL, TOTAL, JUMLAH, SUBTOTAL), it's LOCKED
-  // Fallback CANNOT override even if largest amount is bigger
-  if (amountSource && ["net", "total", "jumlah", "subtotal"].includes(amountSource)) {
-    // Amount is locked - EXPLICIT LABEL FOUND, NEVER USE FALLBACK
-    console.log(`✅ Amount LOCKED from source: ${amountSource}, value: ${totalAmount}`);
-    console.log(`   ⚠️ Fallback will NOT override this amount, even if larger amounts exist`);
-    
-    // DOUBLE-CHECK: Verify we didn't accidentally use fallback
-    if (amountSource === "fallback") {
-      console.error("❌ ERROR: Fallback should not be set when explicit label found!");
-      // This should never happen, but just in case
-    }
-  } else if (!totalAmount) {
-    console.log("❌ No amount found - all patterns failed to match");
-  } else if (amountSource === "fallback") {
-    console.log(`⚠️ Using fallback amount: ${totalAmount} (no explicit TOTAL/NET TOTAL/JUMLAH/SUBTOTAL found in receipt)`);
-    console.log(`   ℹ️ Fallback is used ONLY when no explicit labels are found`);
-  }
-  
-  // FINAL ENFORCEMENT: Triple-check that explicit labels always win
-  // This is the ultimate safety net - if explicit label exists in text but fallback was used, something is wrong
-  // IMPROVED: Pattern now matches amounts with or without decimals
-  const explicitLabelExists = /(?:NET\s*TOTAL|NETT\s*TOTAL|NET\s*AMOUNT|TOTAL\s*SALE|GRAND\s*TOTAL|JUMLAH\s*BESAR|TOTAL|AMOUNT\s*DUE|JUMLAH|SUB[\s-]*TOTAL)[:\s]*(?:RM\s*)?\d/i.test(text);
-  if (explicitLabelExists && amountSource === "fallback" && totalAmount) {
-    console.error("❌ CRITICAL: Explicit label found in text but fallback was used!");
-    console.error("   This indicates a pattern matching failure - patterns need to be fixed");
-    console.error("   For safety, we should NOT use fallback amount when explicit label exists");
-    // SAFETY: Reject fallback to prevent override of explicit labels
-    // This ensures explicit labels ALWAYS win, even if pattern matching failed
-    totalAmount = null;
-    amountSource = null;
-    console.error("   ⚠️ Amount set to null - pattern matching needs investigation");
-  }
-  
-  result.amount = totalAmount;
-
-  // ===== EXTRACT DATE =====
-  const datePatterns = [
-    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/,  // DD/MM/YYYY
-    /(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/,  // YYYY/MM/DD
-    /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})(?!\d)/,  // DD/MM/YY
-  ];
-
-  for (const pattern of datePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      let dateStr = match[0];
-      // Normalize to DD/MM/YYYY format
-      const parts = dateStr.split(/[\/\-.]/);
-      if (parts[0].length === 4) {
-        // YYYY/MM/DD -> DD/MM/YYYY
-        dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-      } else if (parts[2].length === 2) {
-        // DD/MM/YY -> DD/MM/20YY
-        dateStr = `${parts[0]}/${parts[1]}/20${parts[2]}`;
-      }
-      result.date = dateStr;
-      break;
-    }
+  // Simple TOTAL extraction
+  const totalMatch = text.match(/(?:TOTAL|JUMLAH)[:\s]*(?:RM\s*)?(\d+(?:[.,]\d{1,2})?)/i);
+  if (totalMatch) {
+    result.amount = parseFloat(totalMatch[1].replace(",", "."));
   }
 
-  // ===== EXTRACT MERCHANT/VENDOR/SUPPLIER NAME =====
-  // Enhanced patterns for Malaysian merchants/suppliers/kedai
-  const merchantPatterns = [
-    /(?:BAKERY|KEDAI|RESTORAN|RESTAURANT|CAFÉ|CAFE|MART|STORE|SHOP|SDN\.?\s*BHD|ENTERPRISE|SUPPLIER|VENDOR|PEMBEKAL)/i,
-  ];
-  
-  // Look for merchant in first 15 lines (more lines for better detection)
-  for (let i = 0; i < Math.min(lines.length, 15); i++) {
+  // Simple date extraction
+  const dateMatch = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (dateMatch) {
+    let [_, d, m, y] = dateMatch;
+    if (y.length === 2) y = "20" + y;
+    result.date = `${d}/${m}/${y}`;
+  }
+
+  // Simple merchant extraction (first reasonable line)
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
     const line = lines[i];
-    
-    // Skip lines that are clearly not merchant names
-    if (
-      /^\d+[\/\-.]/.test(line) ||  // Dates
-      /^\d{1,2}:\d{2}/.test(line) ||  // Times
-      /^RM\s*\d/.test(line) ||  // Amounts
-      /^NO\.|^TEL|^FAX|^GST|^SST|^REG|^INVOICE\s*NO/i.test(line) ||  // Labels
-      /^\d+$/.test(line) ||  // Pure numbers
-      /^CASH\s*BILL|^TAX\s*INVOICE|^RECEIPT|^RESIT/i.test(line) ||  // Document types
-      line.length < 3 ||
-      line.length > 80
-    ) {
-      continue;
-    }
-
-    // Check if line contains merchant indicators
-    for (const pattern of merchantPatterns) {
-      if (pattern.test(line)) {
-        result.merchant = line.replace(/\s+/g, ' ').trim();
-        break;
-      }
-    }
-    
-    if (result.merchant) break;
-    
-    // If no pattern matched, use first reasonable line as merchant (more lenient)
-    if (i < 5 && line.length > 4 && /[A-Za-z]/.test(line)) {
-      // Check it's not a common header word
-      if (!/^(CASH|BILL|RECEIPT|RESIT|TAX|INVOICE|TOTAL|JUMLAH|SUBTOTAL|DATE|TARIKH|TIME|MASA)/i.test(line)) {
-        result.merchant = line.replace(/\s+/g, ' ').trim();
+    if (line.length > 4 && line.length < 50 && /[A-Za-z]/.test(line)) {
+      if (!/^(CASH|RECEIPT|RESIT|TAX|INVOICE|TOTAL)/i.test(line)) {
+        result.merchant = line;
         break;
       }
     }
   }
 
-  // ===== ITEMS EXTRACTION REMOVED =====
-  // User only needs: merchant, date, category, amount
-  // Items extraction removed for simplicity
-  result.items = [];
-
-  // ===== AUTO-DETECT CATEGORY =====
-  result.category = detectCategory(fullTextLower, result.merchant || "");
-
-  // Include amount source for debugging/UI display
-  result.amountSource = amountSource;
-
-  // Calculate confidence score based on source (UX booster)
-  // High confidence: net, total (explicit labels)
-  // Medium confidence: jumlah, subtotal (less explicit)
-  // Low confidence: fallback (estimated)
-  if (amountSource === "net" || amountSource === "total") {
-    result.confidence = 0.95; // 🟢 High confidence
-  } else if (amountSource === "jumlah" || amountSource === "subtotal") {
-    result.confidence = 0.8; // 🟡 Medium confidence
-  } else if (amountSource === "fallback") {
-    result.confidence = 0.6; // 🔴 Low confidence (needs review)
-  } else {
-    result.confidence = 0.0; // No amount found
+  // Simple category detection
+  const lowerText = text.toLowerCase();
+  if (/petrol|petronas|shell|caltex|bhp|diesel/i.test(lowerText)) {
+    result.category = "minyak";
+  } else if (/plastik|packaging|beg/i.test(lowerText)) {
+    result.category = "plastik";
+  } else if (/gaji|upah|salary/i.test(lowerText)) {
+    result.category = "upah";
+  } else if (/grocer|mydin|econsave|giant|tesco|aeon|tepung|gula|telur/i.test(lowerText)) {
+    result.category = "bahan";
   }
 
   return result;
-}
-
-function isValidItemName(name: string): boolean {
-  if (!name || name.trim().length < 2 || name.trim().length > 100) return false;
-  
-  const trimmed = name.trim();
-  
-  // Skip if it's a total/subtotal line
-  if (/^(TOTAL|JUMLAH|SUBTOTAL|CASH|TUNAI|CHANGE|BAKI|ROUNDING|SST|GST|TAX|DISCOUNT|DISKAUN|BALANCE|BAYAR|PAYMENT)/i.test(trimmed)) {
-    return false;
-  }
-  
-  // Skip if it's mostly numbers (but allow numbers with text like "2x" or "500g")
-  const withoutSpaces = trimmed.replace(/\s/g, '');
-  if (/^\d+$/.test(withoutSpaces)) return false;
-  
-  // Skip common headers
-  if (/^(QTY|ITEM|UNIT|PRICE|DESCRIPTION|CODE|TOTAL|NO\.|BIL|RECEIPT|RESIT)/i.test(trimmed)) return false;
-  
-  // Must contain at least one letter (not just numbers and symbols)
-  if (!/[A-Za-z]/.test(trimmed)) return false;
-  
-  // Skip if it's a date/time pattern
-  if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(trimmed)) return false;
-  if (/^\d{1,2}:\d{2}/.test(trimmed)) return false;
-  
-  return true;
-}
-
-function detectCategory(text: string, merchant: string): string {
-  const combined = (text + " " + merchant).toLowerCase();
-
-  // Petrol/Minyak
-  if (/petrol|petronas|shell|caltex|bhp|petron|diesel|fuel|minyak\s*(?:kereta|petrol)/i.test(combined)) {
-    return "minyak";
-  }
-
-  // Plastik/Packaging
-  if (/plastik|plastic|packaging|pembungkus|kotak|box|container|beg\s*plastik/i.test(combined)) {
-    return "plastik";
-  }
-
-  // Upah/Wages
-  if (/gaji|upah|salary|wage|bayaran\s*pekerja|worker/i.test(combined)) {
-    return "upah";
-  }
-
-  // Bahan Mentah (Raw Materials / Groceries / Bakery Supplies)
-  if (/tepung|flour|gula|sugar|mentega|butter|telur|egg|susu|milk|bahan|ingredient/i.test(combined)) {
-    return "bahan";
-  }
-  if (/bakery|baking|chocolate|cream|whip|vanilla|yeast|icing/i.test(combined)) {
-    return "bahan";
-  }
-  if (/grocer|mydin|econsave|giant|tesco|aeon|jaya\s*grocer|lotus|99\s*speed/i.test(combined)) {
-    return "bahan";
-  }
-  if (/supplies|pembekal|supplier/i.test(combined)) {
-    return "bahan";
-  }
-
-  return "lain";
 }
