@@ -19,6 +19,11 @@ import '../../feedback/presentation/user_guide_page.dart';
 import '../../feedback/presentation/admin/admin_feedback_page.dart';
 import '../../subscription/widgets/expired_banner.dart';
 import 'dashboard_page_optimized.dart';
+import 'dashboard_page_v3.dart';
+
+/// Feature flag for Dashboard V3
+/// Set to true to use the new cleaner dashboard design
+const bool kUseDashboardV3 = true;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,7 +37,8 @@ class _HomePageState extends State<HomePage> {
   bool _isAdmin = false;
 
   final List<Widget> _pages = [
-    const DashboardPageOptimized(),
+    // Use Dashboard V3 if feature flag is enabled
+    kUseDashboardV3 ? const DashboardPageV3() : const DashboardPageOptimized(),
     const BookingsPageOptimized(),
     const ProductListPage(),
     const SalesPage(),
