@@ -481,7 +481,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
               Icons.error_outline,
               _urgentAlerts.length,
             ),
-            ..._urgentAlerts.map((a) => _buildAlertItem(a)),
+            ..._urgentAlerts.asMap().entries.map((e) => _buildAlertItem(e.value, index: e.key)),
             if (_warningAlerts.isNotEmpty || _infoAlerts.isNotEmpty)
               const Divider(height: 24),
           ],
@@ -494,7 +494,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
               Icons.warning_amber_outlined,
               _warningAlerts.length,
             ),
-            ..._warningAlerts.map((a) => _buildAlertItem(a)),
+            ..._warningAlerts.asMap().entries.map((e) => _buildAlertItem(e.value, index: e.key + _urgentAlerts.length)),
             if (_infoAlerts.isNotEmpty) const Divider(height: 24),
           ],
 
@@ -506,7 +506,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
               Icons.info_outline,
               _infoAlerts.length,
             ),
-            ..._infoAlerts.map((a) => _buildAlertItem(a)),
+            ..._infoAlerts.asMap().entries.map((e) => _buildAlertItem(e.value, index: e.key + _urgentAlerts.length + _warningAlerts.length)),
           ],
         ],
       ),
@@ -550,14 +550,28 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildAlertItem(AlertItem alert) {
+  Widget _buildAlertItem(AlertItem alert, {int index = 0}) {
     final color = switch (alert.severity) {
       AlertSeverity.urgent => Colors.red,
       AlertSeverity.warning => Colors.orange,
       AlertSeverity.info => Colors.blue,
     };
 
-    return InkWell(
+    // Stagger animation for each item
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300 + (index * 50)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(20 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: InkWell(
       onTap: () => Navigator.of(context).pushNamed(alert.routeName),
       borderRadius: BorderRadius.circular(8),
       child: Padding(
@@ -616,6 +630,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
             ),
           ],
         ),
+      ),
       ),
     );
   }

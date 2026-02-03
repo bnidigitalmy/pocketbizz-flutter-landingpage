@@ -453,11 +453,31 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Tab Content
+                  // Tab Content with animation
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildTabContent(),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.05, 0),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(_selectedTabIndex),
+                          child: _buildTabContent(),
+                        ),
+                      ),
                     ),
                   ),
 
