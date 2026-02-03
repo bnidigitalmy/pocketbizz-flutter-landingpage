@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../domain/sme_dashboard_v2_models.dart';
+import 'dashboard_skeleton_v3.dart';
+import 'stagger_animation.dart';
 
 /// Insight item model
 class InsightItem {
@@ -134,13 +136,17 @@ class _TabInsightV3State extends State<TabInsightV3> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.data == null) {
+      return const TabInsightSkeleton();
+    }
+
     final insights = _generateInsights();
 
     if (insights.isEmpty) {
       return _buildNoInsights();
     }
 
-    return Column(
+    return StaggeredColumn(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header

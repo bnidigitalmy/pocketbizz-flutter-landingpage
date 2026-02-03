@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../reports/data/models/sales_by_channel.dart';
 import '../v2/dashboard_v2_format.dart';
+import 'stagger_animation.dart';
 
 /// Tab Jualan (Sales) - Sales by channel and upcoming bookings
 class TabJualanV3 extends StatelessWidget {
@@ -30,7 +31,7 @@ class TabJualanV3 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return StaggeredColumn(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Sales by Channel

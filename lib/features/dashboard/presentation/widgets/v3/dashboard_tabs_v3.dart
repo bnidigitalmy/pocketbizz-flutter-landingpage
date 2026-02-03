@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_colors.dart';
 
 /// Dashboard Tab Item
@@ -122,7 +123,12 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
 
                   return Expanded(
                     child: GestureDetector(
-                      onTap: () => widget.onTabSelected(index),
+                      onTap: () {
+                        if (!isSelected) {
+                          HapticFeedback.selectionClick();
+                        }
+                        widget.onTabSelected(index);
+                      },
                       behavior: HitTestBehavior.opaque,
                       child: _TabItem(
                         tab: tab,

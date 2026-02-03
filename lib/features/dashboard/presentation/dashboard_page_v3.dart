@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart';
 import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/cache_service.dart';
@@ -23,6 +24,7 @@ import 'widgets/v3/tab_jualan_v3.dart';
 import 'widgets/v3/tab_stok_v3.dart';
 import 'widgets/v3/tab_insight_v3.dart';
 import 'widgets/v2/primary_quick_actions_v2.dart';
+import 'widgets/v3/dashboard_skeleton_v3.dart';
 import '../../expenses/presentation/receipt_scan_page.dart';
 
 /// Dashboard Page V3 - Clean, focused, action-first design
@@ -332,46 +334,43 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   }
 
   Widget _buildModalAction(String label, IconData icon, Color color, String? route, {VoidCallback? onTap}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap ?? () {
-          Navigator.pop(context);
-          if (route != null) Navigator.pushNamed(context, route);
-        },
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.18)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
+    return _TapScaleWidget(
+      onTap: onTap ?? () {
+        HapticFeedback.lightImpact();
+        Navigator.pop(context);
+        if (route != null) Navigator.pushNamed(context, route);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.18)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade800,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade800,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
@@ -387,7 +386,7 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildSkeletonView()
           : RefreshIndicator(
               onRefresh: _loadAllData,
               child: CustomScrollView(
@@ -489,6 +488,56 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     );
   }
 
+  Widget _buildSkeletonView() {
+    return CustomScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: SizedBox(height: MediaQuery.of(context).padding.top + 8),
+        ),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: HeroSectionSkeleton(),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: AlertBarSkeleton(),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        // Tab bar skeleton
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: List.generate(4, (index) => Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              )),
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: TabRingkasanSkeleton(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTabContent() {
     switch (_selectedTabIndex) {
       case 0:
@@ -517,5 +566,57 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+/// Tap scale animation widget for micro-interactions
+class _TapScaleWidget extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _TapScaleWidget({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_TapScaleWidget> createState() => _TapScaleWidgetState();
+}
+
+class _TapScaleWidgetState extends State<_TapScaleWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: widget.child,
+      ),
+    );
   }
 }

@@ -22,6 +22,17 @@ class DashboardV2Format {
     if (value % 1 == 0) return value.toInt().toString();
     return value.toStringAsFixed(1);
   }
+
+  /// Compact currency format for charts (e.g., RM 1.2K, RM 50K)
+  static String currencyCompact(num value) {
+    if (value.abs() >= 1000000) {
+      return 'RM ${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value.abs() >= 1000) {
+      return 'RM ${(value / 1000).toStringAsFixed(1)}K';
+    } else {
+      return 'RM ${value.toInt()}';
+    }
+  }
 }
 
 

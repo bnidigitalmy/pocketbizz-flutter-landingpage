@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart';
 import '../../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../data/repositories/bookings_repository_supabase.dart' show Booking;
@@ -273,6 +274,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
   int get _totalAlerts => _urgentAlerts.length + _warningAlerts.length + _infoAlerts.length;
 
   void _toggleExpanded() {
+    HapticFeedback.selectionClick();
     setState(() {
       _isExpanded = !_isExpanded;
       if (_isExpanded) {
@@ -572,7 +574,10 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
         );
       },
       child: InkWell(
-      onTap: () => Navigator.of(context).pushNamed(alert.routeName),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.of(context).pushNamed(alert.routeName);
+      },
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),

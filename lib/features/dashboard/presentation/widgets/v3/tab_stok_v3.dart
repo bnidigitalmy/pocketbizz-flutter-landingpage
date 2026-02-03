@@ -6,6 +6,8 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../../data/models/stock_item.dart';
 import '../../../../../core/utils/unit_conversion.dart';
+import 'dashboard_skeleton_v3.dart';
+import 'stagger_animation.dart';
 
 /// Tab Stok (Stock) - Stock status overview and purchase suggestions
 class TabStokV3 extends StatefulWidget {
@@ -119,15 +121,10 @@ class _TabStokV3State extends State<TabStokV3> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const TabStokSkeleton();
     }
 
-    return Column(
+    return StaggeredColumn(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Stock Status Summary

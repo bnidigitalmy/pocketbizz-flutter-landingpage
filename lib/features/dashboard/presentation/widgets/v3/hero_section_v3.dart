@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/date_time_helper.dart';
@@ -173,7 +174,10 @@ class _HeroSectionV3State extends State<HeroSectionV3>
                 Stack(
                   children: [
                     IconButton(
-                      onPressed: widget.onNotificationTap,
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        widget.onNotificationTap();
+                      },
                       icon: Icon(
                         Icons.notifications_outlined,
                         color: Colors.grey.shade700,
@@ -642,7 +646,7 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
+class _QuickActionButton extends StatefulWidget {
   final String label;
   final IconData icon;
   final Color color;
@@ -658,37 +662,81 @@ class _QuickActionButton extends StatelessWidget {
   });
 
   @override
+  State<_QuickActionButton> createState() => _QuickActionButtonState();
+}
+
+class _QuickActionButtonState extends State<_QuickActionButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  void _handleTap() {
+    HapticFeedback.lightImpact();
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        splashColor: color.withOpacity(0.2),
-        highlightColor: color.withOpacity(0.1),
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: _handleTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: isCompact ? 12 : 14,
+            horizontal: widget.isCompact ? 12 : 14,
             vertical: 12,
           ),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: widget.color.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: widget.color.withOpacity(0.2)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: isCompact ? MainAxisSize.min : MainAxisSize.max,
+            mainAxisSize: widget.isCompact ? MainAxisSize.min : MainAxisSize.max,
             children: [
-              Icon(icon, color: color, size: 18),
-              if (!isCompact) ...[
+              Icon(widget.icon, color: widget.color, size: 18),
+              if (!widget.isCompact) ...[
                 const SizedBox(width: 6),
                 Text(
-                  label,
+                  widget.label,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: widget.color,
                   ),
                 ),
               ],
