@@ -122,17 +122,22 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
                   final isSelected = index == widget.selectedIndex;
 
                   return Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (!isSelected) {
-                          HapticFeedback.selectionClick();
-                        }
-                        widget.onTabSelected(index);
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: _TabItem(
-                        tab: tab,
-                        isSelected: isSelected,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          if (!isSelected) {
+                            HapticFeedback.selectionClick();
+                          }
+                          widget.onTabSelected(index);
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        splashColor: AppColors.primary.withOpacity(0.15),
+                        highlightColor: AppColors.primary.withOpacity(0.08),
+                        child: _TabItem(
+                          tab: tab,
+                          isSelected: isSelected,
+                        ),
                       ),
                     ),
                   );

@@ -562,6 +562,8 @@ class _QuickActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
+              splashColor: color.withOpacity(0.2),
+              highlightColor: color.withOpacity(0.1),
               onTap: () {
                 HapticFeedback.lightImpact();
                 onTap();

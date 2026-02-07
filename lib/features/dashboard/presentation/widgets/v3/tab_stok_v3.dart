@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart';
 import '../../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
@@ -190,8 +191,13 @@ class TabStokV3State extends State<TabStokV3> {
     VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: count > 0 ? onTap : null,
+      onTap: count > 0 ? () {
+        HapticFeedback.lightImpact();
+        onTap?.call();
+      } : null,
       borderRadius: BorderRadius.circular(8),
+      splashColor: color.withOpacity(0.15),
+      highlightColor: color.withOpacity(0.08),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
@@ -352,8 +358,10 @@ class TabStokV3State extends State<TabStokV3> {
   Widget _buildSuggestionItem(StockItem item) {
     final isOut = item.currentQuantity <= 0;
 
+    final itemColor = isOut ? Colors.red : Colors.orange;
     return InkWell(
       onTap: () {
+        HapticFeedback.lightImpact();
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -362,6 +370,8 @@ class TabStokV3State extends State<TabStokV3> {
         );
       },
       borderRadius: BorderRadius.circular(8),
+      splashColor: itemColor.withOpacity(0.15),
+      highlightColor: itemColor.withOpacity(0.08),
       child: Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(

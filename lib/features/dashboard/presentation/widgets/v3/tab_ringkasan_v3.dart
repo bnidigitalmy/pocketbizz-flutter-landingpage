@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/sme_dashboard_v2_models.dart';
 import '../v2/dashboard_v2_format.dart';
@@ -32,15 +33,37 @@ class TabRingkasanV3 extends StatelessWidget {
           net: data!.week.net,
         ),
         const SizedBox(height: 16),
-        // Top Products
-        _buildTopProducts(),
+        // Top Products Today
+        _buildTopProductsCard(
+          context: context,
+          title: 'Top Produk Hari Ini',
+          emptyLabel: 'Tiada jualan hari ini',
+          icon: Icons.bolt_rounded,
+          color: Colors.orange,
+          products: data!.topProducts.todayTop3,
+        ),
+        const SizedBox(height: 16),
+        // Top Products This Week
+        _buildTopProductsCard(
+          context: context,
+          title: 'Top Produk Minggu Ini',
+          emptyLabel: 'Tiada jualan minggu ini',
+          icon: Icons.emoji_events_rounded,
+          color: Colors.amber,
+          products: data!.topProducts.weekTop3,
+        ),
       ],
     );
   }
 
-  Widget _buildTopProducts() {
-    final topProducts = data!.topProducts.weekTop3;
-
+  Widget _buildTopProductsCard({
+    required BuildContext context,
+    required String title,
+    required String emptyLabel,
+    required IconData icon,
+    required Color color,
+    required List<TopProductUnits> products,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -57,20 +80,16 @@ class TabRingkasanV3 extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
+                  color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.emoji_events_rounded,
-                  color: Colors.amber,
-                  size: 20,
-                ),
+                child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Top 3 Produk Minggu Ini',
-                  style: TextStyle(
+                  title,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -80,7 +99,7 @@ class TabRingkasanV3 extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          if (topProducts.isEmpty)
+          if (products.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
@@ -93,7 +112,7 @@ class TabRingkasanV3 extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Tiada jualan minggu ini',
+                      emptyLabel,
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade600,
@@ -104,13 +123,14 @@ class TabRingkasanV3 extends StatelessWidget {
               ),
             )
           else
-            ...topProducts.asMap().entries.map((entry) {
+            ...products.asMap().entries.map((entry) {
               final index = entry.key;
               final product = entry.value;
               return _buildProductRow(
+                context: context,
                 rank: index + 1,
-                name: product.displayName,
-                units: product.units.toInt(),
+                product: product,
+                themeColor: color,
               );
             }),
 
@@ -132,56 +152,84 @@ class TabRingkasanV3 extends StatelessWidget {
   }
 
   Widget _buildProductRow({
+    required BuildContext context,
     required int rank,
-    required String name,
-    required int units,
+    required TopProductUnits product,
+    required Color themeColor,
   }) {
     final rankColors = [Colors.amber, Colors.grey.shade400, Colors.brown.shade300];
     final rankColor = rank <= 3 ? rankColors[rank - 1] : Colors.grey;
+    final display = product.displayName.isNotEmpty ? product.displayName : product.key;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: rankColor.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '$rank',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: rankColor.withOpacity(0.9),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Navigator.of(context).pushNamed(
+            '/finished-products',
+            arguments: <String, dynamic>{
+              'focusKey': product.key,
+              'focusLabel': display,
+              'focusColorValue': themeColor.toARGB32(),
+            },
+          );
+        },
+        borderRadius: BorderRadius.circular(8),
+        splashColor: themeColor.withOpacity(0.15),
+        highlightColor: themeColor.withOpacity(0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: rankColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '$rank',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: rankColor.withOpacity(0.9),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  display,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Text(
+                  '${DashboardV2Format.units(product.units)} unit',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          Text(
-            '$units unit',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

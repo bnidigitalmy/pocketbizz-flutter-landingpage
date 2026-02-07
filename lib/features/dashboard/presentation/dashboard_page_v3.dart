@@ -172,6 +172,7 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
           () => _loadUnreadNotifications(),
           ttl: const Duration(minutes: 1),
         ),
+        _loadTodayTransactionCount(),
       ]);
 
       if (!mounted) return;
@@ -181,6 +182,7 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
         _subscription = results[1] as Subscription?;
         _businessProfile = results[2] as BusinessProfile?;
         _unreadNotifications = results[3] as int;
+        _todayTransactionCount = results[4] as int;
         _loading = false;
       });
 
@@ -210,7 +212,6 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
             if (mounted) setState(() => _salesByChannel = channels);
           },
         ),
-        _loadTodayTransactionCount(),
         _loadYesterdayInflow(),
         _loadBookingData(),
         _checkUrgentIssues(),
@@ -219,10 +220,9 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       if (mounted) {
         setState(() {
           _salesByChannel = results[0] as List<SalesByChannel>;
-          _todayTransactionCount = results[1] as int;
-          _yesterdayInflow = results[2] as double?;
+          _yesterdayInflow = results[1] as double?;
           // Booking data is set inside _loadBookingData via setState
-          _hasUrgentIssues = results[4] as bool;
+          _hasUrgentIssues = results[3] as bool;
         });
       }
     } catch (e) {

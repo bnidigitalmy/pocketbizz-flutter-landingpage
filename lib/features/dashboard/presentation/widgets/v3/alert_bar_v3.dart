@@ -7,8 +7,10 @@ import '../../../../../data/repositories/bookings_repository_supabase.dart' show
 import '../../../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../../data/repositories/consignment_claims_repository_supabase.dart';
+import '../../../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../../../data/models/stock_item.dart';
 import '../../../../../data/models/consignment_claim.dart';
+import '../../../../../data/models/delivery.dart';
 
 /// Alert severity levels
 enum AlertSeverity { urgent, warning, info }
@@ -49,6 +51,7 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
   final _bookingsRepo = BookingsRepositorySupabaseCached();
   late final StockRepository _stockRepo;
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
+  final _deliveriesRepo = DeliveriesRepositorySupabase();
 
   bool _isExpanded = false;
   bool _isLoading = true;
@@ -85,10 +88,10 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
 
   /// Public method for parent to trigger refresh (e.g., from real-time events)
   void refresh() {
-    if (mounted) _loadAlerts();
+    if (mounted) _loadAlerts(forceRefresh: true);
   }
 
-  Future<void> _loadAlerts() async {
+  Future<void> _loadAlerts({bool forceRefresh = false}) async {
     if (!mounted) return;
 
     try {
@@ -98,14 +101,19 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
 
       // Load all data in parallel
       final results = await Future.wait([
-        _bookingsRepo.listBookingsCached(limit: 100),
+        _bookingsRepo.listBookingsCached(limit: 100, forceRefresh: forceRefresh),
         _stockRepo.getLowStockItems(),
         _claimsRepo.listClaims(status: ClaimStatus.submitted),
+        _claimsRepo.getAll(limit: 200),
+        _deliveriesRepo.getAllDeliveries(limit: 200, offset: 0),
       ]);
 
       final allBookings = results[0] as List<Booking>;
       final lowStockItems = results[1] as List<StockItem>;
       final pendingClaims = results[2] as List<ConsignmentClaim>;
+      final allClaims = results[3] as List<ConsignmentClaim>;
+      final deliveriesResult = results[4] as Map<String, dynamic>;
+      final allDeliveries = deliveriesResult['data'] as List<Delivery>;
 
       final urgent = <AlertItem>[];
       final warning = <AlertItem>[];
@@ -192,7 +200,7 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
         }
       }
 
-      // Process pending claims
+      // Process pending claims (submitted, awaiting approval)
       for (final claim in pendingClaims.take(5)) {
         info.add(AlertItem(
           id: 'claim_pending_${claim.id}',
@@ -203,6 +211,73 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
           routeName: '/claims',
           icon: Icons.receipt_long_rounded,
         ));
+      }
+
+      // Process overdue claims (balance > 0, > 7 days since claim date)
+      for (final claim in allClaims) {
+        final balance = claim.balanceAmount;
+        if (balance > 0) {
+          final daysSinceClaim = now.difference(claim.claimDate).inDays;
+          if (daysSinceClaim > 7) {
+            urgent.add(AlertItem(
+              id: 'claim_overdue_${claim.id}',
+              title: 'Tuntutan Lewat Bayar',
+              subtitle: '${claim.claimNumber} - $daysSinceClaim hari',
+              severity: AlertSeverity.urgent,
+              actionLabel: 'Lihat',
+              routeName: '/claims',
+              icon: Icons.payment_rounded,
+            ));
+          }
+        }
+      }
+
+      // Process deliveries ready for claim (grace period 7 days)
+      // Get claimed delivery IDs to exclude
+      final claimedDeliveryIds = <String>{};
+      try {
+        final userId = supabase.auth.currentUser?.id;
+        if (userId != null) {
+          final claimsResponse = await supabase
+              .from('consignment_claims')
+              .select('id')
+              .eq('business_owner_id', userId)
+              .inFilter('status', ['draft', 'submitted', 'approved', 'settled', 'rejected']);
+
+          final claims = (claimsResponse as List).cast<Map<String, dynamic>>();
+          if (claims.isNotEmpty) {
+            final claimIds = claims.map((c) => c['id'] as String).toList();
+            final itemsResponse = await supabase
+                .from('consignment_claim_items')
+                .select('delivery_id')
+                .inFilter('claim_id', claimIds);
+
+            for (final item in (itemsResponse as List).cast<Map<String, dynamic>>()) {
+              final deliveryId = item['delivery_id'] as String?;
+              if (deliveryId != null && deliveryId.isNotEmpty) {
+                claimedDeliveryIds.add(deliveryId);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading claimed delivery IDs: $e');
+      }
+
+      for (final delivery in allDeliveries) {
+        if (claimedDeliveryIds.contains(delivery.id)) continue;
+        final daysSinceDelivery = now.difference(delivery.deliveryDate).inDays;
+        if (daysSinceDelivery >= 7) {
+          warning.add(AlertItem(
+            id: 'claim_ready_${delivery.id}',
+            title: 'Sedia untuk Tuntutan',
+            subtitle: '${delivery.vendorName} - $daysSinceDelivery hari lepas',
+            severity: AlertSeverity.warning,
+            actionLabel: 'Tuntut',
+            routeName: '/claims',
+            icon: Icons.inventory_2_rounded,
+          ));
+        }
       }
 
       if (mounted) {
@@ -256,9 +331,15 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
     return Column(
       children: [
         // Collapsed/Header bar
-        GestureDetector(
-          onTap: _toggleExpanded,
-          child: _buildCollapsedBar(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _toggleExpanded,
+            borderRadius: BorderRadius.circular(12),
+            splashColor: (_urgentAlerts.isNotEmpty ? Colors.red : Colors.orange).withOpacity(0.15),
+            highlightColor: (_urgentAlerts.isNotEmpty ? Colors.red : Colors.orange).withOpacity(0.08),
+            child: _buildCollapsedBar(),
+          ),
         ),
         // Expanded content
         SizeTransition(
@@ -530,12 +611,16 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
           ),
         );
       },
+      child: Material(
+      color: Colors.transparent,
       child: InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         Navigator.of(context).pushNamed(alert.routeName);
       },
       borderRadius: BorderRadius.circular(8),
+      splashColor: color.withOpacity(0.15),
+      highlightColor: color.withOpacity(0.08),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
@@ -592,6 +677,7 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
             ),
           ],
         ),
+      ),
       ),
       ),
     );
