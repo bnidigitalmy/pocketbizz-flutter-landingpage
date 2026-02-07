@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
@@ -43,10 +42,10 @@ class AlertBarV3 extends StatefulWidget {
   const AlertBarV3({super.key, this.onExpanded});
 
   @override
-  State<AlertBarV3> createState() => _AlertBarV3State();
+  State<AlertBarV3> createState() => AlertBarV3State();
 }
 
-class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMixin {
+class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMixin {
   final _bookingsRepo = BookingsRepositorySupabaseCached();
   late final StockRepository _stockRepo;
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
@@ -57,12 +56,6 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
   List<AlertItem> _urgentAlerts = [];
   List<AlertItem> _warningAlerts = [];
   List<AlertItem> _infoAlerts = [];
-
-  // Real-time subscriptions
-  StreamSubscription? _bookingsSubscription;
-  StreamSubscription? _stockSubscription;
-  StreamSubscription? _claimsSubscription;
-  Timer? _debounceTimer;
 
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
@@ -82,53 +75,17 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
     );
 
     _loadAlerts();
-    _setupRealtimeSubscriptions();
   }
 
   @override
   void dispose() {
-    _bookingsSubscription?.cancel();
-    _stockSubscription?.cancel();
-    _claimsSubscription?.cancel();
-    _debounceTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
 
-  void _setupRealtimeSubscriptions() {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      _bookingsSubscription = supabase
-          .from('bookings')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((_) => _debouncedRefresh());
-
-      _stockSubscription = supabase
-          .from('stock_items')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((_) => _debouncedRefresh());
-
-      _claimsSubscription = supabase
-          .from('consignment_claims')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((_) => _debouncedRefresh());
-
-      debugPrint('AlertBarV3 real-time subscriptions setup complete');
-    } catch (e) {
-      debugPrint('Error setting up AlertBarV3 subscriptions: $e');
-    }
-  }
-
-  void _debouncedRefresh() {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted) _loadAlerts();
-    });
+  /// Public method for parent to trigger refresh (e.g., from real-time events)
+  void refresh() {
+    if (mounted) _loadAlerts();
   }
 
   Future<void> _loadAlerts() async {
@@ -143,7 +100,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
       final results = await Future.wait([
         _bookingsRepo.listBookingsCached(limit: 100),
         _stockRepo.getLowStockItems(),
-        _claimsRepo.listClaims(status: 'pending'),
+        _claimsRepo.listClaims(status: ClaimStatus.submitted),
       ]);
 
       final allBookings = results[0] as List<Booking>;
@@ -240,7 +197,7 @@ class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateM
         info.add(AlertItem(
           id: 'claim_pending_${claim.id}',
           title: 'Tuntutan Pending',
-          subtitle: claim.vendorName,
+          subtitle: claim.vendorName ?? 'Vendor',
           severity: AlertSeverity.info,
           actionLabel: 'Proses',
           routeName: '/claims',

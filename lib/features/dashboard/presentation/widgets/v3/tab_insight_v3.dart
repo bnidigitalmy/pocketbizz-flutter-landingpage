@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
-import '../../domain/sme_dashboard_v2_models.dart';
+import '../../../domain/sme_dashboard_v2_models.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
 
@@ -91,7 +91,7 @@ class _TabInsightV3State extends State<TabInsightV3> {
       insights.add(InsightItem(
         id: 'top_product',
         title: 'Produk Terlaris',
-        description: '${topProduct.name} adalah produk paling laris minggu ini dengan ${topProduct.unitsSold} unit terjual.',
+        description: '${topProduct.displayName} adalah produk paling laris minggu ini dengan ${topProduct.units.toInt()} unit terjual.',
         icon: Icons.emoji_events_rounded,
         color: Colors.amber,
         actionLabel: 'Pastikan Stok',

@@ -20,6 +20,7 @@ class HeroSectionV3 extends StatefulWidget {
   final VoidCallback onStartProduction;
   final VoidCallback onMoreActions;
   final VoidCallback onNotificationTap;
+  final VoidCallback? onMenuTap;
   final int unreadNotifications;
 
   const HeroSectionV3({
@@ -34,6 +35,7 @@ class HeroSectionV3 extends StatefulWidget {
     required this.onStartProduction,
     required this.onMoreActions,
     required this.onNotificationTap,
+    this.onMenuTap,
     this.unreadNotifications = 0,
   });
 
@@ -123,11 +125,20 @@ class _HeroSectionV3State extends State<HeroSectionV3>
       ),
       child: Column(
         children: [
-          // Header with greeting and notification
+          // Header with menu, greeting and notification
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
             child: Row(
               children: [
+                // Hamburger menu button
+                if (widget.onMenuTap != null)
+                  IconButton(
+                    onPressed: widget.onMenuTap,
+                    icon: const Icon(Icons.menu, color: AppColors.textPrimary),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                if (widget.onMenuTap != null) const SizedBox(width: 4),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,37 +283,35 @@ class _HeroSectionV3State extends State<HeroSectionV3>
               children: [
                 Expanded(
                   child: _QuickActionButton(
-                    label: '+ Jual',
-                    icon: Icons.add_shopping_cart_rounded,
+                    label: 'Jualan',
+                    icon: Icons.point_of_sale_rounded,
                     color: AppColors.primary,
                     onTap: widget.onAddSale,
                   ),
                 ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: _QuickActionButton(
-                    label: '+ Stok',
+                    label: 'Stok',
                     icon: Icons.inventory_2_rounded,
-                    color: Colors.blue,
+                    color: AppColors.accent,
                     onTap: widget.onAddStock,
                   ),
                 ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: _QuickActionButton(
                     label: 'Produksi',
                     icon: Icons.factory_rounded,
-                    color: Colors.purple,
+                    color: AppColors.warning,
                     onTap: widget.onStartProduction,
                   ),
                 ),
-                const SizedBox(width: 10),
-                _QuickActionButton(
-                  label: 'Lagi',
-                  icon: Icons.grid_view_rounded,
-                  color: Colors.grey.shade600,
-                  onTap: widget.onMoreActions,
-                  isCompact: true,
+                Expanded(
+                  child: _QuickActionButton(
+                    label: 'Lagi',
+                    icon: Icons.grid_view_rounded,
+                    color: AppColors.textSecondary,
+                    onTap: widget.onMoreActions,
+                  ),
                 ),
               ],
             ),
@@ -526,224 +535,53 @@ class _ChangeIndicator extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
-  final Color? valueColor;
-  final double? changePercent;
-  final String? subtitle;
-  final bool isCompact;
 
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-    this.valueColor,
-    this.changePercent,
-    this.subtitle,
-    this.isCompact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(isCompact ? 10 : 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: iconColor.withOpacity(0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 16),
-              ),
-              const Spacer(),
-              if (changePercent != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: changePercent! >= 0
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        changePercent! >= 0
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                        size: 10,
-                        color: changePercent! >= 0 ? Colors.green : Colors.red,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${changePercent!.abs().toStringAsFixed(0)}%',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: changePercent! >= 0 ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isCompact ? 18 : 20,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? AppColors.textPrimary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 1),
-            Text(
-              subtitle!,
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionButton extends StatefulWidget {
+class _QuickActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  final bool isCompact;
 
   const _QuickActionButton({
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
-    this.isCompact = false,
   });
 
   @override
-  State<_QuickActionButton> createState() => _QuickActionButtonState();
-}
-
-class _QuickActionButtonState extends State<_QuickActionButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    _controller.reverse();
-  }
-
-  void _onTapCancel() {
-    _controller.reverse();
-  }
-
-  void _handleTap() {
-    HapticFeedback.lightImpact();
-    widget.onTap();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onTap: _handleTap,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.isCompact ? 12 : 14,
-            vertical: 12,
-          ),
-          decoration: BoxDecoration(
-            color: widget.color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: widget.color.withOpacity(0.2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: widget.isCompact ? MainAxisSize.min : MainAxisSize.max,
-            children: [
-              Icon(widget.icon, color: widget.color, size: 18),
-              if (!widget.isCompact) ...[
-                const SizedBox(width: 6),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: widget.color,
-                  ),
-                ),
-              ],
-            ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: Material(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                onTap();
+              },
+              child: Center(
+                child: Icon(icon, color: color, size: 24),
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../../../../../core/supabase/supabase_client.dart' show supabase;
@@ -6,6 +5,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../../data/models/stock_item.dart';
 import '../../../../../core/utils/unit_conversion.dart';
+import '../../../../stock/presentation/stock_detail_page.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
 
@@ -13,18 +13,20 @@ import 'stagger_animation.dart';
 class TabStokV3 extends StatefulWidget {
   final VoidCallback onViewStock;
   final VoidCallback onCreatePO;
+  final VoidCallback onViewShoppingList;
 
   const TabStokV3({
     super.key,
     required this.onViewStock,
     required this.onCreatePO,
+    required this.onViewShoppingList,
   });
 
   @override
-  State<TabStokV3> createState() => _TabStokV3State();
+  State<TabStokV3> createState() => TabStokV3State();
 }
 
-class _TabStokV3State extends State<TabStokV3> {
+class TabStokV3State extends State<TabStokV3> {
   late final StockRepository _stockRepo;
 
   bool _isLoading = true;
@@ -33,42 +35,16 @@ class _TabStokV3State extends State<TabStokV3> {
   int _outOfStockCount = 0;
   List<StockItem> _lowStockItems = [];
 
-  StreamSubscription? _stockSubscription;
-  Timer? _debounceTimer;
-
   @override
   void initState() {
     super.initState();
     _stockRepo = StockRepository(supabase);
     _loadStockData();
-    _setupRealtimeSubscription();
   }
 
-  @override
-  void dispose() {
-    _stockSubscription?.cancel();
-    _debounceTimer?.cancel();
-    super.dispose();
-  }
-
-  void _setupRealtimeSubscription() {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      _stockSubscription = supabase
-          .from('stock_items')
-          .stream(primaryKey: ['id'])
-          .eq('business_owner_id', userId)
-          .listen((_) {
-            _debounceTimer?.cancel();
-            _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-              if (mounted) _loadStockData();
-            });
-          });
-    } catch (e) {
-      debugPrint('Error setting up stock subscription: $e');
-    }
+  /// Public method for parent to trigger refresh (e.g., from real-time events)
+  void refresh() {
+    if (mounted) _loadStockData();
   }
 
   Future<void> _loadStockData() async {
@@ -343,7 +319,7 @@ class _TabStokV3State extends State<TabStokV3> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: widget.onViewStock,
+                    onPressed: widget.onViewShoppingList,
                     icon: const Icon(Icons.list, size: 18),
                     label: const Text('Shopping List'),
                     style: OutlinedButton.styleFrom(
@@ -376,7 +352,17 @@ class _TabStokV3State extends State<TabStokV3> {
   Widget _buildSuggestionItem(StockItem item) {
     final isOut = item.currentQuantity <= 0;
 
-    return Padding(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StockDetailPage(stockItem: item),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
@@ -435,6 +421,7 @@ class _TabStokV3State extends State<TabStokV3> {
           ),
         ],
       ),
+    ),
     );
   }
 }

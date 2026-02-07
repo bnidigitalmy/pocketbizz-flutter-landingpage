@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
-import '../../domain/sme_dashboard_v2_models.dart';
+import '../../../domain/sme_dashboard_v2_models.dart';
 import '../v2/dashboard_v2_format.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
@@ -109,9 +109,8 @@ class TabRingkasanV3 extends StatelessWidget {
               final product = entry.value;
               return _buildProductRow(
                 rank: index + 1,
-                name: product.name,
-                units: product.unitsSold,
-                revenue: product.revenue,
+                name: product.displayName,
+                units: product.units.toInt(),
               );
             }),
 
@@ -136,7 +135,6 @@ class TabRingkasanV3 extends StatelessWidget {
     required int rank,
     required String name,
     required int units,
-    required double revenue,
   }) {
     final rankColors = [Colors.amber, Colors.grey.shade400, Colors.brown.shade300];
     final rankColor = rank <= 3 ? rankColors[rank - 1] : Colors.grey;
@@ -175,24 +173,13 @@ class TabRingkasanV3 extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '$units unit',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                DashboardV2Format.currency(revenue),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Text(
+            '$units unit',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
           ),
         ],
       ),

@@ -146,7 +146,7 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
   }
 }
 
-class _TabItem extends StatefulWidget {
+class _TabItem extends StatelessWidget {
   final DashboardTab tab;
   final bool isSelected;
 
@@ -156,82 +156,32 @@ class _TabItem extends StatefulWidget {
   });
 
   @override
-  State<_TabItem> createState() => _TabItemState();
-}
-
-class _TabItemState extends State<_TabItem> with SingleTickerProviderStateMixin {
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _scaleController.forward(),
-      onTapUp: (_) => _scaleController.reverse(),
-      onTapCancel: () => _scaleController.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  widget.isSelected ? _getFilledIcon(widget.tab.icon) : widget.tab.icon,
-                  key: ValueKey(widget.isSelected),
-                  size: 18,
-                  color: widget.isSelected
-                      ? AppColors.primary
-                      : Colors.grey.shade500,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: widget.isSelected
-                        ? AppColors.primary
-                        : Colors.grey.shade500,
-                  ),
-                  child: Text(
-                    widget.tab.label,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+    final color = isSelected ? AppColors.primary : Colors.grey.shade500;
+    final icon = isSelected ? _getFilledIcon(tab.icon) : tab.icon;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            tab.label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: color,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
   /// Get filled version of outlined icon
   IconData _getFilledIcon(IconData icon) {
-    // Map outlined icons to filled versions
     if (icon == Icons.dashboard_outlined) return Icons.dashboard;
     if (icon == Icons.point_of_sale_outlined) return Icons.point_of_sale;
     if (icon == Icons.inventory_2_outlined) return Icons.inventory_2;

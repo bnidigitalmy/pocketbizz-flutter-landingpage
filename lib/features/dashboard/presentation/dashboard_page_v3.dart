@@ -16,6 +16,9 @@ import '../../reports/data/models/sales_by_channel.dart';
 import '../domain/sme_dashboard_v2_models.dart';
 import '../services/sme_dashboard_v2_service.dart';
 import '../services/dashboard_cache_service.dart';
+import '../../../data/repositories/bookings_repository_supabase_cached.dart';
+import '../../../data/repositories/stock_repository_supabase_cached.dart' show StockRepositorySupabaseCached;
+import '../../../data/repositories/finished_products_repository_supabase.dart';
 import 'widgets/v3/hero_section_v3.dart';
 import 'widgets/v3/alert_bar_v3.dart';
 import 'widgets/v3/dashboard_tabs_v3.dart';
@@ -42,6 +45,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   final _v2Service = SmeDashboardV2Service();
   final _dashboardCache = DashboardCacheService();
   final _reportsRepo = ReportsRepositorySupabase();
+  final _bookingsRepo = BookingsRepositorySupabaseCached();
+  final _stockRepoCached = StockRepositorySupabaseCached(supabase);
 
   // Data
   BusinessProfile? _businessProfile;
@@ -52,13 +57,26 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   int _todayTransactionCount = 0;
   double? _yesterdayInflow;
   bool _loading = true;
+  bool _isLoadingData = false;
   bool _hasUrgentIssues = false;
+
+  // Booking data
+  int _todayBookingsCount = 0;
+  double _todayBookingsAmount = 0;
+  int _tomorrowBookingsCount = 0;
+  double _tomorrowBookingsAmount = 0;
+  int _weekBookingsCount = 0;
+  double _weekBookingsAmount = 0;
 
   // Tab state
   int _selectedTabIndex = 0;
 
   // Scroll controller
   final ScrollController _scrollController = ScrollController();
+
+  // Keys for child widget refresh
+  final _alertBarKey = GlobalKey<AlertBarV3State>();
+  final _tabStokKey = GlobalKey<TabStokV3State>();
 
   // Real-time subscriptions
   StreamSubscription? _salesSubscription;
@@ -118,12 +136,17 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       if (mounted) {
         _dashboardCache.invalidateAll();
         _loadAllData();
+        // Refresh child widgets that manage their own data
+        _alertBarKey.currentState?.refresh();
+        _tabStokKey.currentState?.refresh();
       }
     });
   }
 
   Future<void> _loadAllData() async {
     if (!mounted) return;
+    if (_isLoadingData) return; // Prevent concurrent loads
+    _isLoadingData = true;
     setState(() => _loading = true);
 
     try {
@@ -168,6 +191,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    } finally {
+      _isLoadingData = false;
     }
   }
 
@@ -187,6 +212,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
         ),
         _loadTodayTransactionCount(),
         _loadYesterdayInflow(),
+        _loadBookingData(),
+        _checkUrgentIssues(),
       ]);
 
       if (mounted) {
@@ -194,6 +221,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
           _salesByChannel = results[0] as List<SalesByChannel>;
           _todayTransactionCount = results[1] as int;
           _yesterdayInflow = results[2] as double?;
+          // Booking data is set inside _loadBookingData via setState
+          _hasUrgentIssues = results[4] as bool;
         });
       }
     } catch (e) {
@@ -260,6 +289,118 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       return total;
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<void> _loadBookingData() async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final tomorrow = today.add(const Duration(days: 1));
+      final weekEnd = today.add(const Duration(days: 7));
+
+      // Load pending and confirmed bookings (upcoming ones)
+      final results = await Future.wait([
+        _bookingsRepo.listBookingsCached(status: 'pending', limit: 100),
+        _bookingsRepo.listBookingsCached(status: 'confirmed', limit: 100),
+      ]);
+
+      final allBookings = [...results[0], ...results[1]];
+
+      int todayCount = 0;
+      double todayAmount = 0;
+      int tomorrowCount = 0;
+      double tomorrowAmount = 0;
+      int weekCount = 0;
+      double weekAmount = 0;
+
+      for (final booking in allBookings) {
+        try {
+          final deliveryDate = DateTime.parse(booking.deliveryDate);
+          final deliveryDateOnly = DateTime(
+            deliveryDate.year,
+            deliveryDate.month,
+            deliveryDate.day,
+          );
+
+          if (deliveryDateOnly.isAtSameMomentAs(today)) {
+            todayCount++;
+            todayAmount += booking.totalAmount;
+          } else if (deliveryDateOnly.isAtSameMomentAs(tomorrow)) {
+            tomorrowCount++;
+            tomorrowAmount += booking.totalAmount;
+          }
+
+          // Week includes today through next 7 days
+          if (!deliveryDateOnly.isBefore(today) && deliveryDateOnly.isBefore(weekEnd)) {
+            weekCount++;
+            weekAmount += booking.totalAmount;
+          }
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _todayBookingsCount = todayCount;
+          _todayBookingsAmount = todayAmount;
+          _tomorrowBookingsCount = tomorrowCount;
+          _tomorrowBookingsAmount = tomorrowAmount;
+          _weekBookingsCount = weekCount;
+          _weekBookingsAmount = weekAmount;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading booking data: $e');
+    }
+  }
+
+  Future<bool> _checkUrgentIssues() async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final results = await Future.wait([
+        // Check 1: Stock items with quantity = 0
+        _stockRepoCached.getAllStockItemsCached(limit: 50).then(
+          (items) => items.any((item) => item.currentQuantity <= 0),
+        ).catchError((_) => false),
+
+        // Check 2: Overdue bookings
+        Future.wait([
+          _bookingsRepo.listBookingsCached(status: 'pending', limit: 50),
+          _bookingsRepo.listBookingsCached(status: 'confirmed', limit: 50),
+        ]).then((results) {
+          final allBookings = [...results[0], ...results[1]];
+          return allBookings.any((booking) {
+            try {
+              final deliveryDate = DateTime.parse(booking.deliveryDate);
+              final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+              return deliveryDateOnly.isBefore(today);
+            } catch (e) {
+              return false;
+            }
+          });
+        }).catchError((_) => false),
+
+        // Check 3: Expired batches
+        FinishedProductsRepository()
+            .getFinishedProductsSummary()
+            .then((products) {
+          return products.any((product) {
+            if (product.nearestExpiry == null || product.totalRemaining <= 0) {
+              return false;
+            }
+            final expiryDate = product.nearestExpiry!;
+            final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+            return expiryDateOnly.isBefore(today);
+          });
+        }).catchError((_) => false),
+      ]);
+
+      return results[0] || results[1] || results[2];
+    } catch (e) {
+      debugPrint('Error checking urgent issues: $e');
+      return false;
     }
   }
 
@@ -415,6 +556,7 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
                         onAddStock: () => Navigator.pushNamed(context, '/stock'),
                         onStartProduction: () => Navigator.pushNamed(context, '/production'),
                         onMoreActions: _openMoreActionsModal,
+                        onMenuTap: () => Scaffold.of(context).openDrawer(),
                         onNotificationTap: () {
                           Navigator.push(
                             context,
@@ -428,10 +570,10 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
                   // Alert Bar (collapsible)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: AlertBarV3(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: AlertBarV3(key: _alertBarKey),
                     ),
                   ),
 
@@ -548,12 +690,20 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       case 1:
         return TabJualanV3(
           salesByChannel: _salesByChannel,
+          todayBookingsCount: _todayBookingsCount,
+          todayBookingsAmount: _todayBookingsAmount,
+          tomorrowBookingsCount: _tomorrowBookingsCount,
+          tomorrowBookingsAmount: _tomorrowBookingsAmount,
+          weekBookingsCount: _weekBookingsCount,
+          weekBookingsAmount: _weekBookingsAmount,
           onViewAllBookings: () => Navigator.pushNamed(context, '/bookings'),
         );
       case 2:
         return TabStokV3(
+          key: _tabStokKey,
           onViewStock: () => Navigator.pushNamed(context, '/stock'),
           onCreatePO: () => Navigator.pushNamed(context, '/purchase-orders'),
+          onViewShoppingList: () => Navigator.pushNamed(context, '/shopping-list'),
         );
       case 3:
         return TabInsightV3(
