@@ -142,15 +142,27 @@ class PurchaseOrderRepositorySupabaseCached {
           .range(offset, offset + limit - 1);
       
       return (fullResult as List).map((json) {
-        return PurchaseOrder.fromJson(json as Map<String, dynamic>);
+        return _parsePurchaseOrder(json as Map<String, dynamic>);
       }).toList();
     }
-    
+
     return deltaData.map((json) {
-      return PurchaseOrder.fromJson(json);
+      return _parsePurchaseOrder(json);
     }).toList();
   }
   
+  /// Convert raw Supabase JSON (purchase_order_items) to PurchaseOrder model (items)
+  PurchaseOrder _parsePurchaseOrder(Map<String, dynamic> json) {
+    final itemsJson = json['purchase_order_items'] as List? ?? [];
+    final items = itemsJson
+        .map((item) => PurchaseOrderItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+
+    final poJson = Map<String, dynamic>.from(json);
+    poJson['items'] = items.map((item) => item.toJson()).toList();
+    return PurchaseOrder.fromJson(poJson);
+  }
+
   /// Background sync for purchase orders
   Future<void> _syncPurchaseOrdersInBackground({
     required String userId,
