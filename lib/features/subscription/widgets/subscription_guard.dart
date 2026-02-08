@@ -5,6 +5,7 @@ import '../data/models/subscription.dart';
 import '../../../core/theme/app_colors.dart';
 import '../presentation/subscription_page.dart';
 import 'upgrade_modal_enhanced.dart';
+import '../../../features/onboarding/services/onboarding_service.dart';
 
 /// Subscription Guard Widget
 /// Wraps content and shows upgrade prompt if subscription is not active
@@ -184,6 +185,19 @@ Future<void> requirePro(
   String action,
   Future<void> Function() run,
 ) async {
+  // Check if user is still in onboarding
+  final onboardingService = OnboardingService();
+  final isInOnboarding = await onboardingService.shouldShowOnboarding();
+  
+  // If user is in onboarding, allow action without subscription check
+  // Backend enforcement will also allow onboarding users to save data
+  if (isInOnboarding) {
+    // Allow action during onboarding - backend will allow save
+    await run();
+    return;
+  }
+  
+  // After onboarding complete, check subscription
   final subscription = await SubscriptionService().getCurrentSubscription();
   
   // Check if user has active subscription (includes trial, active, grace)
@@ -241,7 +255,7 @@ class SubscriptionEnforcement {
         msg.contains('langganan') && msg.contains('tamat');
   }
 
-  /// Returns true if it handled the error (showed upgrade modal).
+  /// Returns true if it handled the error (showed upgrade modal or friendly message).
   static Future<bool> maybePromptUpgrade(
     BuildContext context, {
     required String action,
@@ -249,6 +263,18 @@ class SubscriptionEnforcement {
   }) async {
     if (!isSubscriptionRequiredError(error)) return false;
 
+    // Check if user is still in onboarding
+    final onboardingService = OnboardingService();
+    final isInOnboarding = await onboardingService.shouldShowOnboarding();
+    
+    if (isInOnboarding) {
+      // During onboarding, backend should allow save
+      // If we reach here, it means there's an error (not subscription-related)
+      // Return false to let error be handled normally
+      return false;
+    }
+
+    // After onboarding, show upgrade modal
     final subscription = await SubscriptionService().getCurrentSubscription();
     if (!context.mounted) return true;
 

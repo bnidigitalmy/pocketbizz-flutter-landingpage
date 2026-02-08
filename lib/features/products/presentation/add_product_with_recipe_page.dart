@@ -476,17 +476,23 @@ class _AddProductWithRecipePageState extends State<AddProductWithRecipePage> {
 
     final isEditMode = widget.product != null;
 
-    // Soft block: expired users should see upgrade modal (not technical DB errors).
-    final subscription = await SubscriptionService().getCurrentSubscription();
-    if (subscription == null || !subscription.isActive) {
-      if (mounted) {
-        await UpgradeModalEnhanced.show(
-          context,
-          action: isEditMode ? 'Edit Produk & Resepi' : 'Tambah Produk & Resepi',
-          subscription: subscription,
-        );
+    // Check if user is in onboarding - allow during onboarding
+    final onboardingService = OnboardingService();
+    final isInOnboarding = await onboardingService.shouldShowOnboarding();
+    
+    // If not in onboarding, check subscription
+    if (!isInOnboarding) {
+      final subscription = await SubscriptionService().getCurrentSubscription();
+      if (subscription == null || !subscription.isActive) {
+        if (mounted) {
+          await UpgradeModalEnhanced.show(
+            context,
+            action: isEditMode ? 'Edit Produk & Resepi' : 'Tambah Produk & Resepi',
+            subscription: subscription,
+          );
+        }
+        return;
       }
-      return;
     }
 
     setState(() => _isSaving = true);

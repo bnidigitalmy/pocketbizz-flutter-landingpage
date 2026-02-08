@@ -526,7 +526,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 }
 
-/// Wrapper for authenticated users - checks onboarding status
+/// Wrapper for authenticated users - checks onboarding and subscription status
 class _AuthenticatedUserWrapper extends StatefulWidget {
   const _AuthenticatedUserWrapper();
 
@@ -542,12 +542,13 @@ class _AuthenticatedUserWrapperState extends State<_AuthenticatedUserWrapper> {
   @override
   void initState() {
     super.initState();
-    _checkOnboarding();
+    _checkOnboardingAndSubscription();
   }
 
-  Future<void> _checkOnboarding() async {
+  Future<void> _checkOnboardingAndSubscription() async {
     try {
       final shouldShow = await _onboardingService.shouldShowOnboarding();
+      debugPrint('🔍 Onboarding check: shouldShow = $shouldShow');
       if (mounted) {
         setState(() {
           _shouldShowOnboarding = shouldShow;
@@ -556,7 +557,7 @@ class _AuthenticatedUserWrapperState extends State<_AuthenticatedUserWrapper> {
       }
     } catch (e) {
       // On error, skip onboarding and go to home
-      debugPrint('Error checking onboarding: $e');
+      debugPrint('❌ Error checking onboarding: $e');
       if (mounted) {
         setState(() {
           _shouldShowOnboarding = false;
@@ -576,10 +577,14 @@ class _AuthenticatedUserWrapperState extends State<_AuthenticatedUserWrapper> {
       );
     }
 
+    // Show onboarding first if needed
     if (_shouldShowOnboarding) {
       return const OnboardingPage();
     }
 
+    // Allow users to access dashboard (read-only mode)
+    // Backend will block INSERT/UPDATE operations for users without subscription
+    // Upgrade modals will show when users try to create/edit
     return const HomePage();
   }
 }

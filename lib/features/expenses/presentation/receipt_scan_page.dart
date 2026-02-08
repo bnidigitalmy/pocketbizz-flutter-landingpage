@@ -19,6 +19,7 @@ import '../../../data/models/expense.dart';
 import '../../subscription/widgets/subscription_guard.dart';
 import '../../subscription/services/subscription_service.dart';
 import '../../subscription/widgets/upgrade_modal_enhanced.dart';
+import '../../onboarding/services/onboarding_service.dart';
 
 /// Parsed receipt data from OCR
 class ParsedReceipt {
@@ -553,17 +554,23 @@ class _ReceiptScanPageState extends State<ReceiptScanPage> {
     });
 
     try {
-      // Soft block: expired users should see upgrade modal (not technical errors).
-      final subscription = await SubscriptionService().getCurrentSubscription();
-      if (subscription == null || !subscription.isActive) {
-        if (mounted) {
-          await UpgradeModalEnhanced.show(
-            context,
-            action: 'Scan Resit (OCR)',
-            subscription: subscription,
-          );
+      // Check if user is in onboarding - allow during onboarding
+      final onboardingService = OnboardingService();
+      final isInOnboarding = await onboardingService.shouldShowOnboarding();
+      
+      // If not in onboarding, check subscription
+      if (!isInOnboarding) {
+        final subscription = await SubscriptionService().getCurrentSubscription();
+        if (subscription == null || !subscription.isActive) {
+          if (mounted) {
+            await UpgradeModalEnhanced.show(
+              context,
+              action: 'Scan Resit (OCR)',
+              subscription: subscription,
+            );
+          }
+          return;
         }
-        return;
       }
 
       final base64Image = base64Encode(bytes);

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/onboarding_content.dart';
+import '../../../subscription/services/subscription_service.dart';
+import '../../../subscription/presentation/subscription_page.dart';
 
 /// Complete Screen - Final screen of onboarding (Tahniah!)
 class CompleteScreen extends StatefulWidget {
@@ -22,6 +24,9 @@ class _CompleteScreenState extends State<CompleteScreen>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  bool _hasActiveSubscription = false;
+  bool _checkingSubscription = true;
 
   @override
   void initState() {
@@ -40,6 +45,36 @@ class _CompleteScreenState extends State<CompleteScreen>
     );
     
     _controller.forward();
+    _checkSubscription();
+  }
+
+  Future<void> _checkSubscription() async {
+    try {
+      final hasSubscription = await _subscriptionService.hasActiveSubscription();
+      if (mounted) {
+        setState(() {
+          _hasActiveSubscription = hasSubscription;
+          _checkingSubscription = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasActiveSubscription = false;
+          _checkingSubscription = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _navigateToSubscription() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const SubscriptionPage(),
+      ),
+    );
+    // After returning from subscription page, check again
+    _checkSubscription();
   }
 
   @override
@@ -260,16 +295,117 @@ class _CompleteScreenState extends State<CompleteScreen>
                 
                 const SizedBox(height: 40),
                 
+                // Subscription offer card (if no subscription)
+                if (!_checkingSubscription && !_hasActiveSubscription) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.15),
+                          AppColors.primary.withOpacity(0.08),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.workspace_premium,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Mula Menggunakan PocketBizz',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Langgan sekarang untuk mula menambah produk, rekod jualan, dan gunakan semua ciri.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade700,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _navigateToSubscription,
+                            icon: const Icon(Icons.workspace_premium, size: 20),
+                            label: const Text(
+                              'Langgan Sekarang',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                
                 // Primary button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: widget.onComplete,
-                    icon: const Icon(Icons.rocket_launch),
-                    label: Text(widget.content.primaryButtonText),
+                    icon: Icon(_hasActiveSubscription ? Icons.rocket_launch : Icons.arrow_forward),
+                    label: Text(
+                      _hasActiveSubscription 
+                          ? widget.content.primaryButtonText 
+                          : 'Teruskan ke Dashboard',
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: _hasActiveSubscription 
+                          ? AppColors.primary 
+                          : Colors.grey[300],
+                      foregroundColor: _hasActiveSubscription 
+                          ? Colors.white 
+                          : Colors.grey[700],
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

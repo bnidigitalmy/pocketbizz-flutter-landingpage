@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Repository for managing onboarding progress in Supabase
@@ -12,6 +13,7 @@ class OnboardingRepositorySupabase {
   /// Get or create onboarding progress for current user
   Future<Map<String, dynamic>> getProgress() async {
     if (_userId == null) {
+      debugPrint('⚠️ OnboardingRepository: No user ID, returning default progress');
       return _defaultProgress();
     }
 
@@ -24,16 +26,22 @@ class OnboardingRepositorySupabase {
           .maybeSingle();
 
       if (response != null) {
+        debugPrint('✅ OnboardingRepository: Found existing progress for user: $_userId, has_seen_onboarding: ${response['has_seen_onboarding']}');
         return response;
       }
 
       // Create new record if not exists
+      // Explicitly set has_seen_onboarding to false for new users
       final newRecord = await _client
           .from('user_onboarding_progress')
-          .insert({'user_id': _userId})
+          .insert({
+            'user_id': _userId,
+            'has_seen_onboarding': false, // Explicitly set to false for new users
+          })
           .select()
           .single();
 
+      debugPrint('✅ Created new onboarding progress record for user: $_userId');
       return newRecord;
     } catch (e) {
       // If table doesn't exist or other error, return defaults

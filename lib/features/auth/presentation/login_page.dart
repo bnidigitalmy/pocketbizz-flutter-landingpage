@@ -149,11 +149,10 @@ class _LoginPageState extends State<LoginPage> {
           // Check if email confirmation is required
           if (response.session == null) {
             // Email confirmation required - user profile will be created by database trigger
-            // Trial will be initialized when user confirms email and signs in
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Akaun berjaya dicipta! Sila semak email anda untuk pengesahan, kemudian log masuk untuk mulakan trial percuma.'),
+                  content: Text('Akaun berjaya dicipta! Sila semak email anda untuk pengesahan, kemudian log masuk untuk mula menggunakan PocketBizz.'),
                   backgroundColor: Colors.orange,
                   duration: Duration(seconds: 6),
                 ),
@@ -165,35 +164,27 @@ class _LoginPageState extends State<LoginPage> {
 
           // Session exists - user is already authenticated
           // User profile should be auto-created by database trigger
-          // But we'll try to initialize trial if session exists
-          try {
-            final subscriptionService = SubscriptionService();
-            await subscriptionService.initializeTrial();
-          } catch (e) {
-            // Log error but don't block registration
-            debugPrint('Failed to initialize trial: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Akaun berjaya dicipta, tapi trial gagal diaktifkan. Sila log keluar & log masuk semula. ($e)'),
-                  backgroundColor: Colors.orange,
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-            }
-          }
-
+          // No trial creation - user can explore dashboard (read-only)
+          // Backend will block actions, upgrade modals will show when needed
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Akaun berjaya dicipta! Trial percuma 7 hari bermula.'),
+                content: Text('Akaun berjaya dicipta! Anda boleh explore dashboard. Langgan untuk mula menggunakan semua ciri.'),
                 backgroundColor: Colors.green,
                 duration: Duration(seconds: 4),
               ),
             );
 
-            // Navigate to home page after successful signup
-            Navigator.of(context).pushReplacementNamed('/home');
+            // AuthWrapper will automatically rebuild when auth state changes
+            // The StreamBuilder in AuthWrapper listens to supabase.auth.onAuthStateChange
+            // It will detect the new session and show _AuthenticatedUserWrapper
+            // _AuthenticatedUserWrapper will then check onboarding
+            setState(() => _loading = false);
+            
+            // Force a small delay to ensure auth state stream has time to propagate
+            // Then the AuthWrapper StreamBuilder will rebuild automatically
+            await Future.delayed(const Duration(milliseconds: 100));
           }
         }
       } else {
@@ -203,35 +194,10 @@ class _LoginPageState extends State<LoginPage> {
           password: _passwordController.text,
         );
 
-        // Check if this is a new user who just confirmed email
-        // Initialize trial if they don't have one yet
-        if (response.user != null) {
-          try {
-            final subscriptionService = SubscriptionService();
-            final hasActiveSubscription = await subscriptionService.hasActiveSubscription();
-            
-            // If no active subscription, initialize trial
-            if (!hasActiveSubscription) {
-              await subscriptionService.initializeTrial();
-            }
-          } catch (e) {
-            // Log error but don't block sign in
-            debugPrint('Failed to check/initialize trial on sign in: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Trial gagal diaktifkan. Sila cuba log keluar & log masuk semula. ($e)'),
-                  backgroundColor: Colors.orange,
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-            }
-          }
-        }
-
+        // Navigate to root - AuthWrapper will check onboarding and redirect accordingly
+        // AuthWrapper listens to auth state changes and will show onboarding if needed
         if (response.user != null && mounted) {
-          // Navigate to home
-          Navigator.of(context).pushReplacementNamed('/home');
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         }
       }
     } on AuthException catch (e) {
@@ -315,26 +281,6 @@ class _LoginPageState extends State<LoginPage> {
                       useLogoWithText: true,
                     ),
                     const SizedBox(height: 12),
-                    // Trial badge (only show in sign up mode)
-                    if (_isSignUp) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: badgeBg,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Trial Percuma 7 Hari',
-                          style: TextStyle(
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
                     Text(
                       _isSignUp ? 'Daftar PocketBizz' : 'Log Masuk PocketBizz',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -454,33 +400,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    if (_isSignUp) ...[
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Trial percuma termasuk:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 10),
-                            _BenefitRow(text: 'Semua features (had 10 produk)'),
-                            _BenefitRow(text: 'Setup & tutorial percuma'),
-                            _BenefitRow(text: 'Tiada credit card diperlukan'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
 
                     // Submit button
                     ElevatedButton(
@@ -504,7 +423,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             )
                           : Text(
-                              _isSignUp ? 'Daftar & Mulai Trial Percuma' : 'Log Masuk',
+                              _isSignUp ? 'Daftar' : 'Log Masuk',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
@@ -535,7 +454,7 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         _isSignUp
                             ? 'Sudah ada akaun? Log Masuk'
-                            : 'Belum ada akaun? Daftar Percuma',
+                            : 'Belum ada akaun? Daftar',
                       ),
                     ),
 
