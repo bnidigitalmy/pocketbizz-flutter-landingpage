@@ -47,11 +47,11 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
     _previousIndex = widget.selectedIndex;
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 200),
     );
     _indicatorAnimation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOut,
     );
     _animationController.value = 1.0;
   }
@@ -122,18 +122,15 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
                   final isSelected = index == widget.selectedIndex;
 
                   return Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
+                    child: RepaintBoundary(
+                      child: GestureDetector(
                         onTap: () {
                           if (!isSelected) {
                             HapticFeedback.selectionClick();
+                            widget.onTabSelected(index);
                           }
-                          widget.onTabSelected(index);
                         },
-                        borderRadius: BorderRadius.circular(10),
-                        splashColor: AppColors.primary.withOpacity(0.15),
-                        highlightColor: AppColors.primary.withOpacity(0.08),
+                        behavior: HitTestBehavior.opaque,
                         child: _TabItem(
                           tab: tab,
                           isSelected: isSelected,
@@ -151,7 +148,7 @@ class _DashboardTabsV3State extends State<DashboardTabsV3>
   }
 }
 
-class _TabItem extends StatelessWidget {
+class _TabItem extends StatefulWidget {
   final DashboardTab tab;
   final bool isSelected;
 
@@ -161,32 +158,72 @@ class _TabItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.primary : Colors.grey.shade500;
-    final icon = isSelected ? _getFilledIcon(tab.icon) : tab.icon;
+  State<_TabItem> createState() => _TabItemState();
+}
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            tab.label,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: color,
+class _TabItemState extends State<_TabItem> with SingleTickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _scaleController.forward(),
+      onTapUp: (_) => _scaleController.reverse(),
+      onTapCancel: () => _scaleController.reverse(),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.isSelected ? _getFilledIcon(widget.tab.icon) : widget.tab.icon,
+              size: 18,
+              color: widget.isSelected
+                  ? AppColors.primary
+                  : Colors.grey.shade500,
             ),
-          ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                widget.tab.label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: widget.isSelected
+                      ? AppColors.primary
+                      : Colors.grey.shade500,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   /// Get filled version of outlined icon
   IconData _getFilledIcon(IconData icon) {
+    // Map outlined icons to filled versions
     if (icon == Icons.dashboard_outlined) return Icons.dashboard;
     if (icon == Icons.point_of_sale_outlined) return Icons.point_of_sale;
     if (icon == Icons.inventory_2_outlined) return Icons.inventory_2;

@@ -7,9 +7,12 @@
 // DO NOT refactor, rename, optimize or restructure this logic.
 // Only READ-ONLY reference allowed.
 
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/supabase/supabase_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/planner_task.dart';
 import '../../../data/repositories/planner_tasks_repository_supabase_cached.dart';
@@ -38,12 +41,62 @@ class _PlannerPageState extends State<PlannerPage> with SingleTickerProviderStat
   List<PlannerTask> _overdue = [];
   List<PlannerTask> _auto = [];
 
+  // Real-time subscriptions
+  StreamSubscription? _tasksSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _repo = PlannerTasksRepositorySupabaseCached();
     _tabController = TabController(length: _tabs.length, vsync: this);
+    _setupRealtimeSubscription();
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _tasksSubscription?.cancel();
+    _debounceTimer?.cancel();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for planner_tasks table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to planner_tasks changes for current user only
+      _tasksSubscription = supabase
+          .from('planner_tasks')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Tasks updated - invalidate cache and refresh
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          }, onError: (error) {
+            debugPrint('❌ Planner real-time subscription error: $error');
+          });
+
+      debugPrint('✅ Planner page real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up planner real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _repo.invalidateCache();
+        _loadAll();
+      }
+    });
   }
 
   Future<void> _loadAll() async {

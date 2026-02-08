@@ -1,9 +1,12 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/supabase/supabase_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/planner_task.dart';
-import '../../../../data/repositories/planner_tasks_repository_supabase.dart';
+import '../../../../data/repositories/planner_tasks_repository_supabase_cached.dart';
 
 class PlannerTodayCard extends StatefulWidget {
   const PlannerTodayCard({super.key, this.onViewAll});
@@ -15,25 +18,103 @@ class PlannerTodayCard extends StatefulWidget {
 }
 
 class _PlannerTodayCardState extends State<PlannerTodayCard> {
-  final _repo = PlannerTasksRepositorySupabase();
+  late final PlannerTasksRepositorySupabaseCached _repo;
   bool _loading = true;
   List<PlannerTask> _today = [];
   List<PlannerTask> _overdue = [];
   List<PlannerTask> _upcoming = [];
 
+  // Real-time subscription
+  StreamSubscription? _tasksSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
+    _repo = PlannerTasksRepositorySupabaseCached();
+    _setupRealtimeSubscription();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tasksSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Setup real-time subscription for planner_tasks table
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Subscribe to planner_tasks changes for current user only
+      _tasksSubscription = supabase
+          .from('planner_tasks')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((data) {
+            // Tasks updated - invalidate cache and refresh
+            if (mounted) {
+              _debouncedRefresh();
+            }
+          }, onError: (error) {
+            debugPrint('❌ PlannerTodayCard real-time subscription error: $error');
+          });
+
+      debugPrint('✅ PlannerTodayCard real-time subscription setup complete');
+    } catch (e) {
+      debugPrint('⚠️ Error setting up PlannerTodayCard real-time subscription: $e');
+    }
+  }
+
+  /// Debounced refresh to avoid excessive updates
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _repo.invalidateCache();
+        _load();
+      }
+    });
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      // Use cached repository with SWR pattern
       final results = await Future.wait([
-        _repo.listTasks(scope: 'today', limit: 5),
-        _repo.listTasks(scope: 'overdue', limit: 5),
-        _repo.listTasks(scope: 'upcoming', limit: 5),
+        _repo.listTasksCached(
+          scope: 'today',
+          limit: 5,
+          onDataUpdated: (tasks) {
+            if (mounted) {
+              final filtered = tasks.where((t) => !t.isAuto).toList();
+              setState(() => _today = filtered);
+            }
+          },
+        ),
+        _repo.listTasksCached(
+          scope: 'overdue',
+          limit: 5,
+          onDataUpdated: (tasks) {
+            if (mounted) {
+              final filtered = tasks.where((t) => !t.isAuto).toList();
+              setState(() => _overdue = filtered);
+            }
+          },
+        ),
+        _repo.listTasksCached(
+          scope: 'upcoming',
+          limit: 5,
+          onDataUpdated: (tasks) {
+            if (mounted) {
+              final filtered = tasks.where((t) => !t.isAuto).toList();
+              setState(() => _upcoming = filtered);
+            }
+          },
+        ),
       ]);
       if (!mounted) return;
       

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
@@ -7,10 +8,8 @@ import '../../../../../data/repositories/bookings_repository_supabase.dart' show
 import '../../../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../../data/repositories/consignment_claims_repository_supabase.dart';
-import '../../../../../data/repositories/deliveries_repository_supabase.dart';
 import '../../../../../data/models/stock_item.dart';
-import '../../../../../data/models/consignment_claim.dart';
-import '../../../../../data/models/delivery.dart';
+import '../../../../../data/models/consignment_claim.dart' show ConsignmentClaim, ClaimStatus;
 
 /// Alert severity levels
 enum AlertSeverity { urgent, warning, info }
@@ -44,14 +43,13 @@ class AlertBarV3 extends StatefulWidget {
   const AlertBarV3({super.key, this.onExpanded});
 
   @override
-  State<AlertBarV3> createState() => AlertBarV3State();
+  State<AlertBarV3> createState() => _AlertBarV3State();
 }
 
-class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMixin {
+class _AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMixin {
   final _bookingsRepo = BookingsRepositorySupabaseCached();
   late final StockRepository _stockRepo;
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
-  final _deliveriesRepo = DeliveriesRepositorySupabase();
 
   bool _isExpanded = false;
   bool _isLoading = true;
@@ -59,6 +57,12 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
   List<AlertItem> _urgentAlerts = [];
   List<AlertItem> _warningAlerts = [];
   List<AlertItem> _infoAlerts = [];
+
+  // Real-time subscriptions
+  StreamSubscription? _bookingsSubscription;
+  StreamSubscription? _stockSubscription;
+  StreamSubscription? _claimsSubscription;
+  Timer? _debounceTimer;
 
   late AnimationController _animationController;
   late Animation<double> _expandAnimation;
@@ -78,20 +82,56 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
     );
 
     _loadAlerts();
+    _setupRealtimeSubscriptions();
   }
 
   @override
   void dispose() {
+    _bookingsSubscription?.cancel();
+    _stockSubscription?.cancel();
+    _claimsSubscription?.cancel();
+    _debounceTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
 
-  /// Public method for parent to trigger refresh (e.g., from real-time events)
-  void refresh() {
-    if (mounted) _loadAlerts(forceRefresh: true);
+  void _setupRealtimeSubscriptions() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      _bookingsSubscription = supabase
+          .from('bookings')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) => _debouncedRefresh());
+
+      _stockSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) => _debouncedRefresh());
+
+      _claimsSubscription = supabase
+          .from('consignment_claims')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) => _debouncedRefresh());
+
+      debugPrint('AlertBarV3 real-time subscriptions setup complete');
+    } catch (e) {
+      debugPrint('Error setting up AlertBarV3 subscriptions: $e');
+    }
   }
 
-  Future<void> _loadAlerts({bool forceRefresh = false}) async {
+  void _debouncedRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) _loadAlerts();
+    });
+  }
+
+  Future<void> _loadAlerts() async {
     if (!mounted) return;
 
     try {
@@ -101,19 +141,14 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
 
       // Load all data in parallel
       final results = await Future.wait([
-        _bookingsRepo.listBookingsCached(limit: 100, forceRefresh: forceRefresh),
+        _bookingsRepo.listBookingsCached(limit: 100),
         _stockRepo.getLowStockItems(),
-        _claimsRepo.listClaims(status: ClaimStatus.submitted),
-        _claimsRepo.getAll(limit: 200),
-        _deliveriesRepo.getAllDeliveries(limit: 200, offset: 0),
+        _claimsRepo.listClaims(status: ClaimStatus.submitted).then((result) => (result['data'] as List).cast<ConsignmentClaim>()),
       ]);
 
       final allBookings = results[0] as List<Booking>;
       final lowStockItems = results[1] as List<StockItem>;
       final pendingClaims = results[2] as List<ConsignmentClaim>;
-      final allClaims = results[3] as List<ConsignmentClaim>;
-      final deliveriesResult = results[4] as Map<String, dynamic>;
-      final allDeliveries = deliveriesResult['data'] as List<Delivery>;
 
       final urgent = <AlertItem>[];
       final warning = <AlertItem>[];
@@ -200,84 +235,17 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
         }
       }
 
-      // Process pending claims (submitted, awaiting approval)
+      // Process pending claims
       for (final claim in pendingClaims.take(5)) {
         info.add(AlertItem(
           id: 'claim_pending_${claim.id}',
           title: 'Tuntutan Pending',
-          subtitle: claim.vendorName ?? 'Vendor',
+          subtitle: claim.vendorName ?? 'Unknown Vendor',
           severity: AlertSeverity.info,
           actionLabel: 'Proses',
           routeName: '/claims',
           icon: Icons.receipt_long_rounded,
         ));
-      }
-
-      // Process overdue claims (balance > 0, > 7 days since claim date)
-      for (final claim in allClaims) {
-        final balance = claim.balanceAmount;
-        if (balance > 0) {
-          final daysSinceClaim = now.difference(claim.claimDate).inDays;
-          if (daysSinceClaim > 7) {
-            urgent.add(AlertItem(
-              id: 'claim_overdue_${claim.id}',
-              title: 'Tuntutan Lewat Bayar',
-              subtitle: '${claim.claimNumber} - $daysSinceClaim hari',
-              severity: AlertSeverity.urgent,
-              actionLabel: 'Lihat',
-              routeName: '/claims',
-              icon: Icons.payment_rounded,
-            ));
-          }
-        }
-      }
-
-      // Process deliveries ready for claim (grace period 7 days)
-      // Get claimed delivery IDs to exclude
-      final claimedDeliveryIds = <String>{};
-      try {
-        final userId = supabase.auth.currentUser?.id;
-        if (userId != null) {
-          final claimsResponse = await supabase
-              .from('consignment_claims')
-              .select('id')
-              .eq('business_owner_id', userId)
-              .inFilter('status', ['draft', 'submitted', 'approved', 'settled', 'rejected']);
-
-          final claims = (claimsResponse as List).cast<Map<String, dynamic>>();
-          if (claims.isNotEmpty) {
-            final claimIds = claims.map((c) => c['id'] as String).toList();
-            final itemsResponse = await supabase
-                .from('consignment_claim_items')
-                .select('delivery_id')
-                .inFilter('claim_id', claimIds);
-
-            for (final item in (itemsResponse as List).cast<Map<String, dynamic>>()) {
-              final deliveryId = item['delivery_id'] as String?;
-              if (deliveryId != null && deliveryId.isNotEmpty) {
-                claimedDeliveryIds.add(deliveryId);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Error loading claimed delivery IDs: $e');
-      }
-
-      for (final delivery in allDeliveries) {
-        if (claimedDeliveryIds.contains(delivery.id)) continue;
-        final daysSinceDelivery = now.difference(delivery.deliveryDate).inDays;
-        if (daysSinceDelivery >= 7) {
-          warning.add(AlertItem(
-            id: 'claim_ready_${delivery.id}',
-            title: 'Sedia untuk Tuntutan',
-            subtitle: '${delivery.vendorName} - $daysSinceDelivery hari lepas',
-            severity: AlertSeverity.warning,
-            actionLabel: 'Tuntut',
-            routeName: '/claims',
-            icon: Icons.inventory_2_rounded,
-          ));
-        }
       }
 
       if (mounted) {
@@ -331,15 +299,9 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
     return Column(
       children: [
         // Collapsed/Header bar
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _toggleExpanded,
-            borderRadius: BorderRadius.circular(12),
-            splashColor: (_urgentAlerts.isNotEmpty ? Colors.red : Colors.orange).withOpacity(0.15),
-            highlightColor: (_urgentAlerts.isNotEmpty ? Colors.red : Colors.orange).withOpacity(0.08),
-            child: _buildCollapsedBar(),
-          ),
+        GestureDetector(
+          onTap: _toggleExpanded,
+          child: _buildCollapsedBar(),
         ),
         // Expanded content
         SizeTransition(
@@ -611,16 +573,12 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
           ),
         );
       },
-      child: Material(
-      color: Colors.transparent,
       child: InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         Navigator.of(context).pushNamed(alert.routeName);
       },
       borderRadius: BorderRadius.circular(8),
-      splashColor: color.withOpacity(0.15),
-      highlightColor: color.withOpacity(0.08),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
@@ -677,7 +635,6 @@ class AlertBarV3State extends State<AlertBarV3> with SingleTickerProviderStateMi
             ),
           ],
         ),
-      ),
       ),
       ),
     );

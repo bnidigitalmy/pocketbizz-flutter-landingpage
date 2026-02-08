@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../data/repositories/stock_repository_supabase.dart';
+import '../../../../data/repositories/shopping_cart_repository_supabase.dart';
+import '../../../../data/repositories/purchase_order_repository_supabase.dart';
 import '../../../../data/models/stock_item.dart';
 import '../../../../core/utils/unit_conversion.dart';
 import '../../../stock/presentation/stock_detail_page.dart';
+import '../../../shopping/presentation/shopping_list_page.dart';
 
 /// Low Stock Alerts Widget for Dashboard
 /// Shows stock items that are below their threshold
@@ -19,8 +24,11 @@ class LowStockAlertsWidget extends StatefulWidget {
 
 class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
   late final StockRepository _stockRepository;
+  late final ShoppingCartRepository _cartRepository;
+  late final PurchaseOrderRepository _poRepository;
   List<StockItem> _lowStockItems = [];
   bool _isLoading = true;
+  bool _isProcessing = false;
   
   // Real-time subscription
   StreamSubscription? _stockSubscription;
@@ -29,6 +37,8 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
   void initState() {
     super.initState();
     _stockRepository = StockRepository(supabase);
+    _cartRepository = ShoppingCartRepository();
+    _poRepository = PurchaseOrderRepository(supabase);
     _loadLowStockItems();
     _setupRealtimeSubscription();
     // Removed periodic refresh - hanya guna real-time subscription
@@ -98,6 +108,189 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
 
   // Track if data is currently loading to prevent multiple simultaneous loads
   bool _isLoadingData = false;
+
+  /// Calculate recommended quantity for purchase
+  /// Returns quantity in base unit (not pek/pcs)
+  double _calculateRecommendedQuantity(StockItem item) {
+    final shortage = item.lowStockThreshold - item.currentQuantity;
+    if (shortage <= 0) {
+      // If already above threshold, recommend minimum 1 package
+      return item.packageSize;
+    }
+    
+    // Round up to nearest package
+    final packagesNeeded = (shortage / item.packageSize).ceil();
+    return packagesNeeded * item.packageSize; // Return in base unit
+  }
+
+  /// Calculate packages needed (pek/pcs)
+  int _calculatePackagesNeeded(StockItem item) {
+    final recommendedQty = _calculateRecommendedQuantity(item);
+    return (recommendedQty / item.packageSize).ceil();
+  }
+
+  Future<void> _addAllToCart() async {
+    if (_lowStockItems.isEmpty || _isProcessing) return;
+    
+    setState(() => _isProcessing = true);
+    
+    try {
+      int successCount = 0;
+      
+      for (final item in _lowStockItems) {
+        try {
+          final recommendedQty = _calculateRecommendedQuantity(item);
+          await _cartRepository.addToCart(
+            stockItemId: item.id,
+            shortageQty: recommendedQty,
+            priority: 'high',
+          );
+          successCount++;
+        } catch (e) {
+          debugPrint('Error adding ${item.name} to cart: $e');
+        }
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              successCount > 0
+                  ? '✅ $successCount item ditambah ke senarai belian'
+                  : '❌ Gagal menambah item',
+            ),
+            backgroundColor: successCount > 0 ? Colors.green : Colors.red,
+          ),
+        );
+        
+        // Navigate to shopping list
+        if (successCount > 0) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ShoppingListPage()),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _createPOFromRecommendations() async {
+    if (_lowStockItems.isEmpty || _isProcessing) return;
+    
+    setState(() => _isProcessing = true);
+    
+    try {
+      // First, add all items to cart
+      final cartItemIds = <String>[];
+      
+      for (final item in _lowStockItems) {
+        try {
+          final recommendedQty = _calculateRecommendedQuantity(item);
+          final cartItem = await _cartRepository.addToCart(
+            stockItemId: item.id,
+            shortageQty: recommendedQty,
+            priority: 'high',
+          );
+          cartItemIds.add(cartItem.id);
+        } catch (e) {
+          debugPrint('Error adding ${item.name} to cart: $e');
+        }
+      }
+      
+      if (cartItemIds.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Tiada item untuk buat PO'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Navigate to shopping list page where user can create PO
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ShoppingListPage(),
+          ),
+        ).then((_) => _loadLowStockItems());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _shareToWhatsApp() async {
+    if (_lowStockItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tiada cadangan pembelian'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final date = DateFormat('dd MMMM yyyy', 'ms_MY').format(DateTime.now());
+    var message = '*CADANGAN PEMBELIAN*\n';
+    message += 'Tarikh: $date\n\n';
+    
+    for (var i = 0; i < _lowStockItems.length; i++) {
+      final item = _lowStockItems[i];
+      final recommendedQty = _calculateRecommendedQuantity(item);
+      final packagesNeeded = _calculatePackagesNeeded(item);
+      
+      message += '${i + 1}. ${item.name}\n';
+      message += '   Kuantiti disyorkan: $packagesNeeded pek/pcs (${recommendedQty.toStringAsFixed(1)} ${item.unit})\n';
+      if (item.purchasePrice > 0) {
+        final estimatedCost = packagesNeeded * item.purchasePrice;
+        message += '   Anggaran kos: RM ${estimatedCost.toStringAsFixed(2)}\n';
+      }
+      message += '\n';
+    }
+    
+    message += '\nJumlah: ${_lowStockItems.length} item';
+    
+    final encodedMessage = Uri.encodeComponent(message);
+    final whatsappUrl = 'https://wa.me/?text=$encodedMessage';
+    
+    try {
+      await launchUrl(Uri.parse(whatsappUrl));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   Future<void> _loadLowStockItems() async {
     // Prevent multiple simultaneous loads
@@ -252,6 +445,61 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
               return _buildLowStockItem(item);
             },
           ),
+
+          const Divider(height: 1),
+
+          // Action Buttons (Purchase Recommendations)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _addAllToCart,
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_shopping_cart, size: 18),
+                    label: const Text('Tambah ke Senarai'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _createPOFromRecommendations,
+                    icon: _isProcessing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.description, size: 18),
+                    label: const Text('Buat PO'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _shareToWhatsApp,
+                    icon: const Icon(Icons.share, size: 18),
+                    label: const Text('Share'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -271,6 +519,9 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
   Widget _buildLowStockItem(StockItem item) {
     final isOutOfStock = item.currentQuantity <= 0;
     final stockPercentage = item.stockLevelPercentage.toStringAsFixed(0);
+    final recommendedQty = _calculateRecommendedQuantity(item);
+    final packagesNeeded = _calculatePackagesNeeded(item);
+    final estimatedCost = packagesNeeded * item.purchasePrice;
 
     return InkWell(
       onTap: () {
@@ -334,40 +585,87 @@ class _LowStockAlertsWidgetState extends State<LowStockAlertsWidget> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  // Recommended Purchase Quantity
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 12,
+                        color: Colors.blue[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Cadangan: $packagesNeeded pek/pcs',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
 
-            // Stock Level Bar
-            if (!isOutOfStock)
-              Container(
-                width: 60,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$stockPercentage%',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: item.stockLevelPercentage / 100,
-                        backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          item.stockLevelPercentage < 50 ? Colors.red : Colors.orange,
+            // Stock Level & Recommended Quantity
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Stock Level Bar (if not out of stock)
+                if (!isOutOfStock)
+                  Container(
+                    width: 60,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$stockPercentage%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
                         ),
-                        minHeight: 6,
-                      ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: item.stockLevelPercentage / 100,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              item.stockLevelPercentage < 50 ? Colors.red : Colors.orange,
+                            ),
+                            minHeight: 6,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                // Recommended Quantity
+                const SizedBox(height: 4),
+                Text(
+                  '$packagesNeeded pek',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
                 ),
-              ),
+                if (item.purchasePrice > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'RM ${estimatedCost.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.green[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
 
             // Out of Stock Badge
             if (isOutOfStock)

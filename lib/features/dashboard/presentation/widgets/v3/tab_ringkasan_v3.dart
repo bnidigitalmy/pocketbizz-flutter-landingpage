@@ -5,6 +5,7 @@ import '../../../domain/sme_dashboard_v2_models.dart';
 import '../v2/dashboard_v2_format.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
+import 'animated_counter.dart';
 
 /// Tab Ringkasan (Summary) - Weekly overview and top products
 class TabRingkasanV3 extends StatelessWidget {
@@ -23,7 +24,8 @@ class TabRingkasanV3 extends StatelessWidget {
       return const TabRingkasanSkeleton();
     }
 
-    return StaggeredColumn(
+    // Removed StaggeredColumn for better performance - instant render
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Weekly Cashflow with Chart
@@ -137,12 +139,18 @@ class TabRingkasanV3 extends StatelessWidget {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: TextButton.icon(
-              onPressed: onViewAllProducts,
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('Lihat Semua Produk'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
+            child: ScaleOnTap(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                onViewAllProducts();
+              },
+              child: TextButton.icon(
+                onPressed: onViewAllProducts,
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('Lihat Semua Produk'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                ),
               ),
             ),
           ),

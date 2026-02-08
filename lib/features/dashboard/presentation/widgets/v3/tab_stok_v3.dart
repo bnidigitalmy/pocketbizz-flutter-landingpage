@@ -1,33 +1,32 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter/services.dart';
 import '../../../../../core/supabase/supabase_client.dart' show supabase;
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../data/repositories/stock_repository_supabase.dart';
 import '../../../../../data/models/stock_item.dart';
 import '../../../../../core/utils/unit_conversion.dart';
-import '../../../../stock/presentation/stock_detail_page.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
+import 'package:flutter/services.dart';
+import 'animated_counter.dart';
 
 /// Tab Stok (Stock) - Stock status overview and purchase suggestions
 class TabStokV3 extends StatefulWidget {
   final VoidCallback onViewStock;
   final VoidCallback onCreatePO;
-  final VoidCallback onViewShoppingList;
 
   const TabStokV3({
     super.key,
     required this.onViewStock,
     required this.onCreatePO,
-    required this.onViewShoppingList,
   });
 
   @override
-  State<TabStokV3> createState() => TabStokV3State();
+  State<TabStokV3> createState() => _TabStokV3State();
 }
 
-class TabStokV3State extends State<TabStokV3> {
+class _TabStokV3State extends State<TabStokV3> {
   late final StockRepository _stockRepo;
 
   bool _isLoading = true;
@@ -36,16 +35,42 @@ class TabStokV3State extends State<TabStokV3> {
   int _outOfStockCount = 0;
   List<StockItem> _lowStockItems = [];
 
+  StreamSubscription? _stockSubscription;
+  Timer? _debounceTimer;
+
   @override
   void initState() {
     super.initState();
     _stockRepo = StockRepository(supabase);
     _loadStockData();
+    _setupRealtimeSubscription();
   }
 
-  /// Public method for parent to trigger refresh (e.g., from real-time events)
-  void refresh() {
-    if (mounted) _loadStockData();
+  @override
+  void dispose() {
+    _stockSubscription?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _setupRealtimeSubscription() {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      _stockSubscription = supabase
+          .from('stock_items')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) {
+            _debounceTimer?.cancel();
+            _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+              if (mounted) _loadStockData();
+            });
+          });
+    } catch (e) {
+      debugPrint('Error setting up stock subscription: $e');
+    }
   }
 
   Future<void> _loadStockData() async {
@@ -101,7 +126,8 @@ class TabStokV3State extends State<TabStokV3> {
       return const TabStokSkeleton();
     }
 
-    return StaggeredColumn(
+    // Removed StaggeredColumn for better performance - instant render
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Stock Status Summary
@@ -190,14 +216,52 @@ class TabStokV3State extends State<TabStokV3> {
     String? actionLabel,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: count > 0 ? () {
+    if (count == 0 || onTap == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.15)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$count items',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return ScaleOnTap(
+      onTap: () {
         HapticFeedback.lightImpact();
-        onTap?.call();
-      } : null,
-      borderRadius: BorderRadius.circular(8),
-      splashColor: color.withOpacity(0.15),
-      highlightColor: color.withOpacity(0.08),
+        onTap();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
@@ -324,26 +388,38 @@ class TabStokV3State extends State<TabStokV3> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: widget.onViewShoppingList,
-                    icon: const Icon(Icons.list, size: 18),
-                    label: const Text('Shopping List'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: ScaleOnTap(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      widget.onViewStock();
+                    },
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onViewStock,
+                      icon: const Icon(Icons.list, size: 18),
+                      label: const Text('Shopping List'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: widget.onCreatePO,
-                    icon: const Icon(Icons.add_shopping_cart, size: 18),
-                    label: const Text('Buat PO'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: ScaleOnTap(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      widget.onCreatePO();
+                    },
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onCreatePO,
+                      icon: const Icon(Icons.add_shopping_cart, size: 18),
+                      label: const Text('Buat PO'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                 ),
@@ -358,21 +434,7 @@ class TabStokV3State extends State<TabStokV3> {
   Widget _buildSuggestionItem(StockItem item) {
     final isOut = item.currentQuantity <= 0;
 
-    final itemColor = isOut ? Colors.red : Colors.orange;
-    return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StockDetailPage(stockItem: item),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(8),
-      splashColor: itemColor.withOpacity(0.15),
-      highlightColor: itemColor.withOpacity(0.08),
-      child: Padding(
+    return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
@@ -431,7 +493,6 @@ class TabStokV3State extends State<TabStokV3> {
           ),
         ],
       ),
-    ),
     );
   }
 }

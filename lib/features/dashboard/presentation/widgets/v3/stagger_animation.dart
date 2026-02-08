@@ -13,10 +13,10 @@ class StaggeredItem extends StatefulWidget {
     super.key,
     required this.child,
     required this.index,
-    this.baseDelay = const Duration(milliseconds: 100),
-    this.staggerDelay = const Duration(milliseconds: 50),
-    this.animationDuration = const Duration(milliseconds: 400),
-    this.curve = Curves.easeOutCubic,
+    this.baseDelay = const Duration(milliseconds: 50),
+    this.staggerDelay = const Duration(milliseconds: 30),
+    this.animationDuration = const Duration(milliseconds: 250),
+    this.curve = Curves.easeOut,
   });
 
   @override
@@ -88,8 +88,8 @@ class StaggeredColumn extends StatelessWidget {
     this.crossAxisAlignment = CrossAxisAlignment.start,
     this.mainAxisAlignment = MainAxisAlignment.start,
     this.mainAxisSize = MainAxisSize.min,
-    this.baseDelay = const Duration(milliseconds: 100),
-    this.staggerDelay = const Duration(milliseconds: 80),
+    this.baseDelay = const Duration(milliseconds: 50),
+    this.staggerDelay = const Duration(milliseconds: 30),
   });
 
   @override

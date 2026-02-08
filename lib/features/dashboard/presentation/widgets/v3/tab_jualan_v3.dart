@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../reports/data/models/sales_by_channel.dart';
 import '../v2/dashboard_v2_format.dart';
 import 'stagger_animation.dart';
+import 'animated_counter.dart';
 
 /// Tab Jualan (Sales) - Sales by channel and upcoming bookings
 class TabJualanV3 extends StatelessWidget {
@@ -31,7 +33,8 @@ class TabJualanV3 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StaggeredColumn(
+    // Removed StaggeredColumn for better performance - instant render
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Sales by Channel
@@ -313,12 +316,18 @@ class TabJualanV3 extends StatelessWidget {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: TextButton.icon(
-              onPressed: onViewAllBookings,
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: const Text('Lihat Semua Tempahan'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+            child: ScaleOnTap(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                onViewAllBookings();
+              },
+              child: TextButton.icon(
+                onPressed: onViewAllBookings,
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('Lihat Semua Tempahan'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.orange,
+                ),
               ),
             ),
           ),

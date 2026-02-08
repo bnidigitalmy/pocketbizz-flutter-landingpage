@@ -9,7 +9,6 @@ import '../../../data/repositories/business_profile_repository_supabase.dart';
 import '../../../data/repositories/announcements_repository_supabase.dart';
 import '../../../data/models/business_profile.dart';
 import '../../announcements/presentation/notifications_page.dart';
-import '../../subscription/services/subscription_service.dart';
 import '../../subscription/data/models/subscription.dart';
 import '../../reports/data/repositories/reports_repository_supabase.dart';
 import '../../reports/data/models/sales_by_channel.dart';
@@ -18,6 +17,7 @@ import '../services/sme_dashboard_v2_service.dart';
 import '../services/dashboard_cache_service.dart';
 import '../../../data/repositories/bookings_repository_supabase_cached.dart';
 import '../../../data/repositories/stock_repository_supabase_cached.dart' show StockRepositorySupabaseCached;
+import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/finished_products_repository_supabase.dart';
 import 'widgets/v3/hero_section_v3.dart';
 import 'widgets/v3/alert_bar_v3.dart';
@@ -26,9 +26,10 @@ import 'widgets/v3/tab_ringkasan_v3.dart';
 import 'widgets/v3/tab_jualan_v3.dart';
 import 'widgets/v3/tab_stok_v3.dart';
 import 'widgets/v3/tab_insight_v3.dart';
-import 'widgets/v2/primary_quick_actions_v2.dart';
 import 'widgets/v3/dashboard_skeleton_v3.dart';
 import '../../expenses/presentation/receipt_scan_page.dart';
+import '../../planner/presentation/widgets/planner_today_card.dart';
+import 'widgets/v2/finished_products_alerts_v2.dart';
 
 /// Dashboard Page V3 - Clean, focused, action-first design
 /// Concept: "Buka → Tengok → Tindakan → Tutup"
@@ -47,6 +48,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   final _reportsRepo = ReportsRepositorySupabase();
   final _bookingsRepo = BookingsRepositorySupabaseCached();
   final _stockRepoCached = StockRepositorySupabaseCached(supabase);
+  final _stockRepo = StockRepository(supabase);
+  final _finishedProductsRepo = FinishedProductsRepository();
 
   // Data
   BusinessProfile? _businessProfile;
@@ -59,14 +62,21 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   bool _loading = true;
   bool _isLoadingData = false;
   bool _hasUrgentIssues = false;
-
-  // Booking data
+  String? _errorMessage;
+  bool _hasError = false;
+  
+  // Bookings data for TabJualanV3
   int _todayBookingsCount = 0;
   double _todayBookingsAmount = 0;
   int _tomorrowBookingsCount = 0;
   double _tomorrowBookingsAmount = 0;
   int _weekBookingsCount = 0;
   double _weekBookingsAmount = 0;
+  
+  // Scroll position preservation
+  bool _isScrolling = false;
+  Timer? _scrollEndTimer;
+  double _lastScrollPosition = 0.0;
 
   // Tab state
   int _selectedTabIndex = 0;
@@ -74,19 +84,23 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   // Scroll controller
   final ScrollController _scrollController = ScrollController();
 
-  // Keys for child widget refresh
-  final _alertBarKey = GlobalKey<AlertBarV3State>();
-  final _tabStokKey = GlobalKey<TabStokV3State>();
+  // Keys removed - not needed with current implementation
 
   // Real-time subscriptions
   StreamSubscription? _salesSubscription;
+  StreamSubscription? _saleItemsSubscription;
   StreamSubscription? _bookingsSubscription;
+  StreamSubscription? _bookingItemsSubscription;
+  StreamSubscription? _claimsSubscription;
+  StreamSubscription? _claimItemsSubscription;
   StreamSubscription? _expensesSubscription;
+  StreamSubscription? _productsSubscription;
   Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
+    _setupScrollListener();
     _loadAllData();
     _setupRealtimeSubscriptions();
   }
@@ -94,11 +108,39 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
   @override
   void dispose() {
     _salesSubscription?.cancel();
+    _saleItemsSubscription?.cancel();
     _bookingsSubscription?.cancel();
+    _bookingItemsSubscription?.cancel();
+    _claimsSubscription?.cancel();
+    _claimItemsSubscription?.cancel();
     _expensesSubscription?.cancel();
+    _productsSubscription?.cancel();
     _debounceTimer?.cancel();
+    _scrollEndTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+  
+  /// Setup scroll listener to detect when user is scrolling
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      _lastScrollPosition = _scrollController.offset;
+      
+      if (!_isScrolling) {
+        _isScrolling = true;
+      }
+      
+      _scrollEndTimer?.cancel();
+      _scrollEndTimer = Timer(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          _isScrolling = false;
+          if (_scrollController.hasClients && 
+              _scrollController.offset != _lastScrollPosition) {
+            _scrollController.jumpTo(_lastScrollPosition);
+          }
+        }
+      });
+    });
   }
 
   void _setupRealtimeSubscriptions() {
@@ -106,39 +148,83 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
+      // Subscribe to sales table changes (affects Masuk/Untung)
       _salesSubscription = supabase
           .from('sales')
           .stream(primaryKey: ['id'])
           .eq('business_owner_id', userId)
           .listen((_) => _debouncedRefresh());
 
+      // Subscribe to sale_items table changes (affects Kos/Production Cost)
+      _saleItemsSubscription = supabase
+          .from('sale_items')
+          .stream(primaryKey: ['id'])
+          .listen((_) => _debouncedRefresh());
+
+      // Subscribe to bookings table changes (affects Masuk when status = completed)
       _bookingsSubscription = supabase
           .from('bookings')
           .stream(primaryKey: ['id'])
           .eq('business_owner_id', userId)
           .listen((_) => _debouncedRefresh());
 
+      // Subscribe to booking_items table changes (affects Kos)
+      _bookingItemsSubscription = supabase
+          .from('booking_items')
+          .stream(primaryKey: ['id'])
+          .listen((_) => _debouncedRefresh());
+
+      // Subscribe to consignment_claims table changes (affects Masuk when status = settled)
+      _claimsSubscription = supabase
+          .from('consignment_claims')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) => _debouncedRefresh());
+
+      // Subscribe to consignment_claim_items table changes (affects Kos)
+      _claimItemsSubscription = supabase
+          .from('consignment_claim_items')
+          .stream(primaryKey: ['id'])
+          .listen((_) => _debouncedRefresh());
+
+      // Subscribe to expenses table changes (affects Belanja)
       _expensesSubscription = supabase
           .from('expenses')
           .stream(primaryKey: ['id'])
           .eq('business_owner_id', userId)
           .listen((_) => _debouncedRefresh());
 
-      debugPrint('DashboardV3 real-time subscriptions setup complete');
+      // Subscribe to products table changes (affects Kos if cost_per_unit changes)
+      _productsSubscription = supabase
+          .from('products')
+          .stream(primaryKey: ['id'])
+          .eq('business_owner_id', userId)
+          .listen((_) => _debouncedRefresh());
+
+      debugPrint('✅ DashboardV3 real-time subscriptions setup complete');
     } catch (e) {
-      debugPrint('Error setting up DashboardV3 subscriptions: $e');
+      debugPrint('⚠️ Error setting up DashboardV3 subscriptions: $e');
     }
   }
 
   void _debouncedRefresh() {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) {
+    
+    // If user is scrolling, wait longer before refreshing
+    final delay = _isScrolling 
+        ? const Duration(milliseconds: 3000) // Wait 3 seconds if scrolling
+        : const Duration(milliseconds: 1000); // Normal 1 second delay
+    
+    _debounceTimer = Timer(delay, () {
+      if (mounted && !_isScrolling) {
+        // Only refresh if user is not actively scrolling
         _dashboardCache.invalidateAll();
+        CacheService.invalidateMultiple([
+          'dashboard_urgent_issues',
+          'dashboard_unread_notifications',
+          'dashboard_business_profile',
+        ]);
         _loadAllData();
-        // Refresh child widgets that manage their own data
-        _alertBarKey.currentState?.refresh();
-        _tabStokKey.currentState?.refresh();
       }
     });
   }
@@ -147,7 +233,19 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     if (!mounted) return;
     if (_isLoadingData) return; // Prevent concurrent loads
     _isLoadingData = true;
-    setState(() => _loading = true);
+    
+    // Save scroll position before rebuild
+    if (_scrollController.hasClients) {
+      _lastScrollPosition = _scrollController.offset;
+    }
+    
+    final savedPosition = _lastScrollPosition;
+    
+    setState(() {
+      _loading = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
 
     try {
       // Load critical data in parallel
@@ -173,6 +271,11 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
           ttl: const Duration(minutes: 1),
         ),
         _loadTodayTransactionCount(),
+        CacheService.getOrFetch(
+          'dashboard_urgent_issues',
+          () => _checkUrgentIssues(),
+          ttl: const Duration(minutes: 2),
+        ),
       ]);
 
       if (!mounted) return;
@@ -183,50 +286,233 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
         _businessProfile = results[2] as BusinessProfile?;
         _unreadNotifications = results[3] as int;
         _todayTransactionCount = results[4] as int;
+        _hasUrgentIssues = results[5] as bool;
         _loading = false;
       });
+
+      // Restore scroll position after rebuild
+      if (mounted && _scrollController.hasClients) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients && 
+              _scrollController.offset != savedPosition &&
+              !_isScrolling) {
+            _scrollController.jumpTo(savedPosition);
+          }
+        });
+      }
 
       // Load secondary data in background
       _loadSecondaryData();
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
       if (mounted) {
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _hasError = true;
+          _errorMessage = _getUserFriendlyError(e);
+        });
+        
+        // Restore scroll position after error
+        if (_scrollController.hasClients) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients && 
+                _scrollController.offset != savedPosition &&
+                !_isScrolling) {
+              _scrollController.jumpTo(savedPosition);
+            }
+          });
+        }
       }
     } finally {
       _isLoadingData = false;
+    }
+  }
+  
+  String _getUserFriendlyError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    if (errorStr.contains('network') || errorStr.contains('connection')) {
+      return 'Masalah sambungan internet. Sila semak sambungan anda.';
+    }
+    if (errorStr.contains('timeout')) {
+      return 'Masa menunggu tamat. Sila cuba lagi.';
+    }
+    return 'Ralat memuatkan data. Sila cuba lagi.';
+  }
+  
+  /// Check for urgent issues that require immediate attention
+  Future<bool> _checkUrgentIssues() async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final results = await Future.wait([
+        // Check 1: Stock items with quantity = 0
+        _stockRepoCached.getAllStockItemsCached(limit: 50).then(
+          (items) => items.any((item) => item.currentQuantity <= 0),
+        ).catchError((_) => false),
+        
+        // Check 2: Overdue bookings
+        Future.wait([
+          _bookingsRepo.listBookingsCached(status: 'pending', limit: 50),
+          _bookingsRepo.listBookingsCached(status: 'confirmed', limit: 50),
+        ]).then((results) {
+          final allBookings = [...results[0], ...results[1]];
+          return allBookings.any((booking) {
+            try {
+              final deliveryDate = DateTime.parse(booking.deliveryDate);
+              final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
+              return deliveryDateOnly.isBefore(today);
+            } catch (e) {
+              return false;
+            }
+          });
+        }).catchError((_) => false),
+
+        // Check 3: Expired batches
+        _finishedProductsRepo.getFinishedProductsSummary()
+          .then((products) {
+            return products.any((product) {
+              if (product.nearestExpiry == null || product.totalRemaining <= 0) {
+                return false;
+              }
+              final expiryDate = product.nearestExpiry!;
+              final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+              return expiryDateOnly.isBefore(today);
+            });
+          })
+          .catchError((_) => false),
+      ]);
+
+      return (results[0] as bool) || (results[1] as bool) || (results[2] as bool);
+    } catch (e) {
+      debugPrint('Error checking urgent issues: $e');
+      return false;
     }
   }
 
   Future<void> _loadSecondaryData() async {
     try {
       final today = DateTime.now();
-      final todayStart = DateTime(today.year, today.month, today.day).toUtc();
+      final todayStart = DateTime(today.year, today.month, today.day);
       final todayEnd = todayStart.add(const Duration(days: 1));
+      final tomorrowStart = todayEnd;
+      final tomorrowEnd = tomorrowStart.add(const Duration(days: 1));
+      final weekStart = _startOfWeekSunday(today);
+      final weekEnd = weekStart.add(const Duration(days: 7));
+      
+      final todayStartUtc = todayStart.toUtc();
+      final todayEndUtc = todayEnd.toUtc();
+      final tomorrowStartUtc = tomorrowStart.toUtc();
+      final tomorrowEndUtc = tomorrowEnd.toUtc();
+      final weekStartUtc = weekStart.toUtc();
+      final weekEndUtc = weekEnd.toUtc();
 
       final results = await Future.wait([
         _dashboardCache.getSalesByChannelCached(
-          startDate: todayStart,
-          endDate: todayEnd,
+          startDate: todayStartUtc,
+          endDate: todayEndUtc,
           onDataUpdated: (channels) {
             if (mounted) setState(() => _salesByChannel = channels);
           },
         ),
         _loadYesterdayInflow(),
-        _loadBookingData(),
-        _checkUrgentIssues(),
+        _loadBookingsData(todayStartUtc, todayEndUtc, tomorrowStartUtc, tomorrowEndUtc, weekStartUtc, weekEndUtc),
       ]);
 
       if (mounted) {
         setState(() {
           _salesByChannel = results[0] as List<SalesByChannel>;
           _yesterdayInflow = results[1] as double?;
-          // Booking data is set inside _loadBookingData via setState
-          _hasUrgentIssues = results[3] as bool;
+          final bookingsData = results[2] as Map<String, dynamic>;
+          _todayBookingsCount = bookingsData['todayCount'] as int;
+          _todayBookingsAmount = bookingsData['todayAmount'] as double;
+          _tomorrowBookingsCount = bookingsData['tomorrowCount'] as int;
+          _tomorrowBookingsAmount = bookingsData['tomorrowAmount'] as double;
+          _weekBookingsCount = bookingsData['weekCount'] as int;
+          _weekBookingsAmount = bookingsData['weekAmount'] as double;
         });
       }
     } catch (e) {
       debugPrint('Error loading secondary data: $e');
+    }
+  }
+  
+  DateTime _startOfWeekSunday(DateTime date) {
+    final weekday = date.weekday;
+    final daysFromSunday = weekday % 7;
+    return date.subtract(Duration(days: daysFromSunday));
+  }
+  
+  Future<Map<String, dynamic>> _loadBookingsData(
+    DateTime todayStartUtc,
+    DateTime todayEndUtc,
+    DateTime tomorrowStartUtc,
+    DateTime tomorrowEndUtc,
+    DateTime weekStartUtc,
+    DateTime weekEndUtc,
+  ) async {
+    try {
+      final allBookings = await _bookingsRepo.listBookingsCached(limit: 200);
+      
+      int todayCount = 0;
+      double todayAmount = 0;
+      int tomorrowCount = 0;
+      double tomorrowAmount = 0;
+      int weekCount = 0;
+      double weekAmount = 0;
+      
+      for (final booking in allBookings) {
+        if (booking.status.toLowerCase() == 'completed' ||
+            booking.status.toLowerCase() == 'cancelled') {
+          continue;
+        }
+        
+        try {
+          final deliveryDate = DateTime.parse(booking.deliveryDate);
+          final deliveryDateUtc = deliveryDate.toUtc();
+          final totalAmount = booking.totalAmount ?? 0.0;
+          
+          // Today
+          if (deliveryDateUtc.isAfter(todayStartUtc) && deliveryDateUtc.isBefore(todayEndUtc)) {
+            todayCount++;
+            todayAmount += totalAmount;
+          }
+          
+          // Tomorrow
+          if (deliveryDateUtc.isAfter(tomorrowStartUtc) && deliveryDateUtc.isBefore(tomorrowEndUtc)) {
+            tomorrowCount++;
+            tomorrowAmount += totalAmount;
+          }
+          
+          // This week
+          if (deliveryDateUtc.isAfter(weekStartUtc) && deliveryDateUtc.isBefore(weekEndUtc)) {
+            weekCount++;
+            weekAmount += totalAmount;
+          }
+        } catch (e) {
+          // Skip invalid dates
+          continue;
+        }
+      }
+      
+      return {
+        'todayCount': todayCount,
+        'todayAmount': todayAmount,
+        'tomorrowCount': tomorrowCount,
+        'tomorrowAmount': tomorrowAmount,
+        'weekCount': weekCount,
+        'weekAmount': weekAmount,
+      };
+    } catch (e) {
+      debugPrint('Error loading bookings data: $e');
+      return {
+        'todayCount': 0,
+        'todayAmount': 0.0,
+        'tomorrowCount': 0,
+        'tomorrowAmount': 0.0,
+        'weekCount': 0,
+        'weekAmount': 0.0,
+      };
     }
   }
 
@@ -354,55 +640,6 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     }
   }
 
-  Future<bool> _checkUrgentIssues() async {
-    try {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      final results = await Future.wait([
-        // Check 1: Stock items with quantity = 0
-        _stockRepoCached.getAllStockItemsCached(limit: 50).then(
-          (items) => items.any((item) => item.currentQuantity <= 0),
-        ).catchError((_) => false),
-
-        // Check 2: Overdue bookings
-        Future.wait([
-          _bookingsRepo.listBookingsCached(status: 'pending', limit: 50),
-          _bookingsRepo.listBookingsCached(status: 'confirmed', limit: 50),
-        ]).then((results) {
-          final allBookings = [...results[0], ...results[1]];
-          return allBookings.any((booking) {
-            try {
-              final deliveryDate = DateTime.parse(booking.deliveryDate);
-              final deliveryDateOnly = DateTime(deliveryDate.year, deliveryDate.month, deliveryDate.day);
-              return deliveryDateOnly.isBefore(today);
-            } catch (e) {
-              return false;
-            }
-          });
-        }).catchError((_) => false),
-
-        // Check 3: Expired batches
-        FinishedProductsRepository()
-            .getFinishedProductsSummary()
-            .then((products) {
-          return products.any((product) {
-            if (product.nearestExpiry == null || product.totalRemaining <= 0) {
-              return false;
-            }
-            final expiryDate = product.nearestExpiry!;
-            final expiryDateOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
-            return expiryDateOnly.isBefore(today);
-          });
-        }).catchError((_) => false),
-      ]);
-
-      return results[0] || results[1] || results[2];
-    } catch (e) {
-      debugPrint('Error checking urgent issues: $e');
-      return false;
-    }
-  }
 
   void _openMoreActionsModal() {
     showModalBottomSheet<void>(
@@ -526,21 +763,19 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading
-          ? _buildSkeletonView()
-          : RefreshIndicator(
-              onRefresh: _loadAllData,
-              child: CustomScrollView(
+      body: _hasError
+          ? _buildErrorView()
+          : _loading
+              ? _buildSkeletonView()
+              : RefreshIndicator(
+                  onRefresh: _loadAllData,
+                  color: AppColors.primary,
+                  child: CustomScrollView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),
                 slivers: [
-                  // App bar spacer (for status bar)
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: MediaQuery.of(context).padding.top + 8),
-                  ),
-
                   // Hero Section (always visible at top)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -569,11 +804,23 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
+                  // Subscription Expiring Alert
+                  if (_subscription != null && _subscription!.isExpiringSoon)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildSubscriptionAlert(),
+                      ),
+                    ),
+
+                  if (_subscription != null && _subscription!.isExpiringSoon)
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
                   // Alert Bar (collapsible)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: AlertBarV3(key: _alertBarKey),
+                      child: const AlertBarV3(),
                     ),
                   ),
 
@@ -583,40 +830,33 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: DashboardTabsV3(
-                        selectedIndex: _selectedTabIndex,
-                        onTabSelected: (index) {
-                          setState(() => _selectedTabIndex = index);
-                        },
+                      child: RepaintBoundary(
+                        child: DashboardTabsV3(
+                          selectedIndex: _selectedTabIndex,
+                          onTabSelected: (index) {
+                            // Immediate response for better UX
+                            setState(() => _selectedTabIndex = index);
+                          },
+                        ),
                       ),
                     ),
                   ),
 
                   const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                  // Tab Content with animation
+                  // Tab Content - Instant switch (no animation for better performance)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.05, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey(_selectedTabIndex),
-                          child: _buildTabContent(),
+                      child: RepaintBoundary(
+                        child: IndexedStack(
+                          index: _selectedTabIndex,
+                          children: [
+                            _buildTabContent(0),
+                            _buildTabContent(1),
+                            _buildTabContent(2),
+                            _buildTabContent(3),
+                          ],
                         ),
                       ),
                     ),
@@ -634,9 +874,6 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     return CustomScrollView(
       physics: const NeverScrollableScrollPhysics(),
       slivers: [
-        SliverToBoxAdapter(
-          child: SizedBox(height: MediaQuery.of(context).padding.top + 8),
-        ),
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -680,12 +917,28 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
     );
   }
 
-  Widget _buildTabContent() {
-    switch (_selectedTabIndex) {
+  Widget _buildTabContent([int? index]) {
+    final tabIndex = index ?? _selectedTabIndex;
+    switch (tabIndex) {
       case 0:
-        return TabRingkasanV3(
-          data: _v2Data,
-          onViewAllProducts: () => Navigator.pushNamed(context, '/finished-products'),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TabRingkasanV3(
+              data: _v2Data,
+              onViewAllProducts: () => Navigator.pushNamed(context, '/finished-products'),
+            ),
+            const SizedBox(height: 16),
+            // Planner Today Card
+            PlannerTodayCard(
+              onViewAll: () => Navigator.pushNamed(context, '/planner'),
+            ),
+            const SizedBox(height: 16),
+            // Finished Products Alerts
+            FinishedProductsAlertsV2(
+              onViewAll: () => Navigator.pushNamed(context, '/finished-products'),
+            ),
+          ],
         );
       case 1:
         return TabJualanV3(
@@ -700,10 +953,8 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
         );
       case 2:
         return TabStokV3(
-          key: _tabStokKey,
           onViewStock: () => Navigator.pushNamed(context, '/stock'),
           onCreatePO: () => Navigator.pushNamed(context, '/purchase-orders'),
-          onViewShoppingList: () => Navigator.pushNamed(context, '/shopping-list'),
         );
       case 3:
         return TabInsightV3(
@@ -716,6 +967,125 @@ class _DashboardPageV3State extends State<DashboardPageV3> {
       default:
         return const SizedBox.shrink();
     }
+  }
+  
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 64,
+              color: Colors.red.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage ?? 'Ralat memuatkan data',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadAllData,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Cuba Lagi'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSubscriptionAlert() {
+    final days = _subscription!.daysRemaining;
+    final isTrial = _subscription!.isOnTrial;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.warning.withOpacity(0.1),
+            AppColors.warning.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning,
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.warning,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.workspace_premium,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isTrial ? 'Trial Hampir Tamat!' : 'Langganan Hampir Tamat!',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isTrial
+                      ? 'Trial percuma anda akan tamat dalam $days hari. Pilih pakej untuk teruskan.'
+                      : 'Langganan anda akan tamat dalam $days hari. Renew sekarang untuk teruskan.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pushNamed(context, '/subscription');
+            },
+            icon: const Icon(Icons.arrow_forward, size: 18),
+            label: const Text('Upgrade'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

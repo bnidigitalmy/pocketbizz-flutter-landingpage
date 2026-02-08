@@ -13,11 +13,9 @@ import '../../../data/repositories/stock_repository_supabase.dart';
 import '../../../data/repositories/stock_repository_supabase_cached.dart';
 import 'widgets/morning_briefing_card.dart';
 import 'widgets/today_performance_card.dart';
-import 'widgets/urgent_actions_widget.dart';
 import 'widgets/smart_suggestions_widget.dart';
 import 'widgets/quick_action_grid.dart';
 import 'widgets/low_stock_alerts_widget.dart';
-import 'widgets/purchase_recommendations_widget.dart';
 import 'widgets/sales_by_channel_card.dart';
 import '../../planner/presentation/widgets/planner_today_card.dart';
 import '../../../core/services/planner_auto_service.dart';
@@ -641,15 +639,14 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
                     onDismiss: () => _loadAllData(),
                   ),
 
-                  // Morning Briefing Card (Adaptive based on mood)
+                  // Morning Briefing Card (Simplified)
                   MorningBriefingCard(
                     userName: _businessProfile?.businessName ?? 
                               user?.email?.split('@').first ?? 
                               'SME Owner',
-                    hasUrgentIssues: _hasUrgentIssues(),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // V2: Today Snapshot (Masuk/Kos/Untung/Belanja)
                   if (_v2 != null)
@@ -769,25 +766,13 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 20),
 
-                  // Booking Alerts (overdue, upcoming, pending)
+                  // Booking Alerts (overdue, upcoming, pending) - consolidated alerts
                   const BookingAlertsWidget(),
 
                   const SizedBox(height: 20),
 
                   // Claim Alerts (deliveries ready, outstanding, overdue)
                   const ClaimAlertsWidget(),
-
-                  const SizedBox(height: 20),
-
-                  // Tindakan Segera (action-first)
-                  UrgentActionsWidget(
-                    pendingBookings: _stats?['pending'] ?? 0,
-                    pendingPOs: _pendingTasks?['pendingPOs'] ?? 0,
-                    lowStockCount: _pendingTasks?['lowStockCount'] ?? 0,
-                    onViewBookings: () => Navigator.of(context).pushNamed('/bookings'),
-                    onViewPOs: () => Navigator.of(context).pushNamed('/purchase-orders'),
-                    onViewStock: () => Navigator.of(context).pushNamed('/stock'),
-                  ),
 
                   const SizedBox(height: 20),
 
@@ -798,13 +783,8 @@ class _DashboardPageOptimizedState extends State<DashboardPageOptimized> {
 
                   const SizedBox(height: 20),
 
-                  // Stok bahan mentah (low stock)
+                  // Stok bahan mentah (low stock) dengan cadangan pembelian
                   const LowStockAlertsWidget(),
-
-                  const SizedBox(height: 20),
-
-                  // Cadangan Pembelian (purchase recommendations)
-                  const PurchaseRecommendationsWidget(),
 
                   const SizedBox(height: 20),
 

@@ -23,7 +23,7 @@ import 'dashboard_page_v3.dart';
 
 /// Feature flag for Dashboard V3
 /// Set to true to use the new cleaner dashboard design
-const bool kUseDashboardV3 = true;
+const bool kUseDashboardV3 = false;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../domain/sme_dashboard_v2_models.dart';
 import 'dashboard_skeleton_v3.dart';
 import 'stagger_animation.dart';
+import 'animated_counter.dart';
 
 /// Insight item model
 class InsightItem {
@@ -146,7 +148,8 @@ class _TabInsightV3State extends State<TabInsightV3> {
       return _buildNoInsights();
     }
 
-    return StaggeredColumn(
+    // Removed StaggeredColumn for better performance - instant render
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
@@ -301,20 +304,26 @@ class _TabInsightV3State extends State<TabInsightV3> {
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: insight.onAction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: insight.color,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              child: ScaleOnTap(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  insight.onAction?.call();
+                },
+                child: ElevatedButton(
+                  onPressed: insight.onAction,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: insight.color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                ),
-                child: Text(
-                  insight.actionLabel!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                  child: Text(
+                    insight.actionLabel!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
