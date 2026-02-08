@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
+import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel, PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'dart:typed_data';
@@ -51,6 +51,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   List<SubscriptionPayment> _paymentHistory = [];
   String? _retryingPaymentId;
   RealtimeChannel? _paymentChannel;
+  RealtimeChannel? _subscriptionChannel;
   bool _isEarlyAdopter = false;
   bool _loading = true;
   bool _processingPayment = false;
@@ -64,6 +65,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   @override
   void dispose() {
     _paymentChannel?.unsubscribe();
+    _subscriptionChannel?.unsubscribe();
     super.dispose();
   }
 
@@ -200,6 +202,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           );
           _loadData();
         });
+
+        // Subscribe to subscription status changes for immediate updates after payment
+        _setupSubscriptionRealtime();
       }
     } catch (e) {
       if (mounted) {
@@ -214,6 +219,55 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         );
         print('Error loading subscription data: $e');
       }
+    }
+  }
+
+  /// Setup realtime subscription for subscription status changes
+  void _setupSubscriptionRealtime() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      _subscriptionChannel?.unsubscribe();
+      _subscriptionChannel = supabase
+          .channel('subscription_status_${userId.hashCode}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'subscriptions',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: userId,
+            ),
+            callback: (payload) {
+              if (!mounted) return;
+              debugPrint('🔄 Subscription status updated via realtime');
+              // Reload data to get latest subscription status
+              _loadData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'subscriptions',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: userId,
+            ),
+            callback: (payload) {
+              if (!mounted) return;
+              debugPrint('🔄 New subscription created via realtime');
+              // Reload data to get latest subscription status
+              _loadData();
+            },
+          )
+          .subscribe();
+
+      debugPrint('✅ Realtime subscription setup for subscription status changes');
+    } catch (e) {
+      debugPrint('⚠️ Failed to setup subscription realtime: $e');
     }
   }
 
