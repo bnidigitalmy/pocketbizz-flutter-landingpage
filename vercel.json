@@ -5,20 +5,19 @@
   "devCommand": null,
   "installCommand": null,
   "framework": null,
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/projection",
       "destination": "/projection.html"
     },
     {
-      "source": "/((?!.*\\.).*)$",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/:path*\\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|json|woff|woff2|ttf|eot)",
+      "source": "/:path*\\.(png|jpg|jpeg|svg|gif|webp|ico|css|js|json|woff|woff2|ttf|eot|html)",
       "headers": [
         {
           "key": "Cache-Control",
