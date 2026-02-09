@@ -557,7 +557,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> with SingleTickerProv
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${state.profitLoss!.grossProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.grossProfitMargin.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -595,7 +595,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> with SingleTickerProv
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -652,7 +652,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> with SingleTickerProv
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(2)}%',
+                        '${state.profitLoss!.netProfitMargin.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,

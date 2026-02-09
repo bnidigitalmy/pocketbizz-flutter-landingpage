@@ -25,14 +25,22 @@ import '../models/sales_by_channel.dart';
 /// Handles all data aggregation for reports
 class ReportsRepositorySupabase {
   // Constants for COGS estimation (fallback when actual COGS not available)
-  static const double _defaultCogsPercentage = 0.6; // 60% of revenue as COGS
-  static const double _defaultProfitMargin = 0.4; // 40% profit margin (60% COGS)
-  static const int _maxQueryLimit = 10000; // Maximum records to fetch per query
+  // These are used when products don't have actual cost data recorded
+  double _cogsPercentage = 0.6; // 60% of revenue as COGS (configurable)
+  double _profitMargin = 0.4; // 40% profit margin (configurable)
+  static const int _maxQueryLimit = 10000; // Safety cap per query
 
   final _salesRepo = SalesRepositorySupabase();
   final _expensesRepo = ExpensesRepositorySupabase();
   final _claimsRepo = ConsignmentClaimsRepositorySupabase();
   final _bookingsRepo = BookingsRepositorySupabase();
+
+  /// Configure COGS estimation percentage (0.0 to 1.0)
+  /// Use this when business has a known average COGS ratio
+  void setCogsPercentage(double percentage) {
+    _cogsPercentage = percentage.clamp(0.0, 1.0);
+    _profitMargin = 1.0 - _cogsPercentage;
+  }
 
   /// Get Profit & Loss Report
   Future<ProfitLossReport> getProfitLossReport({
@@ -62,19 +70,14 @@ class ReportsRepositorySupabase {
       (sum, sale) => sum + sale.finalAmount,
     );
 
-    // Get all claims for consignment revenue and rejection loss (no status filter to get all)
-    final allClaimsResponse = await _claimsRepo.listClaims(
+    // Get settled claims for consignment revenue (server-side filter)
+    final settledClaimsResponse = await _claimsRepo.listClaims(
       fromDate: start,
       toDate: end,
+      status: ClaimStatus.settled,
       limit: _maxQueryLimit,
     );
-
-    final allClaimsList = (allClaimsResponse['data'] as List).cast<ConsignmentClaim>();
-
-    // Get consignment revenue (net_amount from settled claims)
-    final settledClaims = allClaimsList
-        .where((claim) => claim.status == ClaimStatus.settled)
-        .toList();
+    final settledClaims = (settledClaimsResponse['data'] as List).cast<ConsignmentClaim>();
 
     final consignmentRevenue = settledClaims.fold<double>(
       0.0,
@@ -93,8 +96,8 @@ class ReportsRepositorySupabase {
     final endUtc = end.toUtc();
     final bookingsInRange = completedBookings.where((booking) {
       final bookingDateUtc = booking.createdAt.toUtc();
-      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
-          bookingDateUtc.isBefore(endUtc);
+      return !bookingDateUtc.isBefore(startUtc) &&
+          !bookingDateUtc.isAfter(endUtc);
     }).toList();
 
     final bookingRevenue = bookingsInRange.fold<double>(
@@ -125,19 +128,21 @@ class ReportsRepositorySupabase {
           totalCogs += itemCogs;
         } else {
           // Fallback: Estimate using default percentage if no actual data
-          totalCogs += sale.finalAmount * _defaultCogsPercentage;
+          totalCogs += sale.finalAmount * _cogsPercentage;
         }
       } else {
         // Fallback: Estimate using default percentage if no items
-        totalCogs += sale.finalAmount * _defaultCogsPercentage;
+        totalCogs += sale.finalAmount * _cogsPercentage;
       }
     }
 
-    // Get expenses in date range
+    // Get expenses in date range (inclusive boundaries)
     final expenses = await _expensesRepo.getExpenses();
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
     final expensesInRange = expenses.where((e) {
-      return e.expenseDate.isAfter(start.subtract(const Duration(days: 1))) &&
-          e.expenseDate.isBefore(end.add(const Duration(days: 1)));
+      return !e.expenseDate.isBefore(startDay) &&
+          !e.expenseDate.isAfter(endDay);
     }).toList();
 
     final totalExpenses = expensesInRange.fold<double>(
@@ -148,18 +153,22 @@ class ReportsRepositorySupabase {
     // Total costs = COGS + Expenses
     final totalCosts = totalCogs + totalExpenses;
 
-    // Get rejection loss from rejected consignment claims
-    final rejectedClaims = allClaimsList
-        .where((claim) => claim.status == ClaimStatus.rejected)
-        .toList();
+    // Get rejected claims for rejection loss (server-side filter)
+    final rejectedClaimsResponse = await _claimsRepo.listClaims(
+      fromDate: start,
+      toDate: end,
+      status: ClaimStatus.rejected,
+      limit: _maxQueryLimit,
+    );
+    final rejectedClaims = (rejectedClaimsResponse['data'] as List).cast<ConsignmentClaim>();
 
     final rejectionLoss = rejectedClaims.fold<double>(
       0.0,
       (sum, claim) {
-        // Calculate loss from rejected items
-        // Use gross amount as rejection loss (simplified)
-        // In production, you'd want to track actual rejected item costs
-        return sum + claim.grossAmount;
+        // Rejection loss = cost to business (vendor's portion), not full selling price
+        // netAmount = vendor's share (grossAmount - commissionAmount)
+        // This represents the actual cost/loss, not the revenue that was never earned
+        return sum + claim.netAmount;
       },
     );
 
@@ -241,7 +250,7 @@ class ReportsRepositorySupabase {
             itemProfit = item.subtotal - item.costOfGoods!;
           } else {
             // Fallback: Estimate using default profit margin
-            itemProfit = item.subtotal * _defaultProfitMargin;
+            itemProfit = item.subtotal * _profitMargin;
           }
           product['totalProfit'] =
               (product['totalProfit'] as double) + itemProfit;
@@ -363,11 +372,13 @@ class ReportsRepositorySupabase {
       limit: 10000,
     );
 
-    // Get all expenses in range
+    // Get all expenses in range (inclusive boundaries)
     final expenses = await _expensesRepo.getExpenses();
+    final rangeStartDay = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+    final rangeEndDay = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day, 23, 59, 59);
     final expensesInRange = expenses
-        .where((e) => e.expenseDate.isAfter(rangeStart.subtract(const Duration(days: 1))) &&
-            e.expenseDate.isBefore(rangeEnd.add(const Duration(days: 1))))
+        .where((e) => !e.expenseDate.isBefore(rangeStartDay) &&
+            !e.expenseDate.isAfter(rangeEndDay))
         .toList();
 
     // Determine granularity based on date range
@@ -383,11 +394,13 @@ class ReportsRepositorySupabase {
       // Weekly granularity for <= 90 days
       dateKeyFormat = 'yyyy-ww';
       getDateKey = (date) {
-        // Calculate week number from start of year
-        final startOfYear = DateTime(date.year, 1, 1);
-        final daysFromStart = date.difference(startOfYear).inDays;
-        final weekNumber = (daysFromStart / 7).floor() + 1;
-        return '${date.year}-W${weekNumber.toString().padLeft(2, '0')}';
+        // ISO 8601 week numbering:
+        // Week 1 is the week containing the first Thursday of the year
+        // This ensures consistent week grouping across year boundaries
+        final thursday = date.add(Duration(days: DateTime.thursday - date.weekday));
+        final jan1 = DateTime(thursday.year, 1, 1);
+        final weekNumber = ((thursday.difference(jan1).inDays) / 7).ceil() + 1;
+        return '${thursday.year}-W${weekNumber.toString().padLeft(2, '0')}';
       };
     } else {
       // Monthly granularity for > 90 days
@@ -419,11 +432,11 @@ class ReportsRepositorySupabase {
         );
         // Fallback to estimate if no item COGS
         if (saleCogs == 0) {
-          saleCogs = sale.finalAmount * _defaultCogsPercentage;
+          saleCogs = sale.finalAmount * _cogsPercentage;
         }
       } else {
         // Fallback: Estimate using default percentage
-        saleCogs = sale.finalAmount * _defaultCogsPercentage;
+        saleCogs = sale.finalAmount * _cogsPercentage;
       }
       trendMap[dateKey]!['costs'] =
           (trendMap[dateKey]!['costs'] ?? 0.0) + saleCogs;
@@ -438,8 +451,8 @@ class ReportsRepositorySupabase {
     final endUtc = rangeEnd.toUtc();
     final bookingsInRange = completedBookings.where((booking) {
       final bookingDateUtc = booking.createdAt.toUtc();
-      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
-          bookingDateUtc.isBefore(endUtc);
+      return !bookingDateUtc.isBefore(startUtc) &&
+          !bookingDateUtc.isAfter(endUtc);
     }).toList();
     
     for (final booking in bookingsInRange) {
@@ -451,16 +464,14 @@ class ReportsRepositorySupabase {
           (trendMap[dateKey]!['sales'] ?? 0.0) + booking.totalAmount;
     }
 
-    // Add consignment revenue (to match P&L calculation)
-    final allClaimsResponse = await _claimsRepo.listClaims(
+    // Add consignment revenue (server-side filter for settled claims only)
+    final trendClaimsResponse = await _claimsRepo.listClaims(
       fromDate: rangeStart,
       toDate: rangeEnd,
+      status: ClaimStatus.settled,
       limit: _maxQueryLimit,
     );
-    final allClaimsList = (allClaimsResponse['data'] as List).cast<ConsignmentClaim>();
-    final settledClaims = allClaimsList
-        .where((claim) => claim.status == ClaimStatus.settled)
-        .toList();
+    final settledClaims = (trendClaimsResponse['data'] as List).cast<ConsignmentClaim>();
     
     for (final claim in settledClaims) {
       final dateKey = getDateKey(claim.createdAt);
@@ -612,8 +623,8 @@ class ReportsRepositorySupabase {
     final endUtc = end.toUtc();
     final bookingsInRange = completedBookings.where((booking) {
       final bookingDateUtc = booking.createdAt.toUtc();
-      return bookingDateUtc.isAfter(startUtc.subtract(const Duration(milliseconds: 1))) &&
-          bookingDateUtc.isBefore(endUtc);
+      return !bookingDateUtc.isBefore(startUtc) &&
+          !bookingDateUtc.isAfter(endUtc);
     }).toList();
 
     final bookingRevenue = bookingsInRange.fold<double>(
