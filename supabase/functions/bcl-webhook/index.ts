@@ -605,26 +605,22 @@ Deno.serve(async (req) => {
         }
       }
 
-      // PHASE 7: Strict amount validation
-      // Get amount from BCL.my webhook (actual amount paid)
+      // PHASE 7: Amount validation (non-blocking)
+      // Previously this returned 400 on mismatch, but that caused a critical bug:
+      // subscription was already activated above, but payment stayed "pending" because
+      // the payment update below never ran. Now we log the mismatch but proceed.
       const expectedAmount = payment.amount as number;
       const amountDiff = Math.abs(webhookAmount - expectedAmount);
       const amountTolerance = 0.50; // Allow 50 sen difference for rounding
-      
-      // Strict validation: Reject if amount mismatch is too large
+
+      // Log amount mismatch for admin review but don't block activation
       if (webhookAmount > 0 && amountDiff > amountTolerance) {
-        // Check if this is a prorated payment (has prorated flag in payment notes or metadata)
         const isProrated = payment.subscription_id ? await checkIfProrated(payment.subscription_id) : false;
-        
-        if (!isProrated && amountDiff > amountTolerance) {
-          console.error(`[${new Date().toISOString()}] Amount mismatch: webhook=${webhookAmount}, expected=${expectedAmount}, diff=${amountDiff.toFixed(2)}`);
-          return jsonResponse({ 
-            error: "Amount mismatch", 
-            message: `Expected ${expectedAmount.toFixed(2)} MYR, received ${webhookAmount.toFixed(2)} MYR (diff: ${amountDiff.toFixed(2)})` 
-          }, 400);
+        if (!isProrated) {
+          console.warn(`[${new Date().toISOString()}] ⚠️ Amount mismatch: webhook=${webhookAmount}, expected=${expectedAmount}, diff=${amountDiff.toFixed(2)} - PROCEEDING (user already paid)`);
         }
       }
-      
+
       // Use webhook amount if valid, otherwise use expected amount
       let finalAmount = expectedAmount;
       if (webhookAmount > 0 && amountDiff <= amountTolerance) {
@@ -632,6 +628,10 @@ Deno.serve(async (req) => {
         if (amountDiff > 0.01) {
           console.log(`[${new Date().toISOString()}] Using BCL.my webhook amount: ${webhookAmount} (expected: ${expectedAmount}, diff: ${amountDiff.toFixed(2)})`);
         }
+      } else if (webhookAmount > 0 && amountDiff > amountTolerance) {
+        // Amount mismatch but user paid - use webhook amount (actual amount charged by BCL.my)
+        finalAmount = webhookAmount;
+        console.warn(`[${new Date().toISOString()}] Using BCL.my webhook amount despite mismatch: ${webhookAmount} (expected: ${expectedAmount})`);
       } else if (webhookAmount <= 0) {
         console.warn(`[${new Date().toISOString()}] Webhook amount ${webhookAmount} is invalid (0 or negative), using expected amount ${expectedAmount}`);
       }

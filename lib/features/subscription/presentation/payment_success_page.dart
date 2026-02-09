@@ -192,6 +192,39 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
     });
   }
 
+  /// Fallback: Find user's latest pending subscription when order number not in URL.
+  /// This handles cases where BCL.MY redirect doesn't include order params.
+  Future<void> _findPendingOrderAndConfirm() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final pending = await supabase
+          .from('subscriptions')
+          .select('payment_reference')
+          .eq('user_id', userId)
+          .eq('status', 'pending_payment')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (pending != null && pending['payment_reference'] != null) {
+        if (!mounted) return;
+        setState(() {
+          _orderNumber = pending['payment_reference'] as String;
+        });
+        print('✅ Found pending order from DB: $_orderNumber');
+
+        // Setup realtime now that we have order number
+        _setupRealtimeSubscription();
+        // Try to confirm
+        _confirmPaymentIfNeeded();
+      }
+    } catch (e) {
+      print('⚠️ Error finding pending order: $e');
+    }
+  }
+
   /// Load initial subscription and payment data
   Future<void> _loadInitialData() async {
     try {
@@ -213,9 +246,15 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
           SubscriptionSuccessMessage.show(context);
         }
         _startCountdown();
-      } else if (_orderNumber != null) {
-        // Load payment details to get payment method
-        _loadPaymentDetails();
+      } else {
+        // If no order number parsed from URL, try to find from pending subscription in DB
+        if (_orderNumber == null) {
+          await _findPendingOrderAndConfirm();
+        }
+        if (_orderNumber != null) {
+          // Load payment details to get payment method
+          _loadPaymentDetails();
+        }
       }
     } catch (e) {
       final msg = e.toString();
@@ -263,7 +302,25 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   }
 
   void _parseQuery() {
-    final params = Uri.base.queryParameters;
+    var params = Uri.base.queryParameters;
+
+    // Flutter web hash routing fix:
+    // BCL.MY redirects to: https://app.pocketbizz.my/#/payment-success?order=PBZ-xxx&status=1
+    // Uri.base.queryParameters only parses params BEFORE the # fragment.
+    // Query params after # are part of the fragment and need separate parsing.
+    if (!params.containsKey('order') &&
+        !params.containsKey('order_number') &&
+        !params.containsKey('order_id')) {
+      final fragment = Uri.base.fragment;
+      if (fragment.contains('?')) {
+        final fragmentQuery = fragment.substring(fragment.indexOf('?') + 1);
+        final fragmentParams = Uri.splitQueryString(fragmentQuery);
+        if (fragmentParams.isNotEmpty) {
+          params = {...params, ...fragmentParams};
+        }
+      }
+    }
+
     _orderNumber = params['order'] ?? params['order_number'] ?? params['order_id'];
     _amount = params['amount'];
     _gatewayRef = params['refno'] ?? params['billcode'];
@@ -312,13 +369,12 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
       setState(() {
         _elapsedMs += 2000;
       });
-      // Stop polling after 30 seconds
-      if (_elapsedMs >= 30000) {
+      // Stop polling after 60 seconds (increased from 30s to give webhook more time)
+      if (_elapsedMs >= 60000) {
         _elapsedTimer?.cancel();
         _pollTimer?.cancel();
-        if (_active == null && !_unauthorized) {
-          _navigateTo('/subscription');
-        }
+        // Don't auto-redirect - show retry button instead so user can manually check
+        if (mounted) setState(() {});
       }
     });
   }
@@ -342,8 +398,8 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   Future<void> _pollSubscription() async {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
-      // Stop polling after 30 seconds
-      if (_elapsedMs >= 30000) {
+      // Stop polling after 60 seconds
+      if (_elapsedMs >= 60000) {
         _pollTimer?.cancel();
         return;
       }
@@ -784,8 +840,8 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
         const SizedBox(height: 12),
         Text(
           noStatusFromGateway
-              ? 'Sistem sedang memeriksa status pembayaran anda dari gateway.\n\nJika pembayaran berjaya, akaun akan diaktifkan. Jika gagal, sila cuba semula. ($elapsedSeconds/30 saat)'
-              : 'Sistem sedang memproses pembayaran anda. Ini mungkin mengambil masa 1-2 minit.\nAkaun anda akan diaktifkan secara automatik. ($elapsedSeconds/30 saat)',
+              ? 'Sistem sedang memeriksa status pembayaran anda dari gateway.\n\nJika pembayaran berjaya, akaun akan diaktifkan. Jika gagal, sila cuba semula. ($elapsedSeconds/60 saat)'
+              : 'Sistem sedang memproses pembayaran anda. Ini mungkin mengambil masa 1-2 minit.\nAkaun anda akan diaktifkan secara automatik. ($elapsedSeconds/60 saat)',
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[500],
@@ -856,7 +912,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
 
     final isFailed = _status == _PaymentStatus.failed;
     final showSuccess = _active != null && _status == _PaymentStatus.success;
-    final pollingTimedOut = _elapsedMs >= 30000 && _active == null && !isFailed;
+    final pollingTimedOut = _elapsedMs >= 60000 && _active == null && !isFailed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -951,7 +1007,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage> {
   }
 
   Widget _buildHelpText() {
-    final pollingTimedOut = _elapsedMs >= 30000 && _active == null && _status != _PaymentStatus.failed;
+    final pollingTimedOut = _elapsedMs >= 60000 && _active == null && _status != _PaymentStatus.failed;
     
     return Column(
       children: [
